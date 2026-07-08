@@ -1,5 +1,8 @@
-name = "mount-carmel-class-log"
+name = "classlog"
 pages_build_output_dir = "."
+
+[vars]
+GOOGLE_CLIENT_ID = "PASTE-YOUR-CLIENT-ID-HERE.apps.googleusercontent.com"
 
 [[kv_namespaces]]
 binding = "LOG_KV"
