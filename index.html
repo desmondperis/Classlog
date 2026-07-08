@@ -1,0 +1,549 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Value Education — Class Log · Mount Carmel School</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer onload="onGisLoad()"></script>
+<style>
+:root{
+  --blue:#3866B0; --blue-d:#274C87; --blue-l:#eaf0f9;
+  --orange:#F5911E; --orange-d:#DE7A0C;
+  --ink:#17233b; --muted:#5a6a7d; --bg:#eef2f7; --surface:#ffffff; --line:#dde5ee;
+  --ok:#1f7a4d;
+  --mon:#2b5290; --tue:#2E6C8E; --wed:#2F7D5A; --thu:#B0741C; --fri:#6b4a86;
+  --r:14px; --rs:10px;
+  --sh:0 1px 2px rgba(23,35,59,.05), 0 10px 30px rgba(23,35,59,.06);
+  --shs:0 1px 2px rgba(23,35,59,.06);
+  --fs: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--fs); background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; line-height:1.4;}
+button,input,select,textarea{font:inherit; color:inherit}
+a{color:var(--blue)}
+.wrap{max-width:1120px; margin:0 auto; padding:0 16px 64px}
+
+/* Header */
+.top{background:var(--surface); color:var(--ink); padding:14px 0 0; box-shadow:0 2px 10px rgba(23,35,59,.05)}
+.top .wrap{padding-bottom:0}
+.brand{display:flex; align-items:center; gap:13px}
+.logo{height:44px; width:auto; object-fit:contain; flex:0 0 auto; display:block}
+.brand-txt{display:flex; flex-direction:column; min-width:0}
+.brand-txt h1{font-size:19px; font-weight:800; letter-spacing:-.01em; margin:0; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.brand-txt .yr{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; margin-top:2px}
+.user{margin-left:auto; display:flex; align-items:center; gap:10px}
+.user .av,.user img{width:30px; height:30px; border-radius:50%; object-fit:cover; background:var(--orange); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex:0 0 auto}
+.user .uname{font-size:13.5px; font-weight:700; color:var(--ink); max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.signout{appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--muted); border-radius:999px; padding:6px 12px; font-size:12.5px; font-weight:700; cursor:pointer}
+.signout:hover{background:var(--bg); color:var(--blue); border-color:var(--blue)}
+.tabs{display:flex; gap:2px; margin-top:12px; border-bottom:1px solid var(--line)}
+.tab{appearance:none; border:0; background:transparent; color:var(--muted); padding:11px 16px 12px; font-weight:700; font-size:14px; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--blue-d); border-bottom-color:var(--blue)}
+.tab:hover{color:var(--blue)}
+.tab:focus-visible{outline:2px solid var(--orange); outline-offset:-2px}
+
+.banner{margin:14px 0 0; padding:11px 14px; border-radius:var(--rs); font-size:13px; font-weight:500; display:flex; gap:9px; align-items:flex-start}
+.banner.warn{background:#fff5e6; color:#7a4a0c; border:1px solid #f0d9ad}
+.banner.info{background:var(--blue-l); color:var(--blue-d); border:1px solid #cfddf3}
+.banner b{font-weight:700}
+
+/* Login gate */
+.gate{min-height:66vh; display:flex; align-items:center; justify-content:center; padding:36px 0}
+.gate-card{position:relative; overflow:hidden; background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:0 8px 44px rgba(23,35,59,.11); padding:38px 34px 34px; max-width:400px; width:100%; text-align:center}
+.gate-card::before{content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--blue),var(--orange))}
+.gate-logo{width:104px; height:104px; object-fit:contain; margin:2px auto 12px; display:block}
+.motto{font-size:13px; color:var(--muted); font-style:italic; font-weight:600}
+.gate-div{height:1px; background:var(--line); margin:20px 0}
+.gate-card h2{margin:0 0 6px; font-size:18px; font-weight:800; color:var(--blue-d)}
+.gate-card p{margin:0 0 20px; font-size:13.5px; color:var(--muted); line-height:1.5}
+.gbtn-wrap{display:flex; justify-content:center; min-height:44px}
+.gbtn{appearance:none; display:inline-flex; align-items:center; gap:11px; background:#fff; border:1px solid #cdd6e2; border-radius:999px; padding:11px 22px; font-size:14.5px; font-weight:700; color:#26303c; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.gbtn:hover{box-shadow:0 3px 12px rgba(23,35,59,.13); border-color:#b9c4d2}
+.gbtn:focus-visible{outline:2px solid var(--blue); outline-offset:2px}
+.gbtn svg{width:19px; height:19px; flex:0 0 auto}
+.gnote{margin:16px 0 0; font-size:11.5px; color:var(--muted); line-height:1.5}
+
+/* Controls */
+.ctl{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:18px}
+.field{display:flex; flex-direction:column; gap:5px}
+.field label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+select, input[type=text], input[type=date]{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:500; min-height:42px; box-shadow:var(--shs)}
+select{cursor:pointer; padding-right:30px}
+input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; border-color:var(--blue)}
+.wknav{display:flex; align-items:stretch; background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); box-shadow:var(--shs); overflow:hidden}
+.wknav button{appearance:none; border:0; background:transparent; width:42px; cursor:pointer; font-size:18px; color:var(--blue); font-weight:800}
+.wknav button:hover{background:var(--blue-l)}
+.wknav .lbl{display:flex; flex-direction:column; justify-content:center; padding:5px 14px; min-width:150px; text-align:center; border-left:1px solid var(--line); border-right:1px solid var(--line)}
+.wknav .lbl b{font-size:14px; font-weight:700}
+.wknav .lbl span{font-size:11px; color:var(--muted); font-weight:600; letter-spacing:.03em}
+.pill{margin-left:auto; display:inline-flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:8px 14px; font-size:13px; font-weight:700; box-shadow:var(--shs); align-self:center}
+.pill .dot{width:8px; height:8px; border-radius:50%; background:var(--orange)}
+.pill.done .dot{background:var(--ok)}
+.btn{appearance:none; border:1px solid var(--line); background:var(--surface); border-radius:var(--rs); padding:10px 15px; font-weight:700; font-size:14px; cursor:pointer; box-shadow:var(--shs); min-height:42px; display:inline-flex; align-items:center; gap:8px}
+.btn:hover{border-color:var(--blue); color:var(--blue)}
+.btn.primary{background:var(--blue); color:#fff; border-color:var(--blue)}
+.btn.primary:hover{background:var(--blue-d); color:#fff}
+.btn:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
+
+/* Teacher day sections */
+.prompt{margin-top:40px; text-align:center; color:var(--muted); background:var(--surface); border:1px dashed var(--line); border-radius:var(--r); padding:44px 20px}
+.prompt b{color:var(--ink); font-size:16px; display:block; margin-bottom:6px}
+.day{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sh); margin-top:16px; overflow:hidden}
+.day-h{display:flex; align-items:center; gap:12px; padding:13px 16px 13px 18px; border-left:6px solid var(--dc, var(--blue))}
+.day-h h3{margin:0; font-size:15px; font-weight:800}
+.day-h .date{font-size:12px; color:var(--muted); font-weight:600}
+.day-h .cnt{margin-left:auto; font-size:12px; font-weight:700; color:var(--muted)}
+.rows{padding:4px 12px 12px}
+.row{display:grid; grid-template-columns:130px 1fr 1fr; gap:10px; align-items:center; padding:9px 6px; border-top:1px solid #eef2f6}
+.row:first-child{border-top:0}
+.chip{display:inline-flex; flex-direction:column; gap:1px; font-weight:800; font-size:14px; line-height:1.15}
+.chip .rm{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.02em}
+.chip.sdp{font-size:13px}
+.row input{width:100%}
+.row .lg{position:relative}
+.row .lg::after{content:"Logged"; position:absolute; right:9px; top:50%; transform:translateY(-50%); font-size:10px; font-weight:800; letter-spacing:.04em; color:var(--ok); opacity:0; transition:opacity .15s; pointer-events:none; background:linear-gradient(90deg,transparent,#fff 30%)}
+.row .lg.has input{padding-right:56px}
+.row .lg.has::after{opacity:1}
+
+/* Admin */
+.filters{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:18px}
+.filters .grow{flex:1 1 200px; min-width:160px}
+.filters input[type=text]{width:100%}
+.kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:18px}
+.kpi{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:15px 16px; box-shadow:var(--shs)}
+.kpi .n{font-size:30px; font-weight:800; letter-spacing:-.02em; line-height:1}
+.kpi .n small{font-size:16px; font-weight:700; color:var(--muted)}
+.kpi .k{font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-top:7px}
+.kpi.accent{background:linear-gradient(160deg,#3f6fbb,#274c87); color:#fff; border-color:transparent}
+.kpi.accent .n small{color:#bcd2ef}
+.kpi.accent .k{color:#bcd2ef}
+
+.board{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sh); margin-top:18px; padding:16px 16px 18px; overflow-x:auto}
+.board h2{margin:0 0 3px; font-size:15px; font-weight:800}
+.board .sub{margin:0 0 14px; font-size:12.5px; color:var(--muted)}
+.grid{display:grid; grid-template-columns:180px repeat(5,1fr); gap:6px; min-width:620px}
+.gh{font-size:11px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); padding:6px 4px; text-align:center; cursor:pointer; border-radius:8px}
+.gh:hover{background:var(--blue-l); color:var(--blue)}
+.gh.tl{text-align:left; cursor:default}
+.gh.tl:hover{background:transparent; color:var(--muted)}
+.gname{font-size:13px; font-weight:700; padding:0 8px; display:flex; align-items:center; cursor:pointer; border-radius:8px; min-height:44px}
+.gname:hover{background:var(--blue-l); color:var(--blue)}
+.cell{border-radius:9px; min-height:44px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; border:1px solid var(--line); cursor:pointer; transition:transform .08s}
+.cell:hover{transform:translateY(-1px); box-shadow:var(--shs)}
+.cell .cn{font-size:13px; font-weight:800}
+.cell .cp{font-size:10px; font-weight:700; opacity:.85}
+.cell.none{background:transparent; border-style:dashed; color:#b9c4cd; cursor:default}
+.cell.none:hover{transform:none; box-shadow:none}
+.cell.full{border-color:transparent}
+.legend{display:flex; gap:14px; align-items:center; margin-top:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); font-weight:600}
+.legend .sw{display:inline-flex; align-items:center; gap:6px}
+.legend i{width:16px; height:16px; border-radius:5px; display:inline-block; border:1px solid var(--line)}
+
+.tablecard{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sh); margin-top:18px; overflow:hidden}
+.tablecard .th{display:flex; align-items:center; justify-content:space-between; padding:13px 16px; border-bottom:1px solid var(--line); gap:10px; flex-wrap:wrap}
+.tablecard .th h2{margin:0; font-size:15px; font-weight:800}
+.tablecard .th .meta{font-size:12.5px; color:var(--muted); font-weight:600}
+.tscroll{overflow-x:auto}
+table{border-collapse:collapse; width:100%; min-width:720px; font-size:13.5px}
+th,td{text-align:left; padding:10px 14px; border-bottom:1px solid #eef2f6; vertical-align:top}
+th{font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); cursor:pointer; white-space:nowrap; background:#fafbfd; position:sticky; top:0}
+th:hover{color:var(--blue)}
+th .ar{opacity:.55; font-size:10px}
+tbody tr:hover{background:var(--blue-l)}
+td.cls{font-weight:800; white-space:nowrap}
+td.rm{color:var(--muted); font-weight:600}
+td.act{white-space:nowrap}
+td .tag{font-size:10.5px; font-weight:800; letter-spacing:.03em; padding:2px 7px; border-radius:999px; background:var(--blue-l); color:var(--blue-d)}
+td.empty{color:#b4bfc8}
+td.upd{color:var(--muted); font-size:12px; white-space:nowrap}
+.emptyrow{padding:40px 16px; text-align:center; color:var(--muted)}
+.foot{margin-top:26px; text-align:center; color:var(--muted); font-size:12px; line-height:1.6}
+
+.toast{position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px); background:#17233b; color:#fff; padding:11px 18px; border-radius:999px; font-size:13px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; transition:.2s; pointer-events:none; z-index:50; display:flex; gap:8px; align-items:center}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+.toast .c{color:#7fe3b0}
+
+@media (max-width:720px){
+  .row{grid-template-columns:1fr; gap:7px; padding:12px 6px}
+  .chip{flex-direction:row; align-items:baseline; gap:7px}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .pill{margin-left:0; width:100%; justify-content:center}
+  .wknav{flex:1 1 100%}
+  .wknav .lbl{flex:1}
+  .brand-txt h1{font-size:16px}
+  .user .uname{display:none}
+}
+@media print{
+  .top .tabs,.filters,.wknav,.pill,.btn,.banner,.board .legend,.foot,.user{display:none!important}
+  body{background:#fff}
+  .tablecard,.board,.kpi{box-shadow:none; border-color:#ccc}
+  th{position:static}
+}
+</style>
+
+<div class="top">
+  <div class="wrap">
+    <div class="brand">
+      <img class="logo" src="logo.png" alt="Mount Carmel School">
+      <div class="brand-txt">
+        <h1>Value Education — Class Log</h1>
+        <span class="yr">Mount Carmel School · 2026–27</span>
+      </div>
+      <div class="user" id="userchip" hidden></div>
+    </div>
+    <div class="tabs" id="tabs" role="tablist" hidden>
+      <button class="tab" id="tab-teacher" role="tab" aria-selected="true" onclick="setMode('teacher')">Log a class</button>
+      <button class="tab" id="tab-admin" role="tab" aria-selected="false" onclick="setMode('admin')">Coverage dashboard</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap" id="view"></div>
+<div class="toast" id="toast"><span class="c">✓</span><span id="toast-msg">Saved</span></div>
+
+<script>
+/* ============================================================
+   Google Client ID is loaded at runtime from /api/config, which
+   reads the GOOGLE_CLIENT_ID environment variable you set on the
+   Cloudflare Pages project. (You can hardcode a fallback below.)
+   Add your Pages URL to "Authorised JavaScript origins" in Google Cloud.
+   ============================================================ */
+let GOOGLE_CLIENT_ID = "";
+
+/* ---------- Rooms (2026-27 teacher list) ---------- */
+const ROOMS={
+ "4A":2,"4B":3,"4C":4,"4D":5,"4E":6,"5A":7,"5B":14,"5C":15,"5D":16,"5E":17,
+ "6A":18,"6B":19,"6C":20,"6D":117,"6E":116,"7A":118,"7B":119,"7C":120,"7D":108,"7E":107,
+ "8A":102,"8B":103,"8C":105,"8D":106,"8E":214,"9A":215,"9B":216,"9C":217,"9D":220,"9E":222,
+ "10A":310,"10B":302,"10C":308,"10D":303,"10E":309,"11A":404,"11B":405,"11C":407,"11D":408,"11E":409,"11F":403,
+ "12A":305,"12B":306,"12C":307,"12D":313,"12E":312,"12F":314
+};
+const CLASSES=Object.keys(ROOMS).sort((a,b)=>{const ga=parseInt(a),gb=parseInt(b);return ga!==gb?ga-gb:a.slice(String(ga).length).localeCompare(b.slice(String(gb).length));});
+function ent(s){
+  if(s.indexOf("SDP:")===0){const g=s.slice(4).split(",");return{act:"SDP",group:g,slug:"SDP_"+g.join("_"),label:"SDP "+g.join(", ")};}
+  if(s.indexOf("Lib:")===0){const c=s.slice(4);return{act:"Lib",code:c,room:ROOMS[c],slug:"Lib_"+c,label:"Lib "+c+" ("+ROOMS[c]+")"};}
+  if(s.indexOf("libJ:")===0){const c=s.slice(5);return{act:"libJ",code:c,room:ROOMS[c],slug:"libJ_"+c,label:"libJ "+c+" ("+ROOMS[c]+")"};}
+  const c=s;return{act:"V.Ed.",code:c,room:ROOMS[c],slug:c,label:c+" ("+ROOMS[c]+")"};
+}
+const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday"];
+const DAYVAR={Monday:"--mon",Tuesday:"--tue",Wednesday:"--wed",Thursday:"--thu",Friday:"--fri"};
+const TEACHERS=[
+ {id:"aradhana",name:"Ms. Aradhana Robertson"},
+ {id:"anthony",name:"Mr. Anthony"},
+ {id:"selvina",name:"Mrs. Selvina Chauhan"},
+ {id:"naro",name:"Ms. Naro T Jamir"},
+ {id:"zou",name:"Mr. P. Hangminlun Zou"},
+ {id:"desmond",name:"Desmond"}
+];
+const RAW={
+ aradhana:{Monday:["4D","12C","11B","9D","4A","9E"],Tuesday:["4B","9C","12D","11D"],Wednesday:["12F","4E","10E","10B","9B","10D"],Thursday:["11F","12E","10C","4C"],Friday:["9A","11A","10A"]},
+ anthony:{Monday:["12C","11B","9D","Lib:11F"],Tuesday:["8E","9C","11C","12D","11D"],Wednesday:["12F","8D","10E","10B","9B","10D"],Thursday:["11F","12E","10C","12A"],Friday:["9A","11A","12B","11E","10A"]},
+ selvina:{Monday:["6E","7A","11B","libJ:10A","SDP:12F,12B,12D"],Tuesday:["6D","11C","6E","SDP:12E,12C,12A"],Wednesday:["7B","SDP:11E,11C,11A","7C","6B","SDP:11F,11B,11D"],Thursday:["12E","7D","12A","6A"],Friday:["6C","7E","12B","11E"]},
+ naro:{Monday:["8A","12C","libJ:7B","9D","9E"],Tuesday:["8E","9C","11C","8C","5C","8B"],Wednesday:["8D","5A","10E","10B","9B","10D"],Thursday:["libJ:5D","10C","12A"],Friday:["9A","11A","12B","5B","11E","10A"]},
+ zou:{Monday:["5C","libJ:7E","11B","9D","9E"],Tuesday:["5B","9C","11C","5A","12D","5E","11D"],Wednesday:["libJ:8B","10E","10B","9B","10D"],Thursday:["11F","10C","5D"],Friday:["9A","11A","12B","11E","10A"]},
+ desmond:{Monday:["6E","8A","12C","7A","4C","5D"],Tuesday:["6D","8C","4E","6E","4B","8B"],Wednesday:["7B","12F","7C","6B","5E"],Thursday:["12E","7D","12A","6A"],Friday:["6C","7E","4A","Lib:9C","4D"]}
+};
+const SCHEDULE={};
+for(const t of TEACHERS){SCHEDULE[t.id]={};for(const d of DAYS){SCHEDULE[t.id][d]=(RAW[t.id][d]||[]).map(ent);}}
+const NAME=id=>(TEACHERS.find(t=>t.id===id)||{}).name||id;
+
+/* ---------- Backend: shared data → Cloudflare KV via Functions; prefs → localStorage ---------- */
+let SID = localStorage.getItem("sid") || "";
+const prefGet = k => { try{return localStorage.getItem(k);}catch(e){return null;} };
+const prefSet = (k,v) => { try{ if(v===""||v==null) localStorage.removeItem(k); else localStorage.setItem(k,v);}catch(e){} };
+function authHeaders(extra){ const h=Object.assign({},extra||{}); if(SID) h["Authorization"]="Bearer "+SID; return h; }
+async function apiGet(key){ try{ const r=await fetch("/api/data?key="+encodeURIComponent(key),{headers:authHeaders()}); if(r.status===401){onAuthLost();return null;} if(!r.ok) return null; return (await r.json()).value; }catch(e){ return null; } }
+async function apiSet(key,value){ try{ const r=await fetch("/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,value})}); if(r.status===401){onAuthLost();return false;} return r.ok; }catch(e){ return false; } }
+const store={ ok:true,
+  async get(k,shared){ return shared ? await apiGet(k) : prefGet(k); },
+  async set(k,v,shared){ if(shared) return await apiSet(k,v); prefSet(k,v); return true; } };
+const wkey=(week,id)=>"w:"+week+":"+id;
+async function loadConfig(){ try{ const r=await fetch("/api/config"); if(r.ok){ const d=await r.json(); if(d.clientId) GOOGLE_CLIENT_ID=d.clientId; } }catch(e){} }
+function onAuthLost(){ SID=""; prefSet("sid",""); prefSet("session:user",""); state.user=null; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} try{ if(document.getElementById("toast")) toast("Session expired — please sign in again","⚠"); }catch(e){} showGate(); }
+
+/* ---------- Dates ---------- */
+const pad=n=>String(n).padStart(2,"0");
+const ymd=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+function mondayOf(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());const wd=(x.getDay()+6)%7;x.setDate(x.getDate()-wd);return x;}
+function parseYmd(s){const p=s.split("-").map(Number);return new Date(p[0],p[1]-1,p[2]);}
+function addDays(d,n){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()+n);return x;}
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function weekRange(week){const m=parseYmd(week),f=addDays(m,4);
+  if(m.getMonth()===f.getMonth())return m.getDate()+"–"+f.getDate()+" "+MON[m.getMonth()]+" "+m.getFullYear();
+  const sameY=m.getFullYear()===f.getFullYear();
+  return m.getDate()+" "+MON[m.getMonth()]+(sameY?"":" "+m.getFullYear())+" – "+f.getDate()+" "+MON[f.getMonth()]+" "+f.getFullYear();}
+function dayDate(week,i){const d=addDays(parseYmd(week),i);return d.getDate()+" "+MON[d.getMonth()];}
+const thisWeek=ymd(mondayOf(new Date()));
+
+/* ---------- State ---------- */
+const state={mode:"teacher", user:null, teacherId:null, week:thisWeek, blob:{},
+  admin:{week:thisWeek,teacher:"all",cls:"all",day:"all",q:"",sortKey:"teacher",sortDir:1}};
+let saveTimer=null, pollTimer=null;
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const dkeyOf=(day,slug)=>day+"|"+slug;
+const view=()=>document.getElementById("view");
+function toast(msg,mark){const t=document.getElementById("toast");document.getElementById("toast-msg").textContent=msg;t.querySelector(".c").textContent=mark||"✓";t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1400);}
+
+/* ---------- Auth / gate ---------- */
+const GOOGLE_G='<svg viewBox="0 0 48 48"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>';
+
+function showGate(){
+  document.getElementById("tabs").hidden=true;
+  document.getElementById("userchip").hidden=true;
+  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+  view().innerHTML=`
+    <div class="gate"><div class="gate-card">
+      <img class="gate-logo" src="logo.png" alt="Mount Carmel School">
+      <div class="motto">“Overcome evil with good”</div>
+      <div class="gate-div"></div>
+      <h2>Value Education — Class Log</h2>
+      <p>Sign in to record what you covered in class, or to review coverage across the school.</p>
+      <div class="gbtn-wrap" id="gbtn"></div>
+      ${GOOGLE_CLIENT_ID?"":`<p class="gnote">Sign-in is required to use this app. Google sign-in switches on once you publish it with your own Google Client ID — follow the setup steps to enable it.</p>`}
+    </div></div>`;
+  initGoogle();
+}
+function initGoogle(){
+  const host=document.getElementById("gbtn"); if(!host)return;
+  if(GOOGLE_CLIENT_ID && window.google && window.google.accounts && window.google.accounts.id){
+    try{
+      window.google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID, callback:onCredential, auto_select:false});
+      host.innerHTML="";
+      window.google.accounts.id.renderButton(host,{theme:"outline",size:"large",type:"standard",text:"continue_with",shape:"pill",width:280});
+      return;
+    }catch(e){}
+  }
+  host.innerHTML=`<button class="gbtn" disabled aria-disabled="true">${GOOGLE_G}<span>${GOOGLE_CLIENT_ID?"Loading Google sign-in…":"Continue with Google"}</span></button>`;
+}
+function onGisLoad(){ if(!state.user && document.getElementById("gbtn")) initGoogle(); }
+function onCredential(resp){ doLogin(resp&&resp.credential||""); }
+async function doLogin(cred){
+  if(!cred){ toast("Sign-in failed","⚠"); return; }
+  try{
+    const r=await fetch("/api/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:cred})});
+    if(!r.ok){ let e={}; try{e=await r.json();}catch(_){} toast((e.error==="domain not allowed"||e.error==="email not allowed")?"This account isn't allowed":"Sign-in failed","⚠"); return; }
+    const d=await r.json(); SID=d.sid||""; prefSet("sid",SID);
+    signIn(Object.assign({method:"google"}, d.user||{}));
+  }catch(e){ toast("Sign-in failed — check connection","⚠"); }
+}
+
+function normName(s){return String(s||"").toLowerCase().replace(/^(ms|mr|mrs|dr)\.?\s+/,"").replace(/[^a-z ]/g,"").replace(/\s+/g," ").trim();}
+function matchTeacher(name){const n=normName(name);if(!n)return null;for(const t of TEACHERS){if(normName(t.name)===n)return t.id;}
+  const first=n.split(" ")[0];for(const t of TEACHERS){if(normName(t.name).split(" ")[0]===first)return t.id;}return null;}
+function firstName(name){const n=String(name||"").replace(/^(Ms|Mr|Mrs|Dr)\.?\s+/i,"").trim();return n.split(/\s+/)[0]||"there";}
+
+async function signIn(user){
+  state.user=user;
+  await store.set("session:user",JSON.stringify(user),false);
+  const last=await store.get("device:lastTeacher",false);
+  if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
+  else if(user.method==="google"){ const m=matchTeacher(user.name); if(m) state.teacherId=m; }
+  renderUser(); showApp();
+}
+async function signOut(){
+  try{ await fetch("/api/logout",{method:"POST",headers:authHeaders()}); }catch(e){}
+  SID=""; prefSet("sid",""); prefSet("session:user","");
+  state.user=null;
+  try{ if(window.google&&window.google.accounts&&window.google.accounts.id) window.google.accounts.id.disableAutoSelect(); }catch(e){}
+  showGate();
+}
+function renderUser(){
+  const chip=document.getElementById("userchip"); const u=state.user;
+  if(!u){chip.hidden=true;chip.innerHTML="";return;}
+  chip.hidden=false;
+  const av=u.picture?`<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">`:`<span class="av">${esc((u.name||"?").trim()[0]||"?")}</span>`;
+  chip.innerHTML=`${av}<span class="uname">${esc(firstName(u.name))}</span><button class="signout" onclick="signOut()">Sign out</button>`;
+}
+function showApp(){ document.getElementById("tabs").hidden=false; renderUser(); mountView(); }
+
+function setMode(m){
+  state.mode=m;
+  document.getElementById("tab-teacher").setAttribute("aria-selected",m==="teacher");
+  document.getElementById("tab-admin").setAttribute("aria-selected",m==="admin");
+  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+  mountView();
+}
+function mountView(){ if(state.mode==="teacher")mountTeacher(); else mountAdmin(); }
+
+/* ---------- Teacher view ---------- */
+function scheduledCount(id){let n=0;for(const d of DAYS)n+=SCHEDULE[id][d].length;return n;}
+function loggedCount(blob){let n=0;for(const k in blob){if((blob[k].t||"").trim())n++;}return n;}
+async function mountTeacher(){
+  const opts=TEACHERS.map(t=>`<option value="${t.id}"${t.id===state.teacherId?" selected":""}>${esc(t.name)}</option>`).join("");
+  view().innerHTML=`
+    <div class="ctl">
+      <div class="field" style="min-width:230px">
+        <label for="who">Your name</label>
+        <select id="who" onchange="onTeacher(this.value)">
+          <option value=""${state.teacherId?"":" selected"} disabled>Select your name…</option>${opts}
+        </select>
+      </div>
+      <div class="field"><label>Week</label>
+        <div class="wknav"><button aria-label="Previous week" onclick="shiftWeek(-1)">‹</button>
+          <div class="lbl"><b id="wk-range">${weekRange(state.week)}</b><span>Mon–Fri</span></div>
+          <button aria-label="Next week" onclick="shiftWeek(1)">›</button></div>
+      </div>
+      <div class="pill" id="prog"><span class="dot"></span><span id="prog-txt">—</span></div>
+    </div>
+    <div id="days"></div>`;
+  if(state.teacherId) await loadTeacher(); else showTeacherPrompt();
+}
+function showTeacherPrompt(){
+  document.getElementById("days").innerHTML=`<div class="prompt"><b>Pick your name to begin</b>Your classes for the week appear below, grouped by day. Type what you covered — it saves automatically.</div>`;
+  document.getElementById("prog").style.visibility="hidden";
+}
+async function onTeacher(id){ state.teacherId=id; await store.set("device:lastTeacher",id,false); await loadTeacher(); }
+async function shiftWeek(n){ state.week=ymd(addDays(parseYmd(state.week),n*7)); const el=document.getElementById("wk-range"); if(el)el.textContent=weekRange(state.week); if(state.teacherId) await loadTeacher(); }
+async function loadTeacher(){ const raw=await store.get(wkey(state.week,state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; renderDays(); }
+function updateProg(){
+  const pill=document.getElementById("prog"); if(!pill)return;
+  const total=scheduledCount(state.teacherId), done=loggedCount(state.blob);
+  pill.style.visibility="visible";
+  document.getElementById("prog-txt").textContent=done+" of "+total+" classes logged";
+  pill.classList.toggle("done",done>0&&done===total);
+}
+function renderDays(){
+  const host=document.getElementById("days"); const id=state.teacherId; let html="";
+  DAYS.forEach((day,i)=>{
+    const list=SCHEDULE[id][day];
+    const done=list.filter(e=>((state.blob[dkeyOf(day,e.slug)]||{}).t||"").trim()).length;
+    html+=`<section class="day" style="--dc:var(${DAYVAR[day]})"><div class="day-h"><h3>${day}</h3><span class="date">${dayDate(state.week,i)}</span><span class="cnt">${done}/${list.length} logged</span></div><div class="rows">`;
+    list.forEach(e=>{
+      const dk=dkeyOf(day,e.slug), rec=state.blob[dk]||{}, t=rec.t||"", r=rec.r||"";
+      const chip=e.act==="SDP"?`<span class="chip sdp">${esc(e.label)}</span>`:`<span class="chip">${esc(e.code)}${e.act!=="V.Ed."?" · "+e.act:""}<span class="rm">Room ${e.room}</span></span>`;
+      html+=`<div class="row">${chip}
+        <div class="lg${t.trim()?" has":""}" data-lg="${esc(dk)}"><input type="text" placeholder="Topic covered" value="${esc(t)}" oninput="edit('${esc(day)}','${esc(e.slug)}','t',this.value)"></div>
+        <div><input type="text" placeholder="Remark (optional)" value="${esc(r)}" oninput="edit('${esc(day)}','${esc(e.slug)}','r',this.value)"></div></div>`;
+    });
+    html+=`</div></section>`;
+  });
+  host.innerHTML=html; updateProg();
+}
+function cssq(s){return s.replace(/["\\]/g,"\\$&");}
+function edit(day,slug,field,val){
+  const dk=dkeyOf(day,slug); const rec=state.blob[dk]||{};
+  rec[field]=val; rec.u=new Date().toISOString();
+  if(!(rec.t||"").trim() && !(rec.r||"").trim()) delete state.blob[dk]; else state.blob[dk]=rec;
+  if(field==="t"){const box=document.querySelector('[data-lg="'+cssq(dk)+'"]'); if(box) box.classList.toggle("has",!!val.trim());}
+  updateProg(); clearTimeout(saveTimer); saveTimer=setTimeout(saveTeacher,550);
+}
+async function saveTeacher(){ const okr=await store.set(wkey(state.week,state.teacherId),JSON.stringify(state.blob),true); toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠"); }
+
+/* ---------- Admin view ---------- */
+function pctColor(p){ if(p<=0) return "transparent"; const a=0.14+0.66*p; return "rgba(56,102,176,"+a.toFixed(3)+")"; }
+function cellText(p){ return p>=1?"#fff":(p>=.6?"#173a6b":"var(--ink)"); }
+let adminBlobs={};
+async function mountAdmin(){
+  const teacherOpts=`<option value="all">All teachers</option>`+TEACHERS.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
+  const classOpts=`<option value="all">All classes</option>`+CLASSES.map(c=>`<option value="${c}">${c}</option>`).join("");
+  const dayOpts=`<option value="all">All days</option>`+DAYS.map(d=>`<option value="${d}">${d}</option>`).join("");
+  view().innerHTML=`
+    <div class="banner info"><span>ℹ</span><span>This reads what teachers have logged across the school. Use <b>Refresh</b> to pull the latest, or wait for the 30-second auto-refresh.</span></div>
+    <div class="filters">
+      <div class="field"><label>Week</label>
+        <div class="wknav"><button aria-label="Previous week" onclick="adminWeek(-1)">‹</button>
+          <div class="lbl"><b id="awk">${weekRange(state.admin.week)}</b><span>Mon–Fri</span></div>
+          <button aria-label="Next week" onclick="adminWeek(1)">›</button></div></div>
+      <div class="field"><label for="f-t">Teacher</label><select id="f-t" onchange="af('teacher',this.value)">${teacherOpts}</select></div>
+      <div class="field"><label for="f-c">Class</label><select id="f-c" onchange="af('cls',this.value)">${classOpts}</select></div>
+      <div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>
+      <div class="field grow"><label for="f-q">Search topic or remark</label><input id="f-q" type="text" placeholder="e.g. honesty, chapter 3…" oninput="af('q',this.value)"></div>
+      <button class="btn" onclick="refreshAdmin(true)">↻ Refresh</button>
+      <button class="btn primary" onclick="exportCSV()">Export CSV</button>
+    </div>
+    <div id="adminResults"></div>`;
+  syncFilterUI(); await refreshAdmin(false);
+  if(store.ok) pollTimer=setInterval(()=>refreshAdmin(false),30000);
+}
+function syncFilterUI(){const a=state.admin;const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};set("f-t",a.teacher);set("f-c",a.cls);set("f-d",a.day);set("f-q",a.q);const awk=document.getElementById("awk");if(awk)awk.textContent=weekRange(a.week);}
+function af(k,v){ state.admin[k]=v; if(k==="q"){renderAdminResults();const el=document.getElementById("f-q");if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n);}} else renderAdminResults(); }
+async function adminWeek(n){ state.admin.week=ymd(addDays(parseYmd(state.admin.week),n*7)); const el=document.getElementById("awk"); if(el)el.textContent=weekRange(state.admin.week); await refreshAdmin(false); }
+async function refreshAdmin(manual){ const wk=state.admin.week; const nb={}; await Promise.all(TEACHERS.map(async t=>{const raw=await store.get(wkey(wk,t.id),true);nb[t.id]=raw?JSON.parse(raw):{};})); adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻"); }
+function scopeTeachers(){return state.admin.teacher==="all"?TEACHERS.map(t=>t.id):[state.admin.teacher];}
+function classMatch(e,cls){ if(cls==="all")return true; if(e.group)return e.group.indexOf(cls)>=0; return e.code===cls; }
+function buildRows(){
+  const a=state.admin, q=a.q.trim().toLowerCase(), rows=[];
+  for(const id of scopeTeachers()){
+    const blob=adminBlobs[id]||{};
+    for(const day of DAYS){
+      if(a.day!=="all"&&day!==a.day)continue;
+      for(const e of SCHEDULE[id][day]){
+        if(!classMatch(e,a.cls))continue;
+        const rec=blob[dkeyOf(day,e.slug)]||{}, topic=(rec.t||""), remark=(rec.r||"");
+        if(q && !(topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||(e.code||"").toLowerCase().includes(q)))continue;
+        rows.push({teacher:id,tname:NAME(id),day,dayi:DAYS.indexOf(day),cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,topic,remark,u:rec.u||"",logged:!!topic.trim()});
+      }
+    }
+  }
+  return rows;
+}
+function renderAdminResults(){
+  const host=document.getElementById("adminResults"); if(!host)return;
+  const rows=buildRows();
+  const sched=rows.length, logged=rows.filter(r=>r.logged).length, pct=sched?Math.round(logged/sched*100):0;
+  const reporting=new Set(rows.filter(r=>r.logged).map(r=>r.teacher)).size;
+  let html=`<div class="kpis">
+    <div class="kpi"><div class="n">${sched}</div><div class="k">Classes scheduled</div></div>
+    <div class="kpi"><div class="n">${logged}<small> / ${sched}</small></div><div class="k">Topics logged</div></div>
+    <div class="kpi accent"><div class="n">${pct}<small>%</small></div><div class="k">Coverage</div></div>
+    <div class="kpi"><div class="n">${reporting}<small> / ${state.admin.teacher==="all"?TEACHERS.length:1}</small></div><div class="k">Teachers reporting</div></div>
+  </div>`;
+  const ids=scopeTeachers();
+  html+=`<div class="board"><h2>Coverage board — ${esc(weekRange(state.admin.week))}</h2><p class="sub">Each cell shows logged / scheduled for that teacher on that day. Tap a cell, name, or day to filter the table.</p><div class="grid"><div class="gh tl">Teacher</div>`;
+  DAYS.forEach(d=>{html+=`<div class="gh" onclick="af('day','${d}')">${d.slice(0,3)}</div>`;});
+  ids.forEach(id=>{
+    html+=`<div class="gname" onclick="af('teacher','${id}')">${esc(NAME(id))}</div>`;
+    DAYS.forEach(d=>{
+      const list=SCHEDULE[id][d]; const s=list.length; const blob=adminBlobs[id]||{};
+      const l=list.filter(e=>((blob[dkeyOf(d,e.slug)]||{}).t||"").trim()).length;
+      if(s===0){html+=`<div class="cell none">—</div>`;return;}
+      const p=l/s, full=p>=1;
+      html+=`<div class="cell${full?" full":""}" style="background:${pctColor(p)};color:${cellText(p)}" title="${esc(NAME(id))} · ${d}: ${l}/${s}" onclick="cellFilter('${id}','${d}')"><span class="cn">${l}/${s}</span><span class="cp">${full?"✓ done":Math.round(p*100)+"%"}</span></div>`;
+    });
+  });
+  html+=`</div><div class="legend"><span class="sw"><i style="border-style:dashed;background:transparent"></i> no class</span><span class="sw"><i style="background:${pctColor(0.001)}"></i> none logged</span><span class="sw"><i style="background:${pctColor(0.5)}"></i> partial</span><span class="sw"><i style="background:${pctColor(1)};border-color:transparent"></i> complete</span></div></div>`;
+  const a=state.admin;
+  const sorted=rows.slice().sort((x,y)=>{let r=0;const k=a.sortKey;
+    if(k==="teacher")r=x.tname.localeCompare(y.tname)||(x.dayi-y.dayi)||cmpClass(x.code,y.code);
+    else if(k==="day")r=(x.dayi-y.dayi)||x.tname.localeCompare(y.tname);
+    else if(k==="cls")r=cmpClass(x.code,y.code)||x.tname.localeCompare(y.tname);
+    else if(k==="topic")r=(x.topic||"~").localeCompare(y.topic||"~");
+    else if(k==="upd")r=(x.u||"").localeCompare(y.u||"");
+    return r*a.sortDir;});
+  const arrow=k=>a.sortKey===k?`<span class="ar">${a.sortDir>0?"▲":"▼"}</span>`:"";
+  html+=`<div class="tablecard"><div class="th"><h2>Class entries</h2><span class="meta">${sorted.length} row${sorted.length===1?"":"s"} · ${logged} logged</span></div><div class="tscroll"><table><thead><tr>
+    <th onclick="sortBy('teacher')">Teacher ${arrow("teacher")}</th><th onclick="sortBy('day')">Day ${arrow("day")}</th><th onclick="sortBy('cls')">Class ${arrow("cls")}</th><th>Room</th><th>Activity</th><th onclick="sortBy('topic')">Topic covered ${arrow("topic")}</th><th>Remark</th><th onclick="sortBy('upd')">Updated ${arrow("upd")}</th>
+  </tr></thead><tbody>`;
+  if(!sorted.length){ html+=`<tr><td colspan="8" class="emptyrow">No classes match these filters.</td></tr>`; }
+  else{ for(const r of sorted){ html+=`<tr><td>${esc(r.tname)}</td><td>${r.day}</td><td class="cls">${esc(r.cls)}</td><td class="rm">${r.room||"—"}</td><td class="act"><span class="tag">${esc(r.act)}</span></td><td class="${r.topic?"":"empty"}">${r.topic?esc(r.topic):"—"}</td><td class="${r.remark?"":"empty"}">${r.remark?esc(r.remark):"—"}</td><td class="upd">${r.u?fmtWhen(r.u):"—"}</td></tr>`; } }
+  html+=`</tbody></table></div></div>`;
+  host.innerHTML=html;
+}
+function cmpClass(a,b){if(!a)return 1;if(!b)return -1;const ga=parseInt(a),gb=parseInt(b);return ga!==gb?ga-gb:a.localeCompare(b);}
+function cellFilter(id,day){ state.admin.teacher=id; state.admin.day=day; syncFilterUI(); renderAdminResults(); }
+function sortBy(k){ const a=state.admin; if(a.sortKey===k)a.sortDir*=-1; else{a.sortKey=k;a.sortDir=1;} renderAdminResults(); }
+function fmtWhen(iso){const d=new Date(iso);if(isNaN(d))return "—";return d.getDate()+" "+MON[d.getMonth()]+", "+pad(d.getHours())+":"+pad(d.getMinutes());}
+function exportCSV(){
+  const rows=buildRows().slice().sort((x,y)=>x.tname.localeCompare(y.tname)||(x.dayi-y.dayi)||cmpClass(x.code,y.code));
+  const head=["Teacher","Day","Class","Room","Activity","Topic covered","Remark","Updated"];
+  const q=v=>{v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  let csv=head.join(",")+"\n"; for(const r of rows)csv+=[r.tname,r.day,r.cls,r.room,r.act,r.topic,r.remark,r.u?fmtWhen(r.u):""].map(q).join(",")+"\n";
+  const fn="class-log_"+state.admin.week+(state.admin.teacher==="all"?"":"_"+state.admin.teacher)+".csv";
+  try{const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},500);toast("CSV downloaded","↓");}
+  catch(e){const w=window.open("","_blank");if(w){w.document.write("<pre>"+esc(csv)+"</pre>");w.document.title=fn;}else{console.log(csv);toast("Copy blocked — see console","•");}}
+}
+
+/* ---------- Boot ---------- */
+(async function(){
+  await loadConfig();
+  const raw=prefGet("session:user");
+  if(SID && raw){ try{ const u=JSON.parse(raw); if(u&&u.name) state.user=u; }catch(e){} }
+  if(state.user){
+    const last=prefGet("device:lastTeacher");
+    if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
+    renderUser(); showApp();
+  }else{ showGate(); }
+})();
+</script>
