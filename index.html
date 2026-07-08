@@ -1,11 +1,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Value Education — Class Log · Mount Carmel School</title>
+<title>Class Log · Mount Carmel School</title>
 <link rel="icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://accounts.google.com/gsi/client" async defer onload="onGisLoad()"></script>
 <style>
 :root{
   --blue:#3866B0; --blue-d:#274C87; --blue-l:#eaf0f9;
@@ -106,6 +105,19 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .row .lg::after{content:"Logged"; position:absolute; right:9px; top:50%; transform:translateY(-50%); font-size:10px; font-weight:800; letter-spacing:.04em; color:var(--ok); opacity:0; transition:opacity .15s; pointer-events:none; background:linear-gradient(90deg,transparent,#fff 30%)}
 .row .lg.has input{padding-right:56px}
 .row .lg.has::after{opacity:1}
+.chip .subj{font-size:11px; font-weight:700; color:var(--blue)}
+.wkcap{font-size:11.5px; color:var(--muted); font-weight:600}
+.wkpick{display:flex; align-items:stretch; gap:6px}
+.wkpick input[type=date]{flex:1; min-width:0}
+.wkarrow{appearance:none; border:1px solid var(--line); background:var(--surface); border-radius:var(--rs); width:38px; min-height:42px; cursor:pointer; font-size:18px; font-weight:800; color:var(--blue); box-shadow:var(--shs); flex:0 0 auto}
+.wkarrow:hover{background:var(--blue-l); border-color:var(--blue)}
+.row.extra{grid-template-columns:1.1fr 1fr 1fr auto; background:#f6f9fc; align-items:center}
+.row.extra input{width:100%}
+.row.extra .xdel{justify-self:end; appearance:none; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:8px; width:40px; min-height:38px; cursor:pointer; font-size:18px; font-weight:700; line-height:1}
+.row.extra .xdel:hover{border-color:#d66; color:#c0392b; background:#fff5f5}
+.addx{display:block; width:100%; appearance:none; border:1px dashed var(--line); background:transparent; color:var(--blue); border-radius:10px; padding:10px 12px; font-weight:700; font-size:13px; cursor:pointer; margin-top:8px}
+.addx:hover{border-color:var(--blue); background:var(--blue-l)}
+.tag.extra{background:#fdeecf; color:#9a5b12}
 
 /* Admin */
 .filters{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:18px}
@@ -167,6 +179,7 @@ td.upd{color:var(--muted); font-size:12px; white-space:nowrap}
 
 @media (max-width:720px){
   .row{grid-template-columns:1fr; gap:7px; padding:12px 6px}
+  .row.extra{grid-template-columns:1fr}
   .chip{flex-direction:row; align-items:baseline; gap:7px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   .pill{margin-left:0; width:100%; justify-content:center}
@@ -188,7 +201,7 @@ td.upd{color:var(--muted); font-size:12px; white-space:nowrap}
     <div class="brand">
       <img class="logo" src="logo.png" alt="Mount Carmel School">
       <div class="brand-txt">
-        <h1>Value Education — Class Log</h1>
+        <h1>Class Log</h1>
         <span class="yr">Mount Carmel School · 2026–27</span>
       </div>
       <div class="user" id="userchip" hidden></div>
@@ -212,6 +225,11 @@ td.upd{color:var(--muted); font-size:12px; white-space:nowrap}
    ============================================================ */
 let GOOGLE_CLIENT_ID = "";
 
+/* Backend location. Empty = the same site that serves this page (default).
+   Point it at another origin (e.g. "https://your-backend.example.com") if you
+   ever host the API separately from the frontend. No trailing slash. */
+const API_BASE = "";
+
 /* ---------- Rooms (2026-27 teacher list) ---------- */
 const ROOMS={
  "4A":2,"4B":3,"4C":4,"4D":5,"4E":6,"5A":7,"5B":14,"5C":15,"5D":16,"5E":17,
@@ -230,12 +248,12 @@ function ent(s){
 const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday"];
 const DAYVAR={Monday:"--mon",Tuesday:"--tue",Wednesday:"--wed",Thursday:"--thu",Friday:"--fri"};
 const TEACHERS=[
- {id:"aradhana",name:"Ms. Aradhana Robertson"},
- {id:"anthony",name:"Mr. Anthony"},
- {id:"selvina",name:"Mrs. Selvina Chauhan"},
- {id:"naro",name:"Ms. Naro T Jamir"},
- {id:"zou",name:"Mr. P. Hangminlun Zou"},
- {id:"desmond",name:"Desmond"}
+ {id:"aradhana",name:"Ms. Aradhana Robertson",dept:"Value Education"},
+ {id:"anthony",name:"Mr. Anthony",dept:"Value Education"},
+ {id:"selvina",name:"Mrs. Selvina Chauhan",dept:"Value Education"},
+ {id:"naro",name:"Ms. Naro T Jamir",dept:"Value Education"},
+ {id:"zou",name:"Mr. P. Hangminlun Zou",dept:"Value Education"},
+ {id:"desmond",name:"Desmond",dept:"Value Education"}
 ];
 const RAW={
  aradhana:{Monday:["4D","12C","11B","9D","4A","9E"],Tuesday:["4B","9C","12D","11D"],Wednesday:["12F","4E","10E","10B","9B","10D"],Thursday:["11F","12E","10C","4C"],Friday:["9A","11A","10A"]},
@@ -248,19 +266,21 @@ const RAW={
 const SCHEDULE={};
 for(const t of TEACHERS){SCHEDULE[t.id]={};for(const d of DAYS){SCHEDULE[t.id][d]=(RAW[t.id][d]||[]).map(ent);}}
 const NAME=id=>(TEACHERS.find(t=>t.id===id)||{}).name||id;
+const DEPARTMENTS=[...new Set(TEACHERS.map(t=>t.dept))].sort();
+const deptOf=id=>{const t=TEACHERS.find(x=>x.id===id);return t?t.dept:"";};
 
 /* ---------- Backend: shared data → Cloudflare KV via Functions; prefs → localStorage ---------- */
-let SID = localStorage.getItem("sid") || "";
+let SID=""; try{ SID=localStorage.getItem("sid")||""; }catch(e){}
 const prefGet = k => { try{return localStorage.getItem(k);}catch(e){return null;} };
 const prefSet = (k,v) => { try{ if(v===""||v==null) localStorage.removeItem(k); else localStorage.setItem(k,v);}catch(e){} };
 function authHeaders(extra){ const h=Object.assign({},extra||{}); if(SID) h["Authorization"]="Bearer "+SID; return h; }
-async function apiGet(key){ try{ const r=await fetch("/api/data?key="+encodeURIComponent(key),{headers:authHeaders()}); if(r.status===401){onAuthLost();return null;} if(!r.ok) return null; return (await r.json()).value; }catch(e){ return null; } }
-async function apiSet(key,value){ try{ const r=await fetch("/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,value})}); if(r.status===401){onAuthLost();return false;} return r.ok; }catch(e){ return false; } }
+async function apiGet(key){ try{ const r=await fetch(API_BASE+"/api/data?key="+encodeURIComponent(key),{headers:authHeaders()}); if(r.status===401){onAuthLost();return null;} if(!r.ok) return null; return (await r.json()).value; }catch(e){ return null; } }
+async function apiSet(key,value){ try{ const r=await fetch(API_BASE+"/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,value})}); if(r.status===401){onAuthLost();return false;} return r.ok; }catch(e){ return false; } }
 const store={ ok:true,
   async get(k,shared){ return shared ? await apiGet(k) : prefGet(k); },
   async set(k,v,shared){ if(shared) return await apiSet(k,v); prefSet(k,v); return true; } };
 const wkey=(week,id)=>"w:"+week+":"+id;
-async function loadConfig(){ try{ const r=await fetch("/api/config"); if(r.ok){ const d=await r.json(); if(d.clientId) GOOGLE_CLIENT_ID=d.clientId; } }catch(e){} }
+async function loadConfig(){ try{ const r=await fetch(API_BASE+"/api/config"); if(r.ok){ const d=await r.json(); if(d.clientId) GOOGLE_CLIENT_ID=d.clientId; } }catch(e){} }
 function onAuthLost(){ SID=""; prefSet("sid",""); prefSet("session:user",""); state.user=null; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} try{ if(document.getElementById("toast")) toast("Session expired — please sign in again","⚠"); }catch(e){} showGate(); }
 
 /* ---------- Dates ---------- */
@@ -279,7 +299,7 @@ const thisWeek=ymd(mondayOf(new Date()));
 
 /* ---------- State ---------- */
 const state={mode:"teacher", user:null, teacherId:null, week:thisWeek, blob:{},
-  admin:{week:thisWeek,teacher:"all",cls:"all",day:"all",q:"",sortKey:"teacher",sortDir:1}};
+  admin:{week:thisWeek,dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"teacher",sortDir:1}};
 let saveTimer=null, pollTimer=null;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const dkeyOf=(day,slug)=>day+"|"+slug;
@@ -298,7 +318,7 @@ function showGate(){
       <img class="gate-logo" src="logo.png" alt="Mount Carmel School">
       <div class="motto">“Overcome evil with good”</div>
       <div class="gate-div"></div>
-      <h2>Value Education — Class Log</h2>
+      <h2>Class Log</h2>
       <p>Sign in to record what you covered in class, or to review coverage across the school.</p>
       <div class="gbtn-wrap" id="gbtn"></div>
       ${GOOGLE_CLIENT_ID?"":`<p class="gnote">Sign-in is required to use this app. Google sign-in switches on once you publish it with your own Google Client ID — follow the setup steps to enable it.</p>`}
@@ -318,11 +338,12 @@ function initGoogle(){
   host.innerHTML=`<button class="gbtn" disabled aria-disabled="true">${GOOGLE_G}<span>${GOOGLE_CLIENT_ID?"Loading Google sign-in…":"Continue with Google"}</span></button>`;
 }
 function onGisLoad(){ if(!state.user && document.getElementById("gbtn")) initGoogle(); }
+function loadGis(){ try{ if(document.getElementById("gis-sdk"))return; var s=document.createElement("script"); s.id="gis-sdk"; s.src="https://accounts.google.com/gsi/client"; s.async=true; s.defer=true; s.onload=onGisLoad; document.head.appendChild(s); }catch(e){} }
 function onCredential(resp){ doLogin(resp&&resp.credential||""); }
 async function doLogin(cred){
   if(!cred){ toast("Sign-in failed","⚠"); return; }
   try{
-    const r=await fetch("/api/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:cred})});
+    const r=await fetch(API_BASE+"/api/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:cred})});
     if(!r.ok){ let e={}; try{e=await r.json();}catch(_){} toast((e.error==="domain not allowed"||e.error==="email not allowed")?"This account isn't allowed":"Sign-in failed","⚠"); return; }
     const d=await r.json(); SID=d.sid||""; prefSet("sid",SID);
     signIn(Object.assign({method:"google"}, d.user||{}));
@@ -343,7 +364,7 @@ async function signIn(user){
   renderUser(); showApp();
 }
 async function signOut(){
-  try{ await fetch("/api/logout",{method:"POST",headers:authHeaders()}); }catch(e){}
+  try{ await fetch(API_BASE+"/api/logout",{method:"POST",headers:authHeaders()}); }catch(e){}
   SID=""; prefSet("sid",""); prefSet("session:user","");
   state.user=null;
   try{ if(window.google&&window.google.accounts&&window.google.accounts.id) window.google.accounts.id.disableAutoSelect(); }catch(e){}
@@ -369,7 +390,7 @@ function mountView(){ if(state.mode==="teacher")mountTeacher(); else mountAdmin(
 
 /* ---------- Teacher view ---------- */
 function scheduledCount(id){let n=0;for(const d of DAYS)n+=SCHEDULE[id][d].length;return n;}
-function loggedCount(blob){let n=0;for(const k in blob){if((blob[k].t||"").trim())n++;}return n;}
+function loggedCount(blob){let n=0;for(const k in blob){if(k==="_x")continue; if((blob[k].t||"").trim())n++;}return n;}
 async function mountTeacher(){
   const opts=TEACHERS.map(t=>`<option value="${t.id}"${t.id===state.teacherId?" selected":""}>${esc(t.name)}</option>`).join("");
   view().innerHTML=`
@@ -380,10 +401,13 @@ async function mountTeacher(){
           <option value=""${state.teacherId?"":" selected"} disabled>Select your name…</option>${opts}
         </select>
       </div>
-      <div class="field"><label>Week</label>
-        <div class="wknav"><button aria-label="Previous week" onclick="shiftWeek(-1)">‹</button>
-          <div class="lbl"><b id="wk-range">${weekRange(state.week)}</b><span>Mon–Fri</span></div>
-          <button aria-label="Next week" onclick="shiftWeek(1)">›</button></div>
+      <div class="field"><label for="wkdate">Week of</label>
+        <div class="wkpick">
+          <button class="wkarrow" aria-label="Previous week" onclick="weekStep(-1)">‹</button>
+          <input type="date" id="wkdate" value="${state.week}" onchange="pickWeek(this.value)">
+          <button class="wkarrow" aria-label="Next week" onclick="weekStep(1)">›</button>
+        </div>
+        <span class="wkcap" id="wk-range">${weekRange(state.week)}</span>
       </div>
       <div class="pill" id="prog"><span class="dot"></span><span id="prog-txt">—</span></div>
     </div>
@@ -395,7 +419,8 @@ function showTeacherPrompt(){
   document.getElementById("prog").style.visibility="hidden";
 }
 async function onTeacher(id){ state.teacherId=id; await store.set("device:lastTeacher",id,false); await loadTeacher(); }
-async function shiftWeek(n){ state.week=ymd(addDays(parseYmd(state.week),n*7)); const el=document.getElementById("wk-range"); if(el)el.textContent=weekRange(state.week); if(state.teacherId) await loadTeacher(); }
+async function pickWeek(v){ if(!v)return; state.week=ymd(mondayOf(parseYmd(v))); const inp=document.getElementById("wkdate"); if(inp)inp.value=state.week; const el=document.getElementById("wk-range"); if(el)el.textContent=weekRange(state.week); if(state.teacherId) await loadTeacher(); }
+async function weekStep(n){ state.week=ymd(addDays(parseYmd(state.week),n*7)); const inp=document.getElementById("wkdate"); if(inp)inp.value=state.week; const el=document.getElementById("wk-range"); if(el)el.textContent=weekRange(state.week); if(state.teacherId) await loadTeacher(); }
 async function loadTeacher(){ const raw=await store.get(wkey(state.week,state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; renderDays(); }
 function updateProg(){
   const pill=document.getElementById("prog"); if(!pill)return;
@@ -404,22 +429,54 @@ function updateProg(){
   document.getElementById("prog-txt").textContent=done+" of "+total+" classes logged";
   pill.classList.toggle("done",done>0&&done===total);
 }
+function subjectOf(act,dept){ return (act==="Lib"||act==="libJ") ? "Library" : (act==="SDP" ? "SDP" : (dept||"Value Education")); }
 function renderDays(){
-  const host=document.getElementById("days"); const id=state.teacherId; let html="";
+  const host=document.getElementById("days"); const id=state.teacherId; const dept=deptOf(id); let html="";
   DAYS.forEach((day,i)=>{
     const list=SCHEDULE[id][day];
     const done=list.filter(e=>((state.blob[dkeyOf(day,e.slug)]||{}).t||"").trim()).length;
-    html+=`<section class="day" style="--dc:var(${DAYVAR[day]})"><div class="day-h"><h3>${day}</h3><span class="date">${dayDate(state.week,i)}</span><span class="cnt">${done}/${list.length} logged</span></div><div class="rows">`;
+    html+=`<section class="day" id="day-${day}" style="--dc:var(${DAYVAR[day]})"><div class="day-h"><h3>${day}</h3><span class="date">${dayDate(state.week,i)}</span><span class="cnt">${done}/${list.length} logged</span></div><div class="rows">`;
     list.forEach(e=>{
       const dk=dkeyOf(day,e.slug), rec=state.blob[dk]||{}, t=rec.t||"", r=rec.r||"";
-      const chip=e.act==="SDP"?`<span class="chip sdp">${esc(e.label)}</span>`:`<span class="chip">${esc(e.code)}${e.act!=="V.Ed."?" · "+e.act:""}<span class="rm">Room ${e.room}</span></span>`;
+      const chip = e.act==="SDP"
+        ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span></span>`
+        : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(subjectOf(e.act,dept))}</span><span class="rm">Room ${e.room}</span></span>`;
       html+=`<div class="row">${chip}
         <div class="lg${t.trim()?" has":""}" data-lg="${esc(dk)}"><input type="text" placeholder="Topic covered" value="${esc(t)}" oninput="edit('${esc(day)}','${esc(e.slug)}','t',this.value)"></div>
         <div><input type="text" placeholder="Remark (optional)" value="${esc(r)}" oninput="edit('${esc(day)}','${esc(e.slug)}','r',this.value)"></div></div>`;
     });
+    const extras=(state.blob._x && state.blob._x[day]) || [];
+    extras.forEach((x,xi)=>{
+      html+=`<div class="row extra">
+        <input type="text" placeholder="Substitute class, event, training, etc." value="${esc(x.c||"")}" oninput="editX('${esc(day)}',${xi},'c',this.value)">
+        <input type="text" placeholder="Topic / details" value="${esc(x.t||"")}" oninput="editX('${esc(day)}',${xi},'t',this.value)">
+        <input type="text" placeholder="Remark (optional)" value="${esc(x.r||"")}" oninput="editX('${esc(day)}',${xi},'r',this.value)">
+        <button class="xdel" title="Remove this entry" onclick="removeX('${esc(day)}',${xi})">×</button></div>`;
+    });
+    html+=`<button class="addx" onclick="addX('${esc(day)}')">+ Add substitute / event / other</button>`;
     html+=`</div></section>`;
   });
   host.innerHTML=html; updateProg();
+}
+function editX(day,idx,field,val){
+  if(!state.blob._x) state.blob._x={};
+  if(!state.blob._x[day]) state.blob._x[day]=[];
+  const arr=state.blob._x[day]; if(!arr[idx]) arr[idx]={};
+  arr[idx][field]=val; arr[idx].u=new Date().toISOString();
+  clearTimeout(saveTimer); saveTimer=setTimeout(saveTeacher,550);
+}
+function addX(day){
+  if(!state.blob._x) state.blob._x={};
+  if(!state.blob._x[day]) state.blob._x[day]=[];
+  state.blob._x[day].push({c:"",t:"",r:"",u:new Date().toISOString()});
+  renderDays();
+  const sec=document.getElementById("day-"+day);
+  if(sec){ const ins=sec.querySelectorAll(".row.extra input"); if(ins.length) ins[ins.length-3].focus(); }
+}
+function removeX(day,idx){
+  if(state.blob._x && state.blob._x[day]){ state.blob._x[day].splice(idx,1); if(!state.blob._x[day].length) delete state.blob._x[day]; }
+  renderDays();
+  clearTimeout(saveTimer); saveTimer=setTimeout(saveTeacher,300);
 }
 function cssq(s){return s.replace(/["\\]/g,"\\$&");}
 function edit(day,slug,field,val){
@@ -429,23 +486,34 @@ function edit(day,slug,field,val){
   if(field==="t"){const box=document.querySelector('[data-lg="'+cssq(dk)+'"]'); if(box) box.classList.toggle("has",!!val.trim());}
   updateProg(); clearTimeout(saveTimer); saveTimer=setTimeout(saveTeacher,550);
 }
-async function saveTeacher(){ const okr=await store.set(wkey(state.week,state.teacherId),JSON.stringify(state.blob),true); toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠"); }
+async function saveTeacher(){
+  const payload=JSON.parse(JSON.stringify(state.blob));
+  if(payload._x){ for(const d in payload._x){ payload._x[d]=payload._x[d].filter(x=>(x.c||"").trim()||(x.t||"").trim()||(x.r||"").trim()); if(!payload._x[d].length) delete payload._x[d]; } if(!Object.keys(payload._x).length) delete payload._x; }
+  const okr=await store.set(wkey(state.week,state.teacherId),JSON.stringify(payload),true);
+  toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠");
+}
 
 /* ---------- Admin view ---------- */
 function pctColor(p){ if(p<=0) return "transparent"; const a=0.14+0.66*p; return "rgba(56,102,176,"+a.toFixed(3)+")"; }
 function cellText(p){ return p>=1?"#fff":(p>=.6?"#173a6b":"var(--ink)"); }
 let adminBlobs={};
 async function mountAdmin(){
+  const deptOpts=`<option value="all">All departments</option>`+DEPARTMENTS.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("");
   const teacherOpts=`<option value="all">All teachers</option>`+TEACHERS.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
   const classOpts=`<option value="all">All classes</option>`+CLASSES.map(c=>`<option value="${c}">${c}</option>`).join("");
   const dayOpts=`<option value="all">All days</option>`+DAYS.map(d=>`<option value="${d}">${d}</option>`).join("");
   view().innerHTML=`
     <div class="banner info"><span>ℹ</span><span>This reads what teachers have logged across the school. Use <b>Refresh</b> to pull the latest, or wait for the 30-second auto-refresh.</span></div>
     <div class="filters">
-      <div class="field"><label>Week</label>
-        <div class="wknav"><button aria-label="Previous week" onclick="adminWeek(-1)">‹</button>
-          <div class="lbl"><b id="awk">${weekRange(state.admin.week)}</b><span>Mon–Fri</span></div>
-          <button aria-label="Next week" onclick="adminWeek(1)">›</button></div></div>
+      <div class="field"><label for="awkdate">Week of</label>
+        <div class="wkpick">
+          <button class="wkarrow" aria-label="Previous week" onclick="adminWeekStep(-1)">‹</button>
+          <input type="date" id="awkdate" value="${state.admin.week}" onchange="pickAdminWeek(this.value)">
+          <button class="wkarrow" aria-label="Next week" onclick="adminWeekStep(1)">›</button>
+        </div>
+        <span class="wkcap" id="awk">${weekRange(state.admin.week)}</span>
+      </div>
+      <div class="field"><label for="f-dep">Department</label><select id="f-dep" onchange="af('dept',this.value)">${deptOpts}</select></div>
       <div class="field"><label for="f-t">Teacher</label><select id="f-t" onchange="af('teacher',this.value)">${teacherOpts}</select></div>
       <div class="field"><label for="f-c">Class</label><select id="f-c" onchange="af('cls',this.value)">${classOpts}</select></div>
       <div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>
@@ -457,24 +525,38 @@ async function mountAdmin(){
   syncFilterUI(); await refreshAdmin(false);
   if(store.ok) pollTimer=setInterval(()=>refreshAdmin(false),30000);
 }
-function syncFilterUI(){const a=state.admin;const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};set("f-t",a.teacher);set("f-c",a.cls);set("f-d",a.day);set("f-q",a.q);const awk=document.getElementById("awk");if(awk)awk.textContent=weekRange(a.week);}
+function syncFilterUI(){const a=state.admin;const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};set("f-dep",a.dept);set("f-t",a.teacher);set("f-c",a.cls);set("f-d",a.day);set("f-q",a.q);set("awkdate",a.week);const awk=document.getElementById("awk");if(awk)awk.textContent=weekRange(a.week);}
 function af(k,v){ state.admin[k]=v; if(k==="q"){renderAdminResults();const el=document.getElementById("f-q");if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n);}} else renderAdminResults(); }
-async function adminWeek(n){ state.admin.week=ymd(addDays(parseYmd(state.admin.week),n*7)); const el=document.getElementById("awk"); if(el)el.textContent=weekRange(state.admin.week); await refreshAdmin(false); }
+async function pickAdminWeek(v){ if(!v)return; state.admin.week=ymd(mondayOf(parseYmd(v))); const inp=document.getElementById("awkdate"); if(inp)inp.value=state.admin.week; const el=document.getElementById("awk"); if(el)el.textContent=weekRange(state.admin.week); await refreshAdmin(false); }
+async function adminWeekStep(n){ state.admin.week=ymd(addDays(parseYmd(state.admin.week),n*7)); const inp=document.getElementById("awkdate"); if(inp)inp.value=state.admin.week; const el=document.getElementById("awk"); if(el)el.textContent=weekRange(state.admin.week); await refreshAdmin(false); }
 async function refreshAdmin(manual){ const wk=state.admin.week; const nb={}; await Promise.all(TEACHERS.map(async t=>{const raw=await store.get(wkey(wk,t.id),true);nb[t.id]=raw?JSON.parse(raw):{};})); adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻"); }
-function scopeTeachers(){return state.admin.teacher==="all"?TEACHERS.map(t=>t.id):[state.admin.teacher];}
+function scopeTeachers(){
+  let ids=TEACHERS.filter(t=> state.admin.dept==="all" || t.dept===state.admin.dept).map(t=>t.id);
+  if(state.admin.teacher!=="all") ids=ids.filter(id=>id===state.admin.teacher);
+  return ids;
+}
 function classMatch(e,cls){ if(cls==="all")return true; if(e.group)return e.group.indexOf(cls)>=0; return e.code===cls; }
 function buildRows(){
   const a=state.admin, q=a.q.trim().toLowerCase(), rows=[];
   for(const id of scopeTeachers()){
-    const blob=adminBlobs[id]||{};
+    const blob=adminBlobs[id]||{}; const dept=deptOf(id);
     for(const day of DAYS){
       if(a.day!=="all"&&day!==a.day)continue;
       for(const e of SCHEDULE[id][day]){
         if(!classMatch(e,a.cls))continue;
         const rec=blob[dkeyOf(day,e.slug)]||{}, topic=(rec.t||""), remark=(rec.r||"");
         if(q && !(topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||(e.code||"").toLowerCase().includes(q)))continue;
-        rows.push({teacher:id,tname:NAME(id),day,dayi:DAYS.indexOf(day),cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,topic,remark,u:rec.u||"",logged:!!topic.trim()});
+        rows.push({teacher:id,tname:NAME(id),dept,day,dayi:DAYS.indexOf(day),cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,subject:subjectOf(e.act,dept),topic,remark,u:rec.u||"",logged:!!topic.trim(),extra:false});
       }
+      // out-of-timetable entries
+      const ex=(blob._x && blob._x[day]) || [];
+      ex.forEach(x=>{
+        const desc=(x.c||""), topic=(x.t||""), remark=(x.r||"");
+        if(!desc.trim() && !topic.trim() && !remark.trim()) return;
+        if(a.cls!=="all") return;
+        if(q && !(desc.toLowerCase().includes(q)||topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q))) return;
+        rows.push({teacher:id,tname:NAME(id),dept,day,dayi:DAYS.indexOf(day),cls:desc||"(no description)",code:"",room:"",act:"Extra",subject:"Extra",topic,remark,u:x.u||"",logged:!!(desc.trim()||topic.trim()),extra:true});
+      });
     }
   }
   return rows;
@@ -482,13 +564,14 @@ function buildRows(){
 function renderAdminResults(){
   const host=document.getElementById("adminResults"); if(!host)return;
   const rows=buildRows();
-  const sched=rows.length, logged=rows.filter(r=>r.logged).length, pct=sched?Math.round(logged/sched*100):0;
-  const reporting=new Set(rows.filter(r=>r.logged).map(r=>r.teacher)).size;
+  const schedRows=rows.filter(r=>!r.extra), extraRows=rows.filter(r=>r.extra);
+  const sched=schedRows.length, logged=schedRows.filter(r=>r.logged).length, pct=sched?Math.round(logged/sched*100):0;
+  const reporting=new Set(schedRows.filter(r=>r.logged).map(r=>r.teacher)).size;
   let html=`<div class="kpis">
     <div class="kpi"><div class="n">${sched}</div><div class="k">Classes scheduled</div></div>
     <div class="kpi"><div class="n">${logged}<small> / ${sched}</small></div><div class="k">Topics logged</div></div>
     <div class="kpi accent"><div class="n">${pct}<small>%</small></div><div class="k">Coverage</div></div>
-    <div class="kpi"><div class="n">${reporting}<small> / ${state.admin.teacher==="all"?TEACHERS.length:1}</small></div><div class="k">Teachers reporting</div></div>
+    <div class="kpi"><div class="n">${reporting}<small> / ${scopeTeachers().length}</small></div><div class="k">Teachers reporting</div></div>
   </div>`;
   const ids=scopeTeachers();
   html+=`<div class="board"><h2>Coverage board — ${esc(weekRange(state.admin.week))}</h2><p class="sub">Each cell shows logged / scheduled for that teacher on that day. Tap a cell, name, or day to filter the table.</p><div class="grid"><div class="gh tl">Teacher</div>`;
@@ -513,11 +596,11 @@ function renderAdminResults(){
     else if(k==="upd")r=(x.u||"").localeCompare(y.u||"");
     return r*a.sortDir;});
   const arrow=k=>a.sortKey===k?`<span class="ar">${a.sortDir>0?"▲":"▼"}</span>`:"";
-  html+=`<div class="tablecard"><div class="th"><h2>Class entries</h2><span class="meta">${sorted.length} row${sorted.length===1?"":"s"} · ${logged} logged</span></div><div class="tscroll"><table><thead><tr>
-    <th onclick="sortBy('teacher')">Teacher ${arrow("teacher")}</th><th onclick="sortBy('day')">Day ${arrow("day")}</th><th onclick="sortBy('cls')">Class ${arrow("cls")}</th><th>Room</th><th>Activity</th><th onclick="sortBy('topic')">Topic covered ${arrow("topic")}</th><th>Remark</th><th onclick="sortBy('upd')">Updated ${arrow("upd")}</th>
+  html+=`<div class="tablecard"><div class="th"><h2>Class entries</h2><span class="meta">${logged} of ${sched} scheduled logged${extraRows.length?" · "+extraRows.length+" extra":""}</span></div><div class="tscroll"><table><thead><tr>
+    <th onclick="sortBy('teacher')">Teacher ${arrow("teacher")}</th><th onclick="sortBy('day')">Day ${arrow("day")}</th><th onclick="sortBy('cls')">Class ${arrow("cls")}</th><th>Room</th><th>Subject</th><th onclick="sortBy('topic')">Topic covered ${arrow("topic")}</th><th>Remark</th><th onclick="sortBy('upd')">Updated ${arrow("upd")}</th>
   </tr></thead><tbody>`;
-  if(!sorted.length){ html+=`<tr><td colspan="8" class="emptyrow">No classes match these filters.</td></tr>`; }
-  else{ for(const r of sorted){ html+=`<tr><td>${esc(r.tname)}</td><td>${r.day}</td><td class="cls">${esc(r.cls)}</td><td class="rm">${r.room||"—"}</td><td class="act"><span class="tag">${esc(r.act)}</span></td><td class="${r.topic?"":"empty"}">${r.topic?esc(r.topic):"—"}</td><td class="${r.remark?"":"empty"}">${r.remark?esc(r.remark):"—"}</td><td class="upd">${r.u?fmtWhen(r.u):"—"}</td></tr>`; } }
+  if(!sorted.length){ html+=`<tr><td colspan="8" class="emptyrow">No entries match these filters.</td></tr>`; }
+  else{ for(const r of sorted){ html+=`<tr><td>${esc(r.tname)}</td><td>${r.day}</td><td class="cls">${esc(r.cls)}</td><td class="rm">${r.room||"—"}</td><td class="act"><span class="tag${r.extra?" extra":""}">${esc(r.subject)}</span></td><td class="${r.topic?"":"empty"}">${r.topic?esc(r.topic):"—"}</td><td class="${r.remark?"":"empty"}">${r.remark?esc(r.remark):"—"}</td><td class="upd">${r.u?fmtWhen(r.u):"—"}</td></tr>`; } }
   html+=`</tbody></table></div></div>`;
   host.innerHTML=html;
 }
@@ -527,9 +610,9 @@ function sortBy(k){ const a=state.admin; if(a.sortKey===k)a.sortDir*=-1; else{a.
 function fmtWhen(iso){const d=new Date(iso);if(isNaN(d))return "—";return d.getDate()+" "+MON[d.getMonth()]+", "+pad(d.getHours())+":"+pad(d.getMinutes());}
 function exportCSV(){
   const rows=buildRows().slice().sort((x,y)=>x.tname.localeCompare(y.tname)||(x.dayi-y.dayi)||cmpClass(x.code,y.code));
-  const head=["Teacher","Day","Class","Room","Activity","Topic covered","Remark","Updated"];
+  const head=["Teacher","Day","Class","Room","Subject","Topic covered","Remark","Updated"];
   const q=v=>{v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-  let csv=head.join(",")+"\n"; for(const r of rows)csv+=[r.tname,r.day,r.cls,r.room,r.act,r.topic,r.remark,r.u?fmtWhen(r.u):""].map(q).join(",")+"\n";
+  let csv=head.join(",")+"\n"; for(const r of rows)csv+=[r.tname,r.day,r.cls,r.room,r.subject,r.topic,r.remark,r.u?fmtWhen(r.u):""].map(q).join(",")+"\n";
   const fn="class-log_"+state.admin.week+(state.admin.teacher==="all"?"":"_"+state.admin.teacher)+".csv";
   try{const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},500);toast("CSV downloaded","↓");}
   catch(e){const w=window.open("","_blank");if(w){w.document.write("<pre>"+esc(csv)+"</pre>");w.document.title=fn;}else{console.log(csv);toast("Copy blocked — see console","•");}}
@@ -537,6 +620,7 @@ function exportCSV(){
 
 /* ---------- Boot ---------- */
 (async function(){
+  loadGis();
   await loadConfig();
   const raw=prefGet("session:user");
   if(SID && raw){ try{ const u=JSON.parse(raw); if(u&&u.name) state.user=u; }catch(e){} }
