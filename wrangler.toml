@@ -1,0 +1,6 @@
+name = "mount-carmel-class-log"
+pages_build_output_dir = "."
+
+[[kv_namespaces]]
+binding = "LOG_KV"
+id = "31f4f4749b914b66b60bef363e9dc74d"
