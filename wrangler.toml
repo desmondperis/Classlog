@@ -3,6 +3,9 @@ pages_build_output_dir = "."
 
 [vars]
 GOOGLE_CLIENT_ID = "1062864609603-255734b8pm6f23ej4nehjtqmcjrri5sq.apps.googleusercontent.com"
+# Put your Google sign-in email here to make YOU the only admin (comma-separate for more).
+# While this is blank, the first person to sign in gets admin so they can set things up.
+ADMIN_EMAILS = ""
 
 [[kv_namespaces]]
 binding = "LOG_KV"

@@ -65,7 +65,7 @@ a{color:var(--blue)}
 .gnote{margin:16px 0 0; font-size:11.5px; color:var(--muted); line-height:1.5}
 
 /* Controls */
-.ctl{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:18px}
+.ctl{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-top:18px}
 .field{display:flex; flex-direction:column; gap:5px}
 .field label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
 select, input[type=text], input[type=date]{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:500; min-height:42px; box-shadow:var(--shs)}
@@ -120,7 +120,7 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .tag.extra{background:#fdeecf; color:#9a5b12}
 
 /* Admin */
-.filters{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-top:18px}
+.filters{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-top:18px}
 .filters .grow{flex:1 1 200px; min-width:160px}
 .filters input[type=text]{width:100%}
 .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:18px}
@@ -187,6 +187,47 @@ td.upd{color:var(--muted); font-size:12px; white-space:nowrap}
 .cb-fill.full{background:var(--ok)}
 .cb-pct{font-size:11px; font-weight:700; color:var(--muted)}
 td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
+.banner.warn{background:#fff6e8; color:#7a4c00; border:1px solid #f3d199}
+.mg-wrap{display:flex; flex-direction:column; gap:16px; margin-top:18px}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); box-shadow:var(--sh); padding:16px}
+.card-h{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:12px}
+.card-h h2{margin:0; font-size:15px; font-weight:800}
+.muted{color:var(--muted); font-weight:600; font-size:12.5px}
+.mg-form{border:1px dashed var(--line); border-radius:var(--rs); padding:13px; margin-bottom:12px}
+.mg-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
+.mg-grid .field label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+.mg-check{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer; padding-top:4px}
+.mg-check input{width:18px; height:18px}
+.mg-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+.mg-list{display:flex; flex-direction:column}
+.mg-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 2px; border-top:1px solid #eef2f6}
+.mg-row:first-child{border-top:none}
+.mg-row-main{display:flex; flex-direction:column; gap:2px; min-width:0}
+.mg-row-main b{font-size:14px; font-weight:800}
+.mg-row-side{display:flex; align-items:center; gap:7px; flex:0 0 auto}
+.mini{appearance:none; border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:6px 11px; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--blue-d)}
+.mini:hover{background:var(--blue-l); border-color:var(--blue)}
+.mini.danger{color:var(--err, #c0392b)}
+.mini.danger:hover{background:#fdeeec; border-color:#e6a89f}
+.mg-chiprow{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px}
+.mg-chip{display:inline-flex; align-items:center; gap:5px; background:var(--blue-l); color:var(--blue-d); border-radius:999px; padding:5px 6px 5px 12px; font-size:13px; font-weight:700}
+.mg-chip small{font-weight:700; opacity:.7}
+.chip-x{appearance:none; border:none; background:rgba(0,0,0,.08); color:inherit; width:20px; height:20px; border-radius:50%; cursor:pointer; font-size:15px; line-height:1; display:flex; align-items:center; justify-content:center}
+.chip-x:hover{background:#e0574a; color:#fff}
+.mg-inline{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.mg-inline input{flex:1 1 180px; min-width:120px}
+.mg-note{margin:0 0 12px; line-height:1.5}
+.mg-note code{background:var(--blue-l); color:var(--blue-d); padding:1px 5px; border-radius:5px; font-size:12px; font-weight:700}
+.mg-upload{position:relative; overflow:hidden; cursor:pointer}
+.mg-upload input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%}
+.mg-tt-preview{margin-top:14px; border-top:1px solid #eef2f6; padding-top:12px}
+.mg-tt-day{display:flex; gap:10px; align-items:flex-start; padding:5px 0}
+.mg-tt-dname{flex:0 0 34px; font-size:11px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); padding-top:3px}
+.mg-tt-cells{display:flex; flex-wrap:wrap; gap:5px}
+.mg-tt-cell{background:#eef2f6; border-radius:6px; padding:3px 8px; font-size:12.5px; font-weight:700}
+.mg-details summary{font-size:15px; font-weight:800; cursor:pointer}
+.mg-rooms{max-height:230px; overflow-y:auto; margin-top:12px}
+@media (max-width:560px){ .mg-grid{grid-template-columns:1fr} }
 .foot{margin-top:26px; text-align:center; color:var(--muted); font-size:12px; line-height:1.6}
 
 .toast{position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px); background:#17233b; color:#fff; padding:11px 18px; border-radius:999px; font-size:13px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; transition:.2s; pointer-events:none; z-index:50; display:flex; gap:8px; align-items:center}
@@ -225,6 +266,7 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
     <div class="tabs" id="tabs" role="tablist" hidden>
       <button class="tab" id="tab-teacher" role="tab" aria-selected="true" onclick="setMode('teacher')">Log a class</button>
       <button class="tab" id="tab-admin" role="tab" aria-selected="false" onclick="setMode('admin')">Coverage dashboard</button>
+      <button class="tab" id="tab-manage" role="tab" aria-selected="false" hidden onclick="setMode('manage')">Admin</button>
     </div>
   </div>
 </div>
@@ -246,32 +288,24 @@ let GOOGLE_CLIENT_ID = "";
    ever host the API separately from the frontend. No trailing slash. */
 const API_BASE = "";
 
-/* ---------- Rooms (2026-27 teacher list) ---------- */
-const ROOMS={
+/* ---------- School data (defaults; overridden by KV config once an admin edits it) ---------- */
+const PERIODS = 8;
+const DEFAULT_ROOMS={
  "4A":2,"4B":3,"4C":4,"4D":5,"4E":6,"5A":7,"5B":14,"5C":15,"5D":16,"5E":17,
  "6A":18,"6B":19,"6C":20,"6D":117,"6E":116,"7A":118,"7B":119,"7C":120,"7D":108,"7E":107,
  "8A":102,"8B":103,"8C":105,"8D":106,"8E":214,"9A":215,"9B":216,"9C":217,"9D":220,"9E":222,
  "10A":310,"10B":302,"10C":308,"10D":303,"10E":309,"11A":404,"11B":405,"11C":407,"11D":408,"11E":409,"11F":403,
  "12A":305,"12B":306,"12C":307,"12D":313,"12E":312,"12F":314
 };
-const CLASSES=Object.keys(ROOMS).sort((a,b)=>{const ga=parseInt(a),gb=parseInt(b);return ga!==gb?ga-gb:a.slice(String(ga).length).localeCompare(b.slice(String(gb).length));});
-function ent(s){
-  if(s.indexOf("SDP:")===0){const g=s.slice(4).split(",");return{act:"SDP",group:g,slug:"SDP_"+g.join("_"),label:"SDP "+g.join(", ")};}
-  if(s.indexOf("Lib:")===0){const c=s.slice(4);return{act:"Lib",code:c,room:ROOMS[c],slug:"Lib_"+c,label:"Lib "+c+" ("+ROOMS[c]+")"};}
-  if(s.indexOf("libJ:")===0){const c=s.slice(5);return{act:"libJ",code:c,room:ROOMS[c],slug:"libJ_"+c,label:"libJ "+c+" ("+ROOMS[c]+")"};}
-  const c=s;return{act:"V.Ed.",code:c,room:ROOMS[c],slug:c,label:c+" ("+ROOMS[c]+")"};
-}
-const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday"];
-const DAYVAR={Monday:"--mon",Tuesday:"--tue",Wednesday:"--wed",Thursday:"--thu",Friday:"--fri"};
-const TEACHERS=[
+const DEFAULT_TEACHERS=[
  {id:"aradhana",name:"Ms. Aradhana Robertson",dept:"Value Education"},
  {id:"anthony",name:"Mr. Anthony",dept:"Value Education"},
  {id:"selvina",name:"Mrs. Selvina Chauhan",dept:"Value Education"},
  {id:"naro",name:"Ms. Naro T Jamir",dept:"Value Education"},
  {id:"zou",name:"Mr. P. Hangminlun Zou",dept:"Value Education"},
- {id:"desmond",name:"Desmond",dept:"Value Education"}
+ {id:"desmond",name:"Mr. Desmond Peris",dept:"Value Education"}
 ];
-const RAW={
+const DEFAULT_RAW={
  aradhana:{Monday:["4D","12C","11B","9D","4A","9E"],Tuesday:["4B","9C","12D","11D"],Wednesday:["12F","4E","10E","10B","9B","10D"],Thursday:["11F","12E","10C","4C"],Friday:["9A","11A","10A"]},
  anthony:{Monday:["12C","11B","9D","Lib:11F"],Tuesday:["8E","9C","11C","12D","11D"],Wednesday:["12F","8D","10E","10B","9B","10D"],Thursday:["11F","12E","10C","12A"],Friday:["9A","11A","12B","11E","10A"]},
  selvina:{Monday:["6E","7A","11B","libJ:10A","SDP:12F,12B,12D"],Tuesday:["6D","11C","6E","SDP:12E,12C,12A"],Wednesday:["7B","SDP:11E,11C,11A","7C","6B","SDP:11F,11B,11D"],Thursday:["12E","7D","12A","6A"],Friday:["6C","7E","12B","11E"]},
@@ -279,11 +313,33 @@ const RAW={
  zou:{Monday:["5C","libJ:7E","11B","9D","9E"],Tuesday:["5B","9C","11C","5A","12D","5E","11D"],Wednesday:["libJ:8B","10E","10B","9B","10D"],Thursday:["11F","10C","5D"],Friday:["9A","11A","12B","11E","10A"]},
  desmond:{Monday:["6E","8A","12C","7A","4C","5D"],Tuesday:["6D","8C","4E","6E","4B","8B"],Wednesday:["7B","12F","7C","6B","5E"],Thursday:["12E","7D","12A","6A"],Friday:["6C","7E","4A","Lib:9C","4D"]}
 };
-const SCHEDULE={};
-for(const t of TEACHERS){SCHEDULE[t.id]={};for(const d of DAYS){SCHEDULE[t.id][d]=(RAW[t.id][d]||[]).map(ent);}}
+
+let ROOMS = Object.assign({}, DEFAULT_ROOMS);
+let TEACHERS = DEFAULT_TEACHERS.map(t=>Object.assign({},t));
+let RAW = JSON.parse(JSON.stringify(DEFAULT_RAW));
+let DEPTS = [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))];
+let SCHEDULE={}, CLASSES=[], DEPARTMENTS=[];
+
+const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday"];
+const DAYVAR={Monday:"--mon",Tuesday:"--tue",Wednesday:"--wed",Thursday:"--thu",Friday:"--fri"};
+
+function classSort(a,b){const ga=parseInt(a),gb=parseInt(b);return ga!==gb?ga-gb:a.slice(String(ga).length).localeCompare(b.slice(String(gb).length));}
+function ent(s){
+  s=String(s||"").trim();
+  if(s.indexOf("SDP:")===0){const g=s.slice(4).split(",").map(x=>x.trim()).filter(Boolean);return{act:"SDP",group:g,slug:"SDP_"+g.join("_"),label:"SDP "+g.join(", ")};}
+  if(s.indexOf("Lib:")===0){const c=s.slice(4).trim();return{act:"Lib",code:c,room:ROOMS[c],slug:"Lib_"+c,label:"Lib "+c};}
+  if(s.indexOf("libJ:")===0){const c=s.slice(5).trim();return{act:"libJ",code:c,room:ROOMS[c],slug:"libJ_"+c,label:"libJ "+c};}
+  const c=s;return{act:"V.Ed.",code:c,room:ROOMS[c],slug:c,label:c};
+}
 const NAME=id=>(TEACHERS.find(t=>t.id===id)||{}).name||id;
-const DEPARTMENTS=[...new Set(TEACHERS.map(t=>t.dept))].sort();
 const deptOf=id=>{const t=TEACHERS.find(x=>x.id===id);return t?t.dept:"";};
+function rebuildDerived(){
+  CLASSES=Object.keys(ROOMS).sort(classSort);
+  DEPARTMENTS=[...new Set([...(DEPTS||[]), ...TEACHERS.map(t=>t.dept)])].filter(Boolean).sort();
+  SCHEDULE={};
+  for(const t of TEACHERS){ SCHEDULE[t.id]={}; for(const d of DAYS){ SCHEDULE[t.id][d]=(((RAW[t.id]||{})[d])||[]).map(ent); } }
+}
+rebuildDerived();
 
 /* ---------- Backend: shared data → Cloudflare KV via Functions; prefs → localStorage ---------- */
 let SID=""; try{ SID=localStorage.getItem("sid")||""; }catch(e){}
@@ -298,6 +354,41 @@ const store={ ok:true,
 const wkey=(week,id)=>"w:"+week+":"+id;
 async function loadConfig(){ try{ const r=await fetch(API_BASE+"/api/config"); if(r.ok){ const d=await r.json(); if(d.clientId) GOOGLE_CLIENT_ID=d.clientId; } }catch(e){} }
 function onAuthLost(){ SID=""; prefSet("sid",""); prefSet("session:user",""); state.user=null; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} try{ if(document.getElementById("toast")) toast("Session expired — please sign in again","⚠"); }catch(e){} showGate(); }
+async function whoami(){
+  if(!SID) return {ok:false};
+  try{
+    const r=await fetch(API_BASE+"/api/whoami",{headers:authHeaders()});
+    if(r.status===401){ SID=""; prefSet("sid",""); prefSet("session:user",""); return {ok:false}; }
+    if(!r.ok) return {ok:false};
+    const d=await r.json();
+    return {ok:true, email:d.email||"", admin:!!d.admin, bootstrap:!!d.bootstrap};
+  }catch(e){ return {ok:false}; }
+}
+async function apiGetMany(keys){
+  try{
+    const r=await fetch(API_BASE+"/api/data?keys="+encodeURIComponent(keys.join(",")),{headers:authHeaders()});
+    if(r.status===401){ onAuthLost(); return {}; }
+    if(!r.ok) return {};
+    return (await r.json()).values || {};
+  }catch(e){ return {}; }
+}
+async function loadAppConfig(){
+  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:depts"]);
+  try{ if(v["cfg:teachers"]) TEACHERS=JSON.parse(v["cfg:teachers"]); }catch(e){}
+  try{ if(v["cfg:rooms"]) ROOMS=JSON.parse(v["cfg:rooms"]); }catch(e){}
+  try{ if(v["cfg:schedule"]) RAW=JSON.parse(v["cfg:schedule"]); }catch(e){}
+  try{ if(v["cfg:depts"]) DEPTS=JSON.parse(v["cfg:depts"]); }catch(e){}
+  if(!Array.isArray(TEACHERS)||!TEACHERS.length) TEACHERS=DEFAULT_TEACHERS.map(t=>Object.assign({},t));
+  if(!ROOMS||typeof ROOMS!=="object") ROOMS=Object.assign({},DEFAULT_ROOMS);
+  if(!RAW||typeof RAW!=="object") RAW={};
+  if(!Array.isArray(DEPTS)) DEPTS=[];
+  rebuildDerived();
+}
+async function saveCfg(key,obj,label){ rebuildDerived(); const ok=await apiSet(key,JSON.stringify(obj)); toast(ok?(label||"Saved"):"Couldn't save — admins only / check connection", ok?"✓":"⚠"); return ok; }
+const saveTeachersCfg = ()=> saveCfg("cfg:teachers",TEACHERS,"Teachers saved");
+const saveRoomsCfg    = ()=> saveCfg("cfg:rooms",ROOMS,"Rooms saved");
+const saveScheduleCfg = ()=> saveCfg("cfg:schedule",RAW,"Timetable saved");
+const saveDeptsCfg    = ()=> saveCfg("cfg:depts",DEPTS,"Departments saved");
 
 /* ---------- Dates ---------- */
 const pad=n=>String(n).padStart(2,"0");
@@ -325,7 +416,7 @@ const thisWeek=ymd(mondayOf(new Date()));
 const today=ymd(new Date());
 
 /* ---------- State ---------- */
-const state={mode:"teacher", user:null, teacherId:null, date:today, blob:{},
+const state={mode:"teacher", user:null, teacherId:null, isAdmin:false, email:"", bootstrapAdmin:false, date:today, blob:{},
   admin:{mode:"week", date:today, dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"date",sortDir:1}};
 function curWeek(){return ymd(mondayOf(parseYmd(state.date)));}
 let saveTimer=null, pollTimer=null;
@@ -386,6 +477,9 @@ function firstName(name){const n=String(name||"").replace(/^(Ms|Mr|Mrs|Dr)\.?\s+
 async function signIn(user){
   state.user=user;
   await store.set("session:user",JSON.stringify(user),false);
+  const who=await whoami();
+  state.isAdmin=who.ok&&who.admin; state.email=(who.ok&&who.email)||user.email||""; state.bootstrapAdmin=who.ok&&who.bootstrap;
+  await loadAppConfig();
   const last=await store.get("device:lastTeacher",false);
   if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
   else if(user.method==="google"){ const m=matchTeacher(user.name); if(m) state.teacherId=m; }
@@ -405,16 +499,18 @@ function renderUser(){
   const av=u.picture?`<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">`:`<span class="av">${esc((u.name||"?").trim()[0]||"?")}</span>`;
   chip.innerHTML=`${av}<span class="uname">${esc(firstName(u.name))}</span><button class="signout" onclick="signOut()">Sign out</button>`;
 }
-function showApp(){ document.getElementById("tabs").hidden=false; renderUser(); mountView(); }
+function showApp(){ document.getElementById("tabs").hidden=false; const mt=document.getElementById("tab-manage"); if(mt) mt.hidden=!state.isAdmin; renderUser(); mountView(); }
 
 function setMode(m){
+  if(m==="manage" && !state.isAdmin) m="teacher";
   state.mode=m;
   document.getElementById("tab-teacher").setAttribute("aria-selected",m==="teacher");
   document.getElementById("tab-admin").setAttribute("aria-selected",m==="admin");
+  const tm=document.getElementById("tab-manage"); if(tm) tm.setAttribute("aria-selected",m==="manage");
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
   mountView();
 }
-function mountView(){ if(state.mode==="teacher")mountTeacher(); else mountAdmin(); }
+function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="manage"){ if(!state.isAdmin){ state.mode="teacher"; return mountTeacher(); } return mountManage(); } if(state.mode==="teacher")mountTeacher(); else mountAdmin(); }
 
 /* ---------- Teacher view ---------- */
 function scheduledCount(id){let n=0;for(const d of DAYS)n+=SCHEDULE[id][d].length;return n;}
@@ -545,7 +641,6 @@ async function mountAdmin(){
     ? `<input type="month" id="amon" value="${monthOf(a.date)}" onchange="pickAdminMonth(this.value)">`
     : `<input type="date" id="adate" value="${a.date}" onchange="pickAdminDate(this.value)">`;
   view().innerHTML=`
-    <div class="banner info"><span>ℹ</span><span>This reads what teachers have logged across the school. Use <b>Refresh</b> to pull the latest, or wait for the 30-second auto-refresh.</span></div>
     <div class="filters">
       <div class="field"><label>View by</label><div class="modeseg">${seg}</div></div>
       <div class="field"><label>${a.mode==="month"?"Month":(a.mode==="day"?"Date":"Week of")}</label>
@@ -562,8 +657,8 @@ async function mountAdmin(){
       ${a.mode==="day"?"":`<div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>`}
       <div class="field"><label for="f-sort">Sort by</label><select id="f-sort" onchange="setSort(this.value)">${sortOpts}</select></div>
       <div class="field grow"><label for="f-q">Search topic or remark</label><input id="f-q" type="text" placeholder="e.g. honesty, chapter 3…" oninput="af('q',this.value)"></div>
-      <button class="btn" onclick="refreshAdmin(true)">↻ Refresh</button>
-      <button class="btn primary" onclick="exportCSV()">Export CSV</button>
+      <div class="field"><label>&nbsp;</label><button class="btn" onclick="refreshAdmin(true)">↻ Refresh</button></div>
+      <div class="field"><label>&nbsp;</label><button class="btn primary" onclick="exportCSV()">Export CSV</button></div>
     </div>
     <div id="adminResults"></div>`;
   syncFilterUI(); await refreshAdmin(false);
@@ -676,6 +771,219 @@ function exportCSV(){
   catch(e){const w=window.open("","_blank");if(w){w.document.write("<pre>"+esc(csv)+"</pre>");w.document.title=fn;}else{console.log(csv);toast("Copy blocked — see console","•");}}
 }
 
+/* ---------- Admin (management) view ---------- */
+let TF={id:null,name:"",email:"",dept:"",admin:false};
+let MG_TT=null;
+
+function mountManage(){
+  if(!MG_TT && TEACHERS[0]) MG_TT=TEACHERS[0].id;
+  if(!TF.dept) TF.dept=DEPARTMENTS[0]||"";
+  const email=state.email||"";
+  let html="";
+  if(state.bootstrapAdmin){
+    html+=`<div class="banner warn"><span>⚠</span><span>No admin is set yet, so <b>anyone who signs in currently has admin access</b>. To lock it down, add yourself below as an admin with your Google email — or set <b>ADMIN_EMAILS</b> on the server.</span></div>`;
+  }
+  html+=`<div class="mg-wrap">`;
+
+  // ---- Teachers ----
+  const dopts=DEPARTMENTS.map(d=>`<option value="${esc(d)}"${TF.dept===d?" selected":""}>${esc(d)}</option>`).join("");
+  html+=`<section class="card"><div class="card-h"><h2>Teachers</h2><span class="muted">${TEACHERS.length} total</span></div>
+    <div class="mg-form">
+      <div class="mg-grid">
+        <div class="field"><label>Name (with title)</label><input id="tf-name" type="text" placeholder="e.g. Mr. John Doe" value="${esc(TF.name)}"></div>
+        <div class="field"><label>Google email</label><input id="tf-email" type="email" placeholder="name@gmail.com" value="${esc(TF.email)}"></div>
+        <div class="field"><label>Department</label><select id="tf-dept">${dopts||`<option>Value Education</option>`}</select></div>
+        <div class="field"><label>Admin rights</label><label class="mg-check"><input id="tf-admin" type="checkbox"${TF.admin?" checked":""}> Can manage teachers, timetables &amp; settings</label></div>
+      </div>
+      <div class="mg-actions">
+        <button class="btn primary" onclick="mgSaveTeacher()">${TF.id?"Save changes":"Add teacher"}</button>
+        ${TF.id?`<button class="btn" onclick="mgNewTeacher()">Cancel</button>`:(email?`<button class="btn" onclick="mgPrefillMe()">Use my details</button>`:``)}
+      </div>
+    </div>
+    <div class="mg-list">`;
+  TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(t=>{
+    html+=`<div class="mg-row">
+      <div class="mg-row-main"><b>${esc(t.name)}</b><span class="muted">${esc(t.dept||"—")}${t.email?" · "+esc(t.email):" · no email"}</span></div>
+      <div class="mg-row-side">${t.admin?`<span class="tag">Admin</span>`:``}
+        <button class="mini" onclick="mgEditTeacher('${esc(t.id)}')">Edit</button>
+        <button class="mini danger" onclick="mgDeleteTeacher('${esc(t.id)}')">Delete</button></div>
+    </div>`;
+  });
+  html+=`</div></section>`;
+
+  // ---- Departments ----
+  html+=`<section class="card"><div class="card-h"><h2>Departments</h2></div>
+    <div class="mg-chiprow">`;
+  DEPARTMENTS.forEach(d=>{
+    const count=TEACHERS.filter(t=>t.dept===d).length;
+    html+=`<span class="mg-chip">${esc(d)} <small>(${count})</small><button class="chip-x" title="Remove" onclick="mgDelDept('${esc(d)}')">×</button></span>`;
+  });
+  if(!DEPARTMENTS.length) html+=`<span class="muted">No departments yet.</span>`;
+  html+=`</div>
+    <div class="mg-inline"><input id="dept-new" type="text" placeholder="New department name"><button class="btn" onclick="mgAddDept()">Add department</button></div>
+  </section>`;
+
+  // ---- Timetables ----
+  const tsel=TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<option value="${esc(t.id)}"${MG_TT===t.id?" selected":""}>${esc(t.name)}</option>`).join("");
+  const cur=TEACHERS.find(t=>t.id===MG_TT)||TEACHERS[0];
+  html+=`<section class="card"><div class="card-h"><h2>Timetables</h2></div>
+    <p class="muted mg-note">Edit a teacher's weekly timetable with a CSV sheet: pick the teacher, download their sheet (or a blank one), fill class codes under each period, then upload it back. Rows are weekdays; columns are periods P1–P${PERIODS}. Leave a cell blank for a free period. Special cells: library = <code>Lib:9C</code>, junior library = <code>libJ:7B</code>, group/SDP session = <code>SDP:12F;12B;12D</code> (separate classes with semicolons).</p>
+    <div class="field" style="max-width:340px"><label>Teacher</label><select id="tt-teacher" onchange="mgPickTT(this.value)">${tsel}</select></div>
+    <div class="mg-actions">
+      <button class="btn" onclick="mgDownloadTeacher()">Download this teacher's timetable</button>
+      <button class="btn" onclick="mgDownloadBlank()">Download blank template</button>
+      <label class="btn primary mg-upload">Upload CSV for this teacher<input type="file" accept=".csv,text/csv" onchange="mgUploadTeacher(this.files)"></label>
+    </div>`;
+  if(cur){
+    html+=`<div class="mg-tt-preview"><div class="muted" style="margin-bottom:6px">Current — ${esc(cur.name)}</div>`;
+    DAYS.forEach(d=>{
+      const arr=((RAW[cur.id]||{})[d])||[];
+      html+=`<div class="mg-tt-day"><span class="mg-tt-dname">${d.slice(0,3)}</span><span class="mg-tt-cells">${arr.length?arr.map(x=>`<span class="mg-tt-cell">${esc(x)}</span>`).join(""):`<span class="muted">—</span>`}</span></div>`;
+    });
+    html+=`</div>`;
+  }
+  html+=`</section>`;
+
+  // ---- Rooms ----
+  html+=`<section class="card"><details class="mg-details"><summary>Rooms (class → room number)</summary>
+    <p class="muted mg-note">The room shown beside each class in the log comes from here.</p>
+    <div class="mg-inline"><input id="room-code" type="text" placeholder="Class e.g. 8A" style="max-width:130px"><input id="room-num" type="text" placeholder="Room e.g. 102" style="max-width:130px"><button class="btn" onclick="mgSaveRoom()">Add / update</button></div>
+    <div class="mg-chiprow mg-rooms">`;
+  CLASSES.forEach(c=>{ html+=`<span class="mg-chip">${esc(c)} <small>${esc(String(ROOMS[c]))}</small><button class="chip-x" title="Remove" onclick="mgDelRoom('${esc(c)}')">×</button></span>`; });
+  html+=`</div></details></section>`;
+
+  html+=`</div>`;
+  view().innerHTML=html;
+}
+
+/* ----- Teacher handlers ----- */
+function slugId(name){ let s=String(name||"").toLowerCase().replace(/^(ms|mr|mrs|dr)\.?\s+/,"").replace(/[^a-z0-9]+/g,"").slice(0,20); return s||"t"; }
+function uniqueId(base){ let id=base,n=2; while(TEACHERS.some(t=>t.id===id)){ id=base+n; n++; } return id; }
+function mgNewTeacher(){ TF={id:null,name:"",email:"",dept:DEPARTMENTS[0]||"",admin:false}; mountManage(); }
+function mgPrefillMe(){ TF.name=TF.name||((state.user&&state.user.name)||""); TF.email=state.email||""; TF.admin=true; mountManage(); }
+function mgEditTeacher(id){ const t=TEACHERS.find(x=>x.id===id); if(!t)return; TF={id:t.id,name:t.name||"",email:t.email||"",dept:t.dept||(DEPARTMENTS[0]||""),admin:!!t.admin}; mountManage(); try{view().scrollIntoView({behavior:"smooth",block:"start"});}catch(e){} }
+async function mgSaveTeacher(){
+  const name=(document.getElementById("tf-name").value||"").trim();
+  const emailV=(document.getElementById("tf-email").value||"").trim().toLowerCase();
+  const dept=(document.getElementById("tf-dept").value||"").trim();
+  const admin=!!document.getElementById("tf-admin").checked;
+  if(!name){ toast("Enter a name","⚠"); return; }
+  if(emailV && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailV)){ toast("That email looks off","⚠"); return; }
+  if(TF.id){
+    const t=TEACHERS.find(x=>x.id===TF.id); if(!t){ mgNewTeacher(); return; }
+    if(t.email && t.email===state.email && !admin && !confirm("This removes your own admin rights — you may lose access to this Admin tab after reloading. Continue?")) return;
+    t.name=name; t.email=emailV; t.dept=dept; t.admin=admin;
+  }else{
+    const id=uniqueId(slugId(name));
+    TEACHERS.push({id,name,email:emailV,dept,admin});
+    if(!RAW[id]) RAW[id]={};
+  }
+  await saveTeachersCfg();
+  mgNewTeacher();
+}
+async function mgDeleteTeacher(id){
+  const t=TEACHERS.find(x=>x.id===id); if(!t)return;
+  if(!confirm(`Remove ${t.name}? Their saved class logs are kept, but they'll no longer appear in the app.`)) return;
+  TEACHERS=TEACHERS.filter(x=>x.id!==id);
+  delete RAW[id];
+  if(MG_TT===id) MG_TT=TEACHERS[0]?TEACHERS[0].id:null;
+  if(TF.id===id) TF={id:null,name:"",email:"",dept:DEPARTMENTS[0]||"",admin:false};
+  await saveTeachersCfg();
+  await saveScheduleCfg();
+  mountManage();
+}
+
+/* ----- Department handlers ----- */
+async function mgAddDept(){
+  const el=document.getElementById("dept-new"); const v=(el&&el.value||"").trim();
+  if(!v){ toast("Enter a department name","⚠"); return; }
+  if(!DEPTS.some(d=>d.toLowerCase()===v.toLowerCase()) && !DEPARTMENTS.some(d=>d.toLowerCase()===v.toLowerCase())) DEPTS.push(v);
+  await saveDeptsCfg();
+  mountManage();
+}
+async function mgDelDept(name){
+  const count=TEACHERS.filter(t=>t.dept===name).length;
+  if(count>0){ toast(count+" teacher(s) still in this dept — reassign them first","⚠"); return; }
+  DEPTS=DEPTS.filter(d=>d!==name);
+  await saveDeptsCfg();
+  mountManage();
+}
+
+/* ----- Room handlers ----- */
+async function mgSaveRoom(){
+  const c=(document.getElementById("room-code").value||"").trim().toUpperCase();
+  const n=(document.getElementById("room-num").value||"").trim();
+  if(!c||!n){ toast("Enter both a class and a room","⚠"); return; }
+  ROOMS[c]=/^\d+$/.test(n)?parseInt(n,10):n;
+  await saveRoomsCfg();
+  mountManage();
+}
+async function mgDelRoom(c){
+  if(!confirm("Remove room mapping for "+c+"?")) return;
+  delete ROOMS[c];
+  await saveRoomsCfg();
+  mountManage();
+}
+
+/* ----- Timetable CSV ----- */
+function mgPickTT(id){ MG_TT=id; mountManage(); }
+function csvCell(v){ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function toCSV(rows){ return rows.map(r=>r.map(csvCell).join(",")).join("\r\n")+"\r\n"; }
+function parseCSV(text){
+  const rows=[]; let row=[], cur="", i=0, q=false; text=String(text||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  while(i<text.length){ const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i+=2;continue;} q=false;i++;continue; } cur+=ch;i++;continue; }
+    if(ch==='"'){ q=true;i++;continue; }
+    if(ch===','){ row.push(cur);cur="";i++;continue; }
+    if(ch==='\n'){ row.push(cur);rows.push(row);row=[];cur="";i++;continue; }
+    cur+=ch;i++;
+  }
+  if(cur.length||row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+function cellOut(s){ s=String(s||""); return s.indexOf("SDP:")===0 ? "SDP:"+s.slice(4).split(",").map(x=>x.trim()).filter(Boolean).join(";") : s; }
+function cellIn(s){ s=String(s||"").trim(); if(!s) return ""; if(s.indexOf("SDP:")===0) return "SDP:"+s.slice(4).split(/[;,]/).map(x=>x.trim()).filter(Boolean).join(","); return s; }
+function matchDay(s){ s=String(s||"").trim().toLowerCase(); for(const d of DAYS){ if(d.toLowerCase()===s) return d; } for(const d of DAYS){ if(s.length>=3 && d.toLowerCase().slice(0,3)===s.slice(0,3)) return d; } return null; }
+function ttHeader(){ const h=["Day"]; for(let p=1;p<=PERIODS;p++) h.push("P"+p); return h; }
+function timetableCSV(id){
+  const rows=[ttHeader()];
+  DAYS.forEach(d=>{ const arr=(((RAW[id]||{})[d])||[]).slice(0,PERIODS).map(cellOut); while(arr.length<PERIODS) arr.push(""); rows.push([d,...arr]); });
+  return toCSV(rows);
+}
+function blankCSV(){ const rows=[ttHeader()]; DAYS.forEach(d=>{ const a=[d]; for(let p=1;p<=PERIODS;p++) a.push(""); rows.push(a); }); return toCSV(rows); }
+function downloadCSV(name,csv){
+  try{ const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},500); toast("CSV downloaded","↓"); }
+  catch(e){ const w=window.open("","_blank"); if(w){ w.document.write("<pre>"+esc(csv)+"</pre>"); w.document.title=name; } }
+}
+function mgDownloadTeacher(){ const id=MG_TT||(TEACHERS[0]&&TEACHERS[0].id); if(!id)return; downloadCSV("timetable_"+id+".csv", timetableCSV(id)); }
+function mgDownloadBlank(){ downloadCSV("timetable_template.csv", blankCSV()); }
+function applyTimetableCSV(id,text){
+  const rows=parseCSV(text).filter(r=>r.some(c=>String(c).trim()!==""));
+  const newRaw={}; const unknown=new Set(); let count=0;
+  rows.forEach(r=>{
+    const day=matchDay(r[0]); if(!day) return;
+    const cells=r.slice(1).map(cellIn).filter(Boolean);
+    cells.forEach(c=>{ const e=ent(c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
+    newRaw[day]=cells; count++;
+  });
+  RAW[id]=newRaw;
+  return {days:count, unknown:[...unknown]};
+}
+function mgUploadTeacher(files){
+  const id=MG_TT||(TEACHERS[0]&&TEACHERS[0].id); if(!id){ toast("Pick a teacher first","⚠"); return; }
+  const f=files&&files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    const res=applyTimetableCSV(id,String(reader.result||""));
+    if(!res.days){ toast("No day rows found in that CSV","⚠"); return; }
+    await saveScheduleCfg();
+    mountManage();
+    if(res.unknown.length) setTimeout(()=>toast("Saved. Unknown class(es): "+res.unknown.join(", ")+" — add them under Rooms","⚠"),400);
+  };
+  reader.onerror=()=>toast("Couldn't read that file","⚠");
+  reader.readAsText(f);
+}
+
 /* ---------- Boot ---------- */
 (async function(){
   loadGis();
@@ -683,9 +991,13 @@ function exportCSV(){
   const raw=prefGet("session:user");
   if(SID && raw){ try{ const u=JSON.parse(raw); if(u&&u.name) state.user=u; }catch(e){} }
   if(state.user){
+    const who=await whoami();
+    if(!who.ok){ state.user=null; showGate(); return; }
+    state.isAdmin=who.admin; state.email=who.email; state.bootstrapAdmin=who.bootstrap;
+    await loadAppConfig();
     const last=prefGet("device:lastTeacher");
     if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
     renderUser(); showApp();
-  }else{ showGate(); }
+  }else{ state.user=null; showGate(); }
 })();
 </script>
