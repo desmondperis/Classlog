@@ -2,7 +2,7 @@ name = "classlog"
 pages_build_output_dir = "."
 
 [vars]
-GOOGLE_CLIENT_ID = "PASTE-YOUR-CLIENT-ID-HERE.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "1062864609603-255734b8pm6f23ej4nehjtqmcjrri5sq.apps.googleusercontent.com"
 
 [[kv_namespaces]]
 binding = "LOG_KV"
