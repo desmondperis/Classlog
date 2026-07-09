@@ -487,7 +487,7 @@ async function signIn(user){
   state.user=user;
   await store.set("session:user",JSON.stringify(user),false);
   const who=await whoami();
-  state.role=(who.ok&&who.role)||"teacher"; state.isAdmin=state.role==="admin";
+  state.role=(who.ok&&who.role)||((who.ok&&who.admin)?"admin":"teacher"); state.isAdmin=(who.ok&&!!who.admin)||state.role==="admin";
   state.email=(who.ok&&who.email)||user.email||""; state.myTeacherId=(who.ok&&who.teacherId)||null; state.dept=(who.ok&&who.dept)||""; state.bootstrapAdmin=who.ok&&who.bootstrap;
   await loadAppConfig();
   if(state.isAdmin){
@@ -1045,7 +1045,7 @@ function mgUploadTeacher(files){
   if(state.user){
     const who=await whoami();
     if(!who.ok){ state.user=null; showGate(); return; }
-    state.role=who.role||"teacher"; state.isAdmin=state.role==="admin";
+    state.role=who.role||(who.admin?"admin":"teacher"); state.isAdmin=!!who.admin||state.role==="admin";
     state.email=who.email; state.myTeacherId=who.teacherId||null; state.dept=who.dept||""; state.bootstrapAdmin=who.bootstrap;
     await loadAppConfig();
     if(state.isAdmin){
