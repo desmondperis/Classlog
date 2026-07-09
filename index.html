@@ -225,6 +225,7 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .mg-tt-dname{flex:0 0 34px; font-size:11px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); padding-top:3px}
 .mg-tt-cells{display:flex; flex-wrap:wrap; gap:5px}
 .mg-tt-cell{background:#eef2f6; border-radius:6px; padding:3px 8px; font-size:12.5px; font-weight:700}
+.mg-tt-cell em{font-style:normal; color:var(--blue-d); opacity:.7; font-size:10.5px; margin-right:1px}
 .mg-details summary{font-size:15px; font-weight:800; cursor:pointer}
 .mg-rooms{max-height:230px; overflow-y:auto; margin-top:12px}
 @media (max-width:560px){ .mg-grid{grid-template-columns:1fr} }
@@ -232,6 +233,20 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .tag.role-admin{background:#e7effb; color:#1e3a66}
 .tag.role-leader{background:#e9f6ea; color:#22692a}
 .tag.role-hod{background:#fdf0e4; color:#8a4b12}
+.chip .per{display:block; font-size:11px; font-weight:700; color:var(--blue-d); opacity:.85; margin-top:2px}
+.brk{display:flex; align-items:center; justify-content:center; gap:10px; padding:6px 0; margin:2px 0; color:var(--muted); font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase}
+.brk::before,.brk::after{content:""; height:1px; background:var(--line); flex:1}
+.brk-t{letter-spacing:0; text-transform:none; font-weight:700}
+.cls-per{display:block; font-size:11px; color:var(--muted); font-weight:600; margin-top:1px}
+.bell-ref{border:1px solid var(--line); border-radius:var(--rs); padding:11px 12px; margin-bottom:12px; background:#fbfcfe}
+.bell-ref-h{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:8px}
+.bell-chips{display:flex; flex-wrap:wrap; gap:6px}
+.bell-chip{display:inline-flex; flex-direction:column; align-items:center; gap:1px; border:1px solid var(--line); border-radius:8px; padding:5px 9px; min-width:52px; background:#fff}
+.bell-chip b{font-size:12px; font-weight:800; color:var(--ink)}
+.bell-chip span{font-size:10.5px; color:var(--muted); font-weight:600; white-space:nowrap}
+.bell-chip.pre{background:#f3f6fb}
+.bell-chip.brk{background:#fff6e8; border-color:#f3d199}
+.bell-chip.brk b{color:#7a4c00}
 .foot{margin-top:26px; text-align:center; color:var(--muted); font-size:12px; line-height:1.6}
 
 .toast{position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px); background:#17233b; color:#fff; padding:11px 18px; border-radius:999px; font-size:13px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; transition:.2s; pointer-events:none; z-index:50; display:flex; gap:8px; align-items:center}
@@ -310,12 +325,12 @@ const DEFAULT_TEACHERS=[
  {id:"desmond",name:"Mr. Desmond Peris",dept:"Value Education"}
 ];
 const DEFAULT_RAW={
- aradhana:{Monday:["4D","12C","11B","9D","4A","9E"],Tuesday:["4B","9C","12D","11D"],Wednesday:["12F","4E","10E","10B","9B","10D"],Thursday:["11F","12E","10C","4C"],Friday:["9A","11A","10A"]},
- anthony:{Monday:["12C","11B","9D","Lib:11F"],Tuesday:["8E","9C","11C","12D","11D"],Wednesday:["12F","8D","10E","10B","9B","10D"],Thursday:["11F","12E","10C","12A"],Friday:["9A","11A","12B","11E","10A"]},
- selvina:{Monday:["6E","7A","11B","libJ:10A","SDP:12F,12B,12D"],Tuesday:["6D","11C","6E","SDP:12E,12C,12A"],Wednesday:["7B","SDP:11E,11C,11A","7C","6B","SDP:11F,11B,11D"],Thursday:["12E","7D","12A","6A"],Friday:["6C","7E","12B","11E"]},
- naro:{Monday:["8A","12C","libJ:7B","9D","9E"],Tuesday:["8E","9C","11C","8C","5C","8B"],Wednesday:["8D","5A","10E","10B","9B","10D"],Thursday:["libJ:5D","10C","12A"],Friday:["9A","11A","12B","5B","11E","10A"]},
- zou:{Monday:["5C","libJ:7E","11B","9D","9E"],Tuesday:["5B","9C","11C","5A","12D","5E","11D"],Wednesday:["libJ:8B","10E","10B","9B","10D"],Thursday:["11F","10C","5D"],Friday:["9A","11A","12B","11E","10A"]},
- desmond:{Monday:["6E","8A","12C","7A","4C","5D"],Tuesday:["6D","8C","4E","6E","4B","8B"],Wednesday:["7B","12F","7C","6B","5E"],Thursday:["12E","7D","12A","6A"],Friday:["6C","7E","4A","Lib:9C","4D"]}
+ aradhana:{Monday:["","4D","12C","","11B","9D","4A","9E"],Tuesday:["4B","9C","","","12D","","","11D"],Wednesday:["","12F","4E","","10E","10B","9B","10D"],Thursday:["","11F","12E","10C","","","4C"],Friday:["","9A","11A","","","","","10A"]},
+ anthony:{Monday:["","","12C","","11B","9D","Lib:11F"],Tuesday:["8E","9C","11C","","12D","","","11D"],Wednesday:["","12F","8D","","10E","10B","9B","10D"],Thursday:["","11F","12E","10C","","","12A"],Friday:["","9A","11A","12B","","","11E","10A"]},
+ selvina:{Monday:["6E","","","7A","11B","libJ:10A","SDP:12F,12B,12D","SDP:12F,12B,12D"],Tuesday:["6D","","11C","","","6E","SDP:12E,12C,12A","SDP:12E,12C,12A"],Wednesday:["7B","","SDP:11E,11C,11A","SDP:11C,11E,11A","7C","6B","SDP:11F,11B,11D","SDP:11F,11B,11D"],Thursday:["","12E","","","7D","","12A","6A"],Friday:["6C","","7E","12B","","","11E"]},
+ naro:{Monday:["","8A","12C","libJ:7B","","9D","","9E"],Tuesday:["8E","9C","11C","8C","","5C","","8B"],Wednesday:["","","8D","5A","10E","10B","9B","10D"],Thursday:["","libJ:5D","","10C","","","12A"],Friday:["","9A","11A","12B","","5B","11E","10A"]},
+ zou:{Monday:["","5C","libJ:7E","","11B","9D","","9E"],Tuesday:["5B","9C","11C","5A","12D","5E","","11D"],Wednesday:["","libJ:8B","","","10E","10B","9B","10D"],Thursday:["","11F","","10C","5D"],Friday:["","9A","11A","12B","","","11E","10A"]},
+ desmond:{Monday:["6E","8A","12C","7A","4C","","","5D"],Tuesday:["6D","","","8C","4E","6E","4B","8B"],Wednesday:["7B","12F","","","7C","6B","","5E"],Thursday:["","","12E","","7D","","12A","6A"],Friday:["6C","","7E","4A","Lib:9C","","4D"]}
 };
 
 let ROOMS = Object.assign({}, DEFAULT_ROOMS);
@@ -326,11 +341,26 @@ let SCHEDULE={}, CLASSES=[], DEPARTMENTS=[];
 
 const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday"];
 const DAYVAR={Monday:"--mon",Tuesday:"--tue",Wednesday:"--wed",Thursday:"--thu",Friday:"--fri"};
+/* Bell timings 2026-27 — teaching periods I–VIII map to periods 1–8. */
+const BELL={1:{r:"I",s:"9:15",e:"9:50"},2:{r:"II",s:"9:50",e:"10:25"},3:{r:"III",s:"10:25",e:"11:00"},4:{r:"IV",s:"11:25",e:"12:00"},5:{r:"V",s:"12:00",e:"12:30"},6:{r:"VI",s:"12:30",e:"1:00"},7:{r:"VII",s:"1:00",e:"1:30"},8:{r:"VIII",s:"1:30",e:"2:00"}};
+const BELL_PRE=[{r:"Assembly",t:"7:55–8:20"},{r:"CT",t:"8:20–8:25"},{r:"Extended Slot",t:"8:25–9:15"}];
+const BREAK_AFTER=3, BREAK_TIME="11:00–11:25";
+const periodLabel=p=>(BELL[p]?BELL[p].r:("P"+p));
+const periodTime=p=>(BELL[p]?BELL[p].s+"–"+BELL[p].e:"");
+function periodText(e){ const a=e.period, b=e.periodEnd||e.period; const lab=b>a?periodLabel(a)+"–"+periodLabel(b):periodLabel(a); const tim=(BELL[a]&&BELL[b])?BELL[a].s+"–"+BELL[b].e:""; return {lab,tim}; }
+function bellRefHTML(){
+  const chip=(r,t,cls)=>`<span class="bell-chip${cls?" "+cls:""}"><b>${esc(r)}</b><span>${esc(t)}</span></span>`;
+  let h=`<div class="bell-ref"><div class="bell-ref-h">Bell timings 2026–27 · Monday to Friday</div><div class="bell-chips">`;
+  BELL_PRE.forEach(b=>{ h+=chip(b.r,b.t,"pre"); });
+  for(let p=1;p<=PERIODS;p++){ if(p===BREAK_AFTER+1) h+=chip("Break",BREAK_TIME,"brk"); h+=chip(BELL[p].r,BELL[p].t); }
+  h+=`</div></div>`;
+  return h;
+}
 
 function classSort(a,b){const ga=parseInt(a),gb=parseInt(b);return ga!==gb?ga-gb:a.slice(String(ga).length).localeCompare(b.slice(String(gb).length));}
 function ent(s){
   s=String(s||"").trim();
-  if(s.indexOf("SDP:")===0){const g=s.slice(4).split(",").map(x=>x.trim()).filter(Boolean);return{act:"SDP",group:g,slug:"SDP_"+g.join("_"),label:"SDP "+g.join(", ")};}
+  if(s.indexOf("SDP:")===0){const g=s.slice(4).split(",").map(x=>x.trim()).filter(Boolean).sort(classSort);return{act:"SDP",group:g,slug:"SDP_"+g.join("_"),label:"SDP "+g.join(", ")};}
   if(s.indexOf("Lib:")===0){const c=s.slice(4).trim();return{act:"Lib",code:c,room:ROOMS[c],slug:"Lib_"+c,label:"Lib "+c};}
   if(s.indexOf("libJ:")===0){const c=s.slice(5).trim();return{act:"libJ",code:c,room:ROOMS[c],slug:"libJ_"+c,label:"libJ "+c};}
   const c=s;return{act:"V.Ed.",code:c,room:ROOMS[c],slug:c,label:c};
@@ -346,7 +376,11 @@ function rebuildDerived(){
   CLASSES=Object.keys(ROOMS).sort(classSort);
   DEPARTMENTS=[...new Set([...(DEPTS||[]), ...TEACHERS.map(t=>t.dept)])].filter(Boolean).sort();
   SCHEDULE={};
-  for(const t of TEACHERS){ SCHEDULE[t.id]={}; for(const d of DAYS){ SCHEDULE[t.id][d]=(((RAW[t.id]||{})[d])||[]).map(ent); } }
+  for(const t of TEACHERS){ SCHEDULE[t.id]={}; for(const d of DAYS){
+    const arr=(((RAW[t.id]||{})[d])||[]).map((code,i)=> String(code||"").trim() ? Object.assign(ent(code),{period:i+1,periodEnd:i+1}) : null).filter(Boolean);
+    const merged=[]; for(const e of arr){ const last=merged[merged.length-1]; if(last && last.slug===e.slug && e.period===last.periodEnd+1) last.periodEnd=e.period; else merged.push(e); }
+    SCHEDULE[t.id][d]=merged;
+  } }
 }
 rebuildDerived();
 
@@ -598,11 +632,14 @@ function renderDay(){
   if(!list.length){
     html+=`<div class="noclass">No classes scheduled for ${esc(dName)}. You can still add a substitute class, event, training, or duty below.</div>`;
   }
+  let breakDone=false;
   list.forEach(e=>{
+    if(!breakDone && e.period>BREAK_AFTER){ html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div>`; breakDone=true; }
     const dk=dkeyOf(dName,e.slug), rec=state.blob[dk]||{}, t=rec.t||"", r=rec.r||"";
+    const pt=periodText(e); const per=`<span class="per">${esc(pt.lab)} · ${esc(pt.tim)}</span>`;
     const chip = e.act==="SDP"
-      ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span></span>`
-      : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(subjectOf(e.act,dept))}</span><span class="rm">Room ${e.room}</span></span>`;
+      ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span>${per}</span>`
+      : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(subjectOf(e.act,dept))}</span><span class="rm">Room ${e.room}</span>${per}</span>`;
     html+=`<div class="row">${chip}
       <div class="lg${t.trim()?" has":""}" data-lg="${esc(dk)}"><input type="text" placeholder="Topic covered" value="${esc(t)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','t',this.value)"></div>
       <div><input type="text" placeholder="Remark (optional)" value="${esc(r)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','r',this.value)"></div></div>`;
@@ -739,7 +776,7 @@ function buildRows(){
           if(!classMatch(e,a.cls))continue;
           const rec=blob[dkeyOf(day,e.slug)]||{}, topic=(rec.t||""), remark=(rec.r||"");
           if(q && !(topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||(e.code||"").toLowerCase().includes(q)))continue;
-          rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day,dayi:dayIndex(day),cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,subject:subjectOf(e.act,dept),topic,remark,u:rec.u||"",logged:!!topic.trim(),extra:false});
+          rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day,dayi:dayIndex(day),period:e.period||null,periodEnd:e.periodEnd||e.period||null,cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,subject:subjectOf(e.act,dept),topic,remark,u:rec.u||"",logged:!!topic.trim(),extra:false});
         }
       }
       const xd=blob._x||{};
@@ -803,7 +840,7 @@ function renderAdminResults(){
     <th onclick="sortBy('date')">Date ${arrow("date")}</th><th onclick="sortBy('teacher')">Teacher ${arrow("teacher")}</th><th onclick="sortBy('cls')">Class ${arrow("cls")}</th><th>Room</th><th>Subject</th><th onclick="sortBy('topic')">Topic covered ${arrow("topic")}</th><th>Remark</th><th onclick="sortBy('upd')">Updated ${arrow("upd")}</th>
   </tr></thead><tbody>`;
   if(!sorted.length){ html+=`<tr><td colspan="8" class="emptyrow">No entries match these filters.</td></tr>`; }
-  else{ for(const r of sorted){ html+=`<tr><td class="dt">${esc(shortDate(r.date))}</td><td>${esc(r.tname)}</td><td class="cls">${esc(r.cls)}</td><td class="rm">${r.room||"—"}</td><td class="act"><span class="tag${r.extra?" extra":""}">${esc(r.subject)}</span></td><td class="${r.topic?"":"empty"}">${r.topic?esc(r.topic):"—"}</td><td class="${r.remark?"":"empty"}">${r.remark?esc(r.remark):"—"}</td><td class="upd">${r.u?fmtWhen(r.u):"—"}</td></tr>`; } }
+  else{ for(const r of sorted){ html+=`<tr><td class="dt">${esc(shortDate(r.date))}</td><td>${esc(r.tname)}</td><td class="cls">${esc(r.cls)}${r.period?`<span class="cls-per">${esc(periodText(r).lab)} · ${esc(periodText(r).tim)}</span>`:""}</td><td class="rm">${r.room||"—"}</td><td class="act"><span class="tag${r.extra?" extra":""}">${esc(r.subject)}</span></td><td class="${r.topic?"":"empty"}">${r.topic?esc(r.topic):"—"}</td><td class="${r.remark?"":"empty"}">${r.remark?esc(r.remark):"—"}</td><td class="upd">${r.u?fmtWhen(r.u):"—"}</td></tr>`; } }
   html+=`</tbody></table></div></div>`;
   host.innerHTML=html;
 }
@@ -813,9 +850,9 @@ function fmtWhen(iso){const d=new Date(iso);if(isNaN(d))return "—";return d.ge
 function exportCSV(){
   const a=state.admin;
   const rows=buildRows().slice().sort((x,y)=>(x.date||"").localeCompare(y.date||"")||x.tname.localeCompare(y.tname)||cmpClass(x.code,y.code));
-  const head=["Date","Day","Teacher","Class","Room","Subject","Topic covered","Remark","Updated"];
+  const head=["Date","Day","Period","Time","Teacher","Class","Room","Subject","Topic covered","Remark","Updated"];
   const q=v=>{v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-  let csv=head.join(",")+"\n"; for(const r of rows)csv+=[r.date,r.day,r.tname,r.cls,r.room,r.subject,r.topic,r.remark,r.u?fmtWhen(r.u):""].map(q).join(",")+"\n";
+  let csv=head.join(",")+"\n"; for(const r of rows)csv+=[r.date,r.day,r.period?periodText(r).lab:"",r.period?periodText(r).tim:"",r.tname,r.cls,r.room,r.subject,r.topic,r.remark,r.u?fmtWhen(r.u):""].map(q).join(",")+"\n";
   const tag=a.mode==="month"?monthOf(a.date):a.date;
   const fn="class-log_"+a.mode+"_"+tag+(a.teacher==="all"?"":"_"+a.teacher)+".csv";
   try{const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const el=document.createElement("a");el.href=url;el.download=fn;document.body.appendChild(el);el.click();setTimeout(()=>{URL.revokeObjectURL(url);el.remove();},500);toast("CSV downloaded","↓");}
@@ -878,7 +915,8 @@ function mountManage(){
   const tsel=TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<option value="${esc(t.id)}"${MG_TT===t.id?" selected":""}>${esc(t.name)}</option>`).join("");
   const cur=TEACHERS.find(t=>t.id===MG_TT)||TEACHERS[0];
   html+=`<section class="card"><div class="card-h"><h2>Timetables</h2></div>
-    <p class="muted mg-note">Edit a teacher's weekly timetable with a CSV sheet: pick the teacher, download their sheet (or a blank one), fill class codes under each period, then upload it back. Rows are weekdays; columns are periods P1–P${PERIODS}. Leave a cell blank for a free period. Special cells: library = <code>Lib:9C</code>, junior library = <code>libJ:7B</code>, group/SDP session = <code>SDP:12F;12B;12D</code> (separate classes with semicolons).</p>
+    <p class="muted mg-note">Edit a teacher's weekly timetable with a CSV sheet: pick the teacher, download their sheet (or a blank one), fill class codes under each period, then upload it back. Rows are weekdays; columns are the teaching periods <b>I–VIII</b> (see bell timings below). Leave a cell blank for a free period — blanks are kept, so a class always stays in its correct period. Special cells: library = <code>Lib:9C</code>, junior library = <code>libJ:7B</code>, group/SDP session = <code>SDP:12F;12B;12D</code> (separate classes with semicolons).</p>
+    ${bellRefHTML()}
     <div class="field" style="max-width:340px"><label>Teacher</label><select id="tt-teacher" onchange="mgPickTT(this.value)">${tsel}</select></div>
     <div class="mg-actions">
       <button class="btn" onclick="mgDownloadTeacher()">Download this teacher's timetable</button>
@@ -888,8 +926,9 @@ function mountManage(){
   if(cur){
     html+=`<div class="mg-tt-preview"><div class="muted" style="margin-bottom:6px">Current — ${esc(cur.name)}</div>`;
     DAYS.forEach(d=>{
-      const arr=((RAW[cur.id]||{})[d])||[];
-      html+=`<div class="mg-tt-day"><span class="mg-tt-dname">${d.slice(0,3)}</span><span class="mg-tt-cells">${arr.length?arr.map(x=>`<span class="mg-tt-cell">${esc(x)}</span>`).join(""):`<span class="muted">—</span>`}</span></div>`;
+      const arr=(SCHEDULE[cur.id]&&SCHEDULE[cur.id][d])||[];
+      const cellTxt=e=> e.act==="SDP" ? ("SDP "+e.group.join(",")) : (e.code+(e.act==="Lib"?" (Lib)":e.act==="libJ"?" (libJ)":""));
+      html+=`<div class="mg-tt-day"><span class="mg-tt-dname">${d.slice(0,3)}</span><span class="mg-tt-cells">${arr.length?arr.map(e=>`<span class="mg-tt-cell"><em>${esc(periodLabel(e.period))}</em> ${esc(cellTxt(e))}</span>`).join(""):`<span class="muted">—</span>`}</span></div>`;
     });
     html+=`</div>`;
   }
@@ -996,7 +1035,7 @@ function parseCSV(text){
 function cellOut(s){ s=String(s||""); return s.indexOf("SDP:")===0 ? "SDP:"+s.slice(4).split(",").map(x=>x.trim()).filter(Boolean).join(";") : s; }
 function cellIn(s){ s=String(s||"").trim(); if(!s) return ""; if(s.indexOf("SDP:")===0) return "SDP:"+s.slice(4).split(/[;,]/).map(x=>x.trim()).filter(Boolean).join(","); return s; }
 function matchDay(s){ s=String(s||"").trim().toLowerCase(); for(const d of DAYS){ if(d.toLowerCase()===s) return d; } for(const d of DAYS){ if(s.length>=3 && d.toLowerCase().slice(0,3)===s.slice(0,3)) return d; } return null; }
-function ttHeader(){ const h=["Day"]; for(let p=1;p<=PERIODS;p++) h.push("P"+p); return h; }
+function ttHeader(){ const h=["Day"]; for(let p=1;p<=PERIODS;p++) h.push(periodLabel(p)); return h; }
 function timetableCSV(id){
   const rows=[ttHeader()];
   DAYS.forEach(d=>{ const arr=(((RAW[id]||{})[d])||[]).slice(0,PERIODS).map(cellOut); while(arr.length<PERIODS) arr.push(""); rows.push([d,...arr]); });
@@ -1014,8 +1053,9 @@ function applyTimetableCSV(id,text){
   const newRaw={}; const unknown=new Set(); let count=0;
   rows.forEach(r=>{
     const day=matchDay(r[0]); if(!day) return;
-    const cells=r.slice(1).map(cellIn).filter(Boolean);
-    cells.forEach(c=>{ const e=ent(c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
+    const cells=r.slice(1,1+PERIODS).map(cellIn);
+    while(cells.length && !cells[cells.length-1]) cells.pop();
+    cells.forEach(c=>{ if(!c) return; const e=ent(c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
     newRaw[day]=cells; count++;
   });
   RAW[id]=newRaw;
