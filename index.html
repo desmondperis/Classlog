@@ -117,6 +117,15 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .row.extra .xdel:hover{border-color:#d66; color:#c0392b; background:#fff5f5}
 .addx{display:block; width:100%; appearance:none; border:1px dashed var(--line); background:transparent; color:var(--blue); border-radius:10px; padding:10px 12px; font-weight:700; font-size:13px; cursor:pointer; margin-top:8px}
 .addx:hover{border-color:var(--blue); background:var(--blue-l)}
+.addx.small{margin-top:6px; padding:8px 12px; font-size:12.5px}
+.row.extra select{width:100%}
+.slot{border-top:1px solid #eef2f6; padding:9px 6px}
+.slot-h{display:flex; align-items:baseline; gap:8px}
+.slot-lab{font-weight:800; font-size:13.5px}
+.slot-time{font-size:11.5px; color:var(--muted); font-weight:600}
+.slot.free .slot-lab{color:var(--muted); font-weight:700}
+.slot.other{background:#fafbfd}
+.slot .row.extra{border-top:none}
 .tag.extra{background:#fdeecf; color:#9a5b12}
 
 /* Admin */
@@ -284,7 +293,7 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
     </div>
     <div class="tabs" id="tabs" role="tablist" hidden>
       <button class="tab" id="tab-teacher" role="tab" aria-selected="true" onclick="setMode('teacher')">Log a class</button>
-      <button class="tab" id="tab-admin" role="tab" aria-selected="false" onclick="setMode('admin')">Coverage dashboard</button>
+      <button class="tab" id="tab-admin" role="tab" aria-selected="false" onclick="setMode('admin')">Dashboard</button>
       <button class="tab" id="tab-manage" role="tab" aria-selected="false" hidden onclick="setMode('manage')">Admin</button>
     </div>
   </div>
@@ -334,6 +343,8 @@ const DEFAULT_RAW={
 };
 
 let ROOMS = Object.assign({}, DEFAULT_ROOMS);
+const DEFAULT_PLACES=["Library","Physics Lab","Chemistry Lab","Biology Lab","Computer Lab","Music Room","Art Room","Activity Room","Auditorium","Sports Ground","Staff Room"];
+let PLACES = DEFAULT_PLACES.slice();
 let TEACHERS = DEFAULT_TEACHERS.map(t=>Object.assign({},t));
 let RAW = JSON.parse(JSON.stringify(DEFAULT_RAW));
 let DEPTS = [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))];
@@ -343,7 +354,7 @@ const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday"];
 const DAYVAR={Monday:"--mon",Tuesday:"--tue",Wednesday:"--wed",Thursday:"--thu",Friday:"--fri"};
 /* Bell timings 2026-27 — teaching periods I–VIII map to periods 1–8. */
 const BELL={1:{r:"I",s:"9:15",e:"9:50"},2:{r:"II",s:"9:50",e:"10:25"},3:{r:"III",s:"10:25",e:"11:00"},4:{r:"IV",s:"11:25",e:"12:00"},5:{r:"V",s:"12:00",e:"12:30"},6:{r:"VI",s:"12:30",e:"1:00"},7:{r:"VII",s:"1:00",e:"1:30"},8:{r:"VIII",s:"1:30",e:"2:00"}};
-const BELL_PRE=[{r:"Assembly",t:"7:55–8:20"},{r:"CT",t:"8:20–8:25"},{r:"Extended Slot",t:"8:25–9:15"}];
+const BELL_PRE=[{id:"assembly",r:"Assembly",t:"7:55–8:20"},{id:"ct",r:"CT",t:"8:20–8:25"},{id:"ext",r:"Extended Slot",t:"8:25–9:15"}];
 const BREAK_AFTER=3, BREAK_TIME="11:00–11:25";
 const periodLabel=p=>(BELL[p]?BELL[p].r:("P"+p));
 const periodTime=p=>(BELL[p]?BELL[p].s+"–"+BELL[p].e:"");
@@ -416,15 +427,17 @@ async function apiGetMany(keys){
   }catch(e){ return {}; }
 }
 async function loadAppConfig(){
-  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:depts"]);
+  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:depts","cfg:places"]);
   try{ if(v["cfg:teachers"]) TEACHERS=JSON.parse(v["cfg:teachers"]); }catch(e){}
   try{ if(v["cfg:rooms"]) ROOMS=JSON.parse(v["cfg:rooms"]); }catch(e){}
   try{ if(v["cfg:schedule"]) RAW=JSON.parse(v["cfg:schedule"]); }catch(e){}
   try{ if(v["cfg:depts"]) DEPTS=JSON.parse(v["cfg:depts"]); }catch(e){}
+  try{ if(v["cfg:places"]) PLACES=JSON.parse(v["cfg:places"]); }catch(e){}
   if(!Array.isArray(TEACHERS)||!TEACHERS.length) TEACHERS=DEFAULT_TEACHERS.map(t=>Object.assign({},t));
   if(!ROOMS||typeof ROOMS!=="object") ROOMS=Object.assign({},DEFAULT_ROOMS);
   if(!RAW||typeof RAW!=="object") RAW={};
   if(!Array.isArray(DEPTS)) DEPTS=[];
+  if(!Array.isArray(PLACES)) PLACES=DEFAULT_PLACES.slice();
   rebuildDerived();
 }
 async function saveCfg(key,obj,label){ rebuildDerived(); const ok=await apiSet(key,JSON.stringify(obj)); toast(ok?(label||"Saved"):"Couldn't save — admins only / check connection", ok?"✓":"⚠"); return ok; }
@@ -432,6 +445,16 @@ const saveTeachersCfg = ()=> saveCfg("cfg:teachers",TEACHERS,"Teachers saved");
 const saveRoomsCfg    = ()=> saveCfg("cfg:rooms",ROOMS,"Rooms saved");
 const saveScheduleCfg = ()=> saveCfg("cfg:schedule",RAW,"Timetable saved");
 const saveDeptsCfg    = ()=> saveCfg("cfg:depts",DEPTS,"Departments saved");
+const savePlacesCfg   = ()=> saveCfg("cfg:places",PLACES,"Rooms saved");
+function roomOptions(sel){
+  sel=sel||"";
+  let o=`<option value=""${sel?"":" selected"}>Room / place…</option>`;
+  if(PLACES&&PLACES.length){ o+=`<optgroup label="Rooms &amp; labs">`; PLACES.forEach(p=>{ o+=`<option${sel===p?" selected":""}>${esc(p)}</option>`; }); o+=`</optgroup>`; }
+  if(CLASSES.length){ o+=`<optgroup label="Classrooms">`; CLASSES.forEach(c=>{ const lb=c+" · Room "+ROOMS[c]; o+=`<option value="${esc(lb)}"${sel===lb?" selected":""}>${esc(lb)}</option>`; }); o+=`</optgroup>`; }
+  const known = (PLACES||[]).indexOf(sel)>=0 || CLASSES.some(c=>(c+" · Room "+ROOMS[c])===sel);
+  if(sel && !known) o+=`<option value="${esc(sel)}" selected>${esc(sel)}</option>`;
+  return o;
+}
 
 /* ---------- Dates ---------- */
 const pad=n=>String(n).padStart(2,"0");
@@ -444,6 +467,7 @@ function weekRange(week){const m=parseYmd(week),f=addDays(m,4);
   if(m.getMonth()===f.getMonth())return m.getDate()+"–"+f.getDate()+" "+MON[m.getMonth()]+" "+m.getFullYear();
   const sameY=m.getFullYear()===f.getFullYear();
   return m.getDate()+" "+MON[m.getMonth()]+(sameY?"":" "+m.getFullYear())+" – "+f.getDate()+" "+MON[f.getMonth()]+" "+f.getFullYear();}
+function isoWeek(dateStr){const d=parseYmd(dateStr);const t=new Date(d.getFullYear(),d.getMonth(),d.getDate());const dn=(t.getDay()+6)%7;t.setDate(t.getDate()-dn+3);const ft=new Date(t.getFullYear(),0,4);const fd=(ft.getDay()+6)%7;ft.setDate(ft.getDate()-fd+3);return 1+Math.round((t-ft)/6048e5);}
 function dayDate(week,i){const d=addDays(parseYmd(week),i);return d.getDate()+" "+MON[d.getMonth()];}
 const MONFULL=["January","February","March","April","May","June","July","August","September","October","November","December"];
 const ALLDAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
@@ -621,38 +645,63 @@ function updateProg(){
   pill.classList.toggle("done",total>0&&done===total);
 }
 function subjectOf(act,dept){ return (act==="Lib"||act==="libJ") ? "Library" : (act==="SDP" ? "SDP" : (dept||"Value Education")); }
+function daySlots(id,dName){
+  const classes=(SCHEDULE[id]&&SCHEDULE[id][dName])||[];
+  const byStart={},covered={};
+  classes.forEach(e=>{ byStart[e.period]=e; for(let p=e.period;p<=(e.periodEnd||e.period);p++) covered[p]=true; });
+  const out=[];
+  BELL_PRE.forEach(b=>out.push({type:"slot",sid:b.id,label:b.r,time:b.t}));
+  for(let p=1;p<=PERIODS;p++){
+    if(p===BREAK_AFTER+1) out.push({type:"break"});
+    if(byStart[p]){ const e=byStart[p],pt=periodText(e); out.push({type:"class",e,label:pt.lab,time:pt.tim}); }
+    else if(covered[p]) continue;
+    else out.push({type:"slot",sid:"p"+p,label:"Period "+periodLabel(p),time:periodTime(p),free:true});
+  }
+  return out;
+}
+function xRow(dName,xi,x){
+  return `<div class="row extra">
+    <input type="text" placeholder="What you did (e.g. Substituted 9A – Science)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)">
+    <select class="roomsel" onchange="editX('${esc(dName)}',${xi},'rm',this.value)">${roomOptions(x.rm||"")}</select>
+    <input type="text" placeholder="Remark (optional)" value="${esc(x.r||"")}" oninput="editX('${esc(dName)}',${xi},'r',this.value)">
+    <button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">×</button></div>`;
+}
 function renderDay(){
   const host=document.getElementById("day"); const id=state.teacherId; const dept=deptOf(id);
-  const dName=dayName(state.date); const isWknd=(dName==="Saturday"||dName==="Sunday");
+  const dName=dayName(state.date); const isWeekday=DAYS.indexOf(dName)>=0;
   const list=(SCHEDULE[id]&&SCHEDULE[id][dName])||[];
   const done=list.filter(e=>((state.blob[dkeyOf(dName,e.slug)]||{}).t||"").trim()).length;
   const dvar=DAYVAR[dName]||"--blue";
-  const cnt=list.length?(done+"/"+list.length+" logged"):(isWknd?"weekend":"no scheduled classes");
+  const cnt=list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend");
+  const allX=(state.blob._x && state.blob._x[dName]) || [];
+  const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
   let html=`<section class="day" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span></div><div class="rows">`;
-  if(!list.length){
-    html+=`<div class="noclass">No classes scheduled for ${esc(dName)}. You can still add a substitute class, event, training, or duty below.</div>`;
+  if(isWeekday){
+    daySlots(id,dName).forEach(s=>{
+      if(s.type==="break"){ html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div>`; return; }
+      if(s.type==="class"){
+        const e=s.e, dk=dkeyOf(dName,e.slug), rec=state.blob[dk]||{}, t=rec.t||"", r=rec.r||"";
+        const per=`<span class="per">${esc(s.label)} · ${esc(s.time)}</span>`;
+        const chip = e.act==="SDP"
+          ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span>${per}</span>`
+          : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(subjectOf(e.act,dept))}</span><span class="rm">Room ${e.room}</span>${per}</span>`;
+        html+=`<div class="row">${chip}
+          <div class="lg${t.trim()?" has":""}" data-lg="${esc(dk)}"><input type="text" placeholder="Topic covered" value="${esc(t)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','t',this.value)"></div>
+          <div><input type="text" placeholder="Remark (optional)" value="${esc(r)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','r',this.value)"></div></div>`;
+        return;
+      }
+      const items=xFor(s.sid);
+      html+=`<div class="slot${s.free?" free":""}"><div class="slot-h"><span class="slot-lab">${esc(s.label)}</span><span class="slot-time">${esc(s.time)}${s.free?" · free":""}</span></div>`;
+      items.forEach(o=> html+=xRow(dName,o.xi,o.x));
+      html+=`<button class="addx small" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
+    });
+  } else {
+    html+=`<div class="noclass">It's the weekend — no scheduled periods. You can still log any duty, event, or training below.</div>`;
   }
-  let breakDone=false;
-  list.forEach(e=>{
-    if(!breakDone && e.period>BREAK_AFTER){ html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div>`; breakDone=true; }
-    const dk=dkeyOf(dName,e.slug), rec=state.blob[dk]||{}, t=rec.t||"", r=rec.r||"";
-    const pt=periodText(e); const per=`<span class="per">${esc(pt.lab)} · ${esc(pt.tim)}</span>`;
-    const chip = e.act==="SDP"
-      ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span>${per}</span>`
-      : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(subjectOf(e.act,dept))}</span><span class="rm">Room ${e.room}</span>${per}</span>`;
-    html+=`<div class="row">${chip}
-      <div class="lg${t.trim()?" has":""}" data-lg="${esc(dk)}"><input type="text" placeholder="Topic covered" value="${esc(t)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','t',this.value)"></div>
-      <div><input type="text" placeholder="Remark (optional)" value="${esc(r)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','r',this.value)"></div></div>`;
-  });
-  const extras=(state.blob._x && state.blob._x[dName]) || [];
-  extras.forEach((x,xi)=>{
-    html+=`<div class="row extra">
-      <input type="text" placeholder="Substitute class, event, training, etc." value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)">
-      <input type="text" placeholder="Topic / details" value="${esc(x.t||"")}" oninput="editX('${esc(dName)}',${xi},'t',this.value)">
-      <input type="text" placeholder="Remark (optional)" value="${esc(x.r||"")}" oninput="editX('${esc(dName)}',${xi},'r',this.value)">
-      <button class="xdel" title="Remove this entry" onclick="removeX('${esc(dName)}',${xi})">×</button></div>`;
-  });
-  html+=`<button class="addx" onclick="addX('${esc(dName)}')">+ Add substitute / event / other</button>`;
+  const other=xFor("");
+  html+=`<div class="slot other"><div class="slot-h"><span class="slot-lab">Other work</span><span class="slot-time">not tied to a period</span></div>`;
+  other.forEach(o=> html+=xRow(dName,o.xi,o.x));
+  html+=`<button class="addx small" onclick="addX('${esc(dName)}','')">+ Add event / duty / other</button></div>`;
   html+=`</div></section>`;
   host.innerHTML=html; updateProg();
 }
@@ -663,13 +712,11 @@ function editX(day,idx,field,val){
   arr[idx][field]=val; arr[idx].u=new Date().toISOString();
   clearTimeout(saveTimer); saveTimer=setTimeout(saveTeacher,550);
 }
-function addX(day){
+function addX(day,slot){
   if(!state.blob._x) state.blob._x={};
   if(!state.blob._x[day]) state.blob._x[day]=[];
-  state.blob._x[day].push({c:"",t:"",r:"",u:new Date().toISOString()});
+  state.blob._x[day].push({c:"",r:"",rm:"",slot:slot||"",u:new Date().toISOString()});
   renderDay();
-  const sec=document.getElementById("day-"+day);
-  if(sec){ const ins=sec.querySelectorAll(".row.extra input"); if(ins.length) ins[ins.length-3].focus(); }
 }
 function removeX(day,idx){
   if(state.blob._x && state.blob._x[day]){ state.blob._x[day].splice(idx,1); if(!state.blob._x[day].length) delete state.blob._x[day]; }
@@ -686,7 +733,7 @@ function edit(day,slug,field,val){
 }
 async function saveTeacher(){
   const payload=JSON.parse(JSON.stringify(state.blob));
-  if(payload._x){ for(const d in payload._x){ payload._x[d]=payload._x[d].filter(x=>(x.c||"").trim()||(x.t||"").trim()||(x.r||"").trim()); if(!payload._x[d].length) delete payload._x[d]; } if(!Object.keys(payload._x).length) delete payload._x; }
+  if(payload._x){ for(const d in payload._x){ payload._x[d]=payload._x[d].filter(x=>(x.c||"").trim()||(x.r||"").trim()||(x.rm||"").trim()||(x.t||"").trim()); if(!payload._x[d].length) delete payload._x[d]; } if(!Object.keys(payload._x).length) delete payload._x; }
   const okr=await store.set(wkey(curWeek(),state.teacherId),JSON.stringify(payload),true);
   toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠");
 }
@@ -695,7 +742,7 @@ async function saveTeacher(){
 let adminBlobs={};
 function rangeWeeks(){ const a=state.admin; if(a.mode==="month") return weeksInMonth(a.date); return [ymd(mondayOf(parseYmd(a.date)))]; }
 function inRange(dateStr){ const a=state.admin; if(a.mode==="day") return dateStr===a.date; if(a.mode==="month") return monthOf(dateStr)===monthOf(a.date); return ymd(mondayOf(parseYmd(dateStr)))===ymd(mondayOf(parseYmd(a.date))); }
-function rangeLabel(){ const a=state.admin; if(a.mode==="day") return dayName(a.date)+", "+niceDate(a.date); if(a.mode==="month") return monthLabel(a.date); return weekRange(ymd(mondayOf(parseYmd(a.date)))); }
+function rangeLabel(){ const a=state.admin; if(a.mode==="day") return dayName(a.date)+", "+niceDate(a.date); if(a.mode==="month") return monthLabel(a.date); const wk=ymd(mondayOf(parseYmd(a.date))); return "Week "+isoWeek(wk)+" · "+weekRange(wk); }
 async function mountAdmin(){
   const a=state.admin;
   const hod = state.role==="hod";
@@ -785,11 +832,13 @@ function buildRows(){
         if(!inRange(dateStr))continue;
         if(a.day!=="all"&&dName!==a.day)continue;
         (xd[dName]||[]).forEach(x=>{
-          const desc=(x.c||""), topic=(x.t||""), remark=(x.r||"");
-          if(!desc.trim() && !topic.trim() && !remark.trim()) return;
+          const desc=(x.c||""), remark=(x.r||""), room=(x.rm||""), slot=(x.slot||"");
+          if(!desc.trim() && !remark.trim() && !room.trim()) return;
           if(a.cls!=="all") return;
-          if(q && !(desc.toLowerCase().includes(q)||topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q))) return;
-          rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day:dName,dayi:dayIndex(dName),cls:desc||"(no description)",code:"",room:"",act:"Extra",subject:"Extra",topic,remark,u:x.u||"",logged:!!(desc.trim()||topic.trim()),extra:true});
+          const pm=/^p([1-8])$/.exec(slot); const per=pm?parseInt(pm[1],10):null;
+          const slotName = per?("Period "+periodLabel(per)) : (slot==="assembly"?"Assembly":slot==="ct"?"CT":slot==="ext"?"Extended Slot":"");
+          if(q && !(desc.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||room.toLowerCase().includes(q))) return;
+          rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day:dName,dayi:dayIndex(dName),period:per,periodEnd:per,cls:(slotName?slotName+": ":"")+(desc||"(no description)"),code:"",room:room||"—",act:"Extra",subject:"Extra",topic:desc,remark,u:x.u||"",logged:!!desc.trim(),extra:true});
         });
       }
     }
@@ -807,26 +856,11 @@ function renderAdminResults(){
   let html=`<div class="kpis">
     <div class="kpi"><div class="n">${sched}</div><div class="k">Classes scheduled</div></div>
     <div class="kpi"><div class="n">${logged}<small> / ${sched}</small></div><div class="k">Topics logged</div></div>
-    <div class="kpi accent"><div class="n">${pct}<small>%</small></div><div class="k">Coverage</div></div>
+    <div class="kpi"><div class="n">${pct}<small>%</small></div><div class="k">Coverage</div></div>
     ${state.role==="teacher"
       ? `<div class="kpi"><div class="n">${extraRows.length}</div><div class="k">Extra entries</div></div>`
       : `<div class="kpi"><div class="n">${reporting}<small> / ${ids.length}</small></div><div class="k">Teachers reporting</div></div>`}
   </div>`;
-  if(state.role!=="teacher"){
-  const perT=ids.map(id=>{const rs=schedRows.filter(r=>r.teacher===id);const s=rs.length,l=rs.filter(r=>r.logged).length;const ex=extraRows.filter(r=>r.teacher===id).length;return {id,name:NAME(id),s,l,ex,p:s?l/s:0};}).filter(o=>o.s>0||o.ex>0);
-  perT.sort((x,y)=> y.p-x.p || x.name.localeCompare(y.name));
-  html+=`<div class="board"><h2>Coverage — ${esc(rangeLabel())}</h2><p class="sub">Logged vs scheduled per teacher for this ${a.mode}. Tap a name to filter the table below.</p><div class="covbars">`;
-  if(!perT.length){ html+=`<div class="sub">No teachers in scope for this range.</div>`; }
-  perT.forEach(o=>{
-    const pctT=Math.round(o.p*100), full=o.s>0&&o.l===o.s;
-    html+=`<div class="covbar" onclick="af('teacher','${o.id}')" title="${esc(o.name)}: ${o.l}/${o.s} logged${o.ex?" · "+o.ex+" extra":""}">
-      <div class="cb-top"><span class="cb-name">${esc(o.name)}</span><span class="cb-num">${o.s?o.l+"/"+o.s:"—"}${o.ex?` <span class="cb-ex">+${o.ex}</span>`:""}</span></div>
-      <div class="cb-track"><div class="cb-fill${full?" full":""}" style="width:${o.s?pctT:0}%"></div></div>
-      <div class="cb-pct">${o.s?pctT+"% covered":"no scheduled classes"}</div>
-    </div>`;
-  });
-  html+=`</div></div>`;
-  }
   const sorted=rows.slice().sort((x,y)=>{let r=0;const k=a.sortKey;
     if(k==="date")r=(x.date||"").localeCompare(y.date||"")||x.tname.localeCompare(y.tname)||cmpClass(x.code,y.code);
     else if(k==="teacher")r=x.tname.localeCompare(y.tname)||(x.date||"").localeCompare(y.date||"")||cmpClass(x.code,y.code);
