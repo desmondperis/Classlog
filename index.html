@@ -228,6 +228,10 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .mg-details summary{font-size:15px; font-weight:800; cursor:pointer}
 .mg-rooms{max-height:230px; overflow-y:auto; margin-top:12px}
 @media (max-width:560px){ .mg-grid{grid-template-columns:1fr} }
+.who-fixed{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:800; min-height:42px; display:flex; align-items:center; box-shadow:var(--shs)}
+.tag.role-admin{background:#e7effb; color:#1e3a66}
+.tag.role-leader{background:#e9f6ea; color:#22692a}
+.tag.role-hod{background:#fdf0e4; color:#8a4b12}
 .foot{margin-top:26px; text-align:center; color:var(--muted); font-size:12px; line-height:1.6}
 
 .toast{position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px); background:#17233b; color:#fff; padding:11px 18px; border-radius:999px; font-size:13px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; transition:.2s; pointer-events:none; z-index:50; display:flex; gap:8px; align-items:center}
@@ -333,6 +337,11 @@ function ent(s){
 }
 const NAME=id=>(TEACHERS.find(t=>t.id===id)||{}).name||id;
 const deptOf=id=>{const t=TEACHERS.find(x=>x.id===id);return t?t.dept:"";};
+const ROLES=["teacher","hod","leader","admin"];
+const ROLE_LABEL={teacher:"Teacher — own classes only", hod:"HOD — sees own department", leader:"Leader — sees all (principal / VP)", admin:"Admin — full access & management"};
+const ROLE_SHORT={teacher:"Teacher", hod:"HOD", leader:"Leader", admin:"Admin"};
+function roleOf(t){ if(!t) return "teacher"; if(t.role && ROLES.includes(t.role)) return t.role; if(t.admin===true) return "admin"; return "teacher"; }
+function canSeeDashboard(){ if(state.role==="admin"||state.role==="leader"||state.role==="hod") return true; return !!state.myTeacherId; }
 function rebuildDerived(){
   CLASSES=Object.keys(ROOMS).sort(classSort);
   DEPARTMENTS=[...new Set([...(DEPTS||[]), ...TEACHERS.map(t=>t.dept)])].filter(Boolean).sort();
@@ -361,7 +370,7 @@ async function whoami(){
     if(r.status===401){ SID=""; prefSet("sid",""); prefSet("session:user",""); return {ok:false}; }
     if(!r.ok) return {ok:false};
     const d=await r.json();
-    return {ok:true, email:d.email||"", admin:!!d.admin, bootstrap:!!d.bootstrap};
+    return {ok:true, email:d.email||"", role:d.role||"teacher", teacherId:d.teacherId||null, dept:d.dept||"", admin:!!d.admin, bootstrap:!!d.bootstrap};
   }catch(e){ return {ok:false}; }
 }
 async function apiGetMany(keys){
@@ -416,7 +425,7 @@ const thisWeek=ymd(mondayOf(new Date()));
 const today=ymd(new Date());
 
 /* ---------- State ---------- */
-const state={mode:"teacher", user:null, teacherId:null, isAdmin:false, email:"", bootstrapAdmin:false, date:today, blob:{},
+const state={mode:"teacher", user:null, teacherId:null, isAdmin:false, role:"teacher", myTeacherId:null, dept:"", email:"", bootstrapAdmin:false, date:today, blob:{},
   admin:{mode:"week", date:today, dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"date",sortDir:1}};
 function curWeek(){return ymd(mondayOf(parseYmd(state.date)));}
 let saveTimer=null, pollTimer=null;
@@ -478,11 +487,16 @@ async function signIn(user){
   state.user=user;
   await store.set("session:user",JSON.stringify(user),false);
   const who=await whoami();
-  state.isAdmin=who.ok&&who.admin; state.email=(who.ok&&who.email)||user.email||""; state.bootstrapAdmin=who.ok&&who.bootstrap;
+  state.role=(who.ok&&who.role)||"teacher"; state.isAdmin=state.role==="admin";
+  state.email=(who.ok&&who.email)||user.email||""; state.myTeacherId=(who.ok&&who.teacherId)||null; state.dept=(who.ok&&who.dept)||""; state.bootstrapAdmin=who.ok&&who.bootstrap;
   await loadAppConfig();
-  const last=await store.get("device:lastTeacher",false);
-  if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
-  else if(user.method==="google"){ const m=matchTeacher(user.name); if(m) state.teacherId=m; }
+  if(state.isAdmin){
+    const last=await store.get("device:lastTeacher",false);
+    if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
+    else state.teacherId=state.myTeacherId||(user.method==="google"?matchTeacher(user.name):null);
+  } else {
+    state.teacherId=state.myTeacherId||null;
+  }
   renderUser(); showApp();
 }
 async function signOut(){
@@ -499,10 +513,18 @@ function renderUser(){
   const av=u.picture?`<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">`:`<span class="av">${esc((u.name||"?").trim()[0]||"?")}</span>`;
   chip.innerHTML=`${av}<span class="uname">${esc(firstName(u.name))}</span><button class="signout" onclick="signOut()">Sign out</button>`;
 }
-function showApp(){ document.getElementById("tabs").hidden=false; const mt=document.getElementById("tab-manage"); if(mt) mt.hidden=!state.isAdmin; renderUser(); mountView(); }
+function showApp(){
+  document.getElementById("tabs").hidden=false;
+  const dash=document.getElementById("tab-admin"); if(dash) dash.hidden=!canSeeDashboard();
+  const mt=document.getElementById("tab-manage"); if(mt) mt.hidden=!state.isAdmin;
+  if(state.mode==="manage" && !state.isAdmin) state.mode="teacher";
+  if(state.mode==="admin" && !canSeeDashboard()) state.mode="teacher";
+  renderUser(); mountView();
+}
 
 function setMode(m){
   if(m==="manage" && !state.isAdmin) m="teacher";
+  if(m==="admin" && !canSeeDashboard()) m="teacher";
   state.mode=m;
   document.getElementById("tab-teacher").setAttribute("aria-selected",m==="teacher");
   document.getElementById("tab-admin").setAttribute("aria-selected",m==="admin");
@@ -516,15 +538,23 @@ function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="ma
 function scheduledCount(id){let n=0;for(const d of DAYS)n+=SCHEDULE[id][d].length;return n;}
 function loggedCount(blob){let n=0;for(const k in blob){if(k==="_x")continue; if((blob[k].t||"").trim())n++;}return n;}
 async function mountTeacher(){
-  const opts=TEACHERS.map(t=>`<option value="${t.id}"${t.id===state.teacherId?" selected":""}>${esc(t.name)}</option>`).join("");
+  if(!state.isAdmin && !state.teacherId){
+    view().innerHTML=`<div class="prompt"><b>Your account isn't linked to a teacher yet</b>You're signed in as ${esc(state.email||"your account")}. Ask an admin to add you with this email in the Admin tab — then your classes will appear here.</div>`;
+    return;
+  }
+  let whoCtl;
+  if(state.isAdmin){
+    const opts=TEACHERS.map(t=>`<option value="${t.id}"${t.id===state.teacherId?" selected":""}>${esc(t.name)}</option>`).join("");
+    whoCtl=`<label for="who">Teacher</label>
+      <select id="who" onchange="onTeacher(this.value)">
+        <option value=""${state.teacherId?"":" selected"} disabled>Select a teacher…</option>${opts}
+      </select>`;
+  } else {
+    whoCtl=`<label>Your name</label><div class="who-fixed">${esc(NAME(state.teacherId))}</div>`;
+  }
   view().innerHTML=`
     <div class="ctl">
-      <div class="field" style="min-width:230px">
-        <label for="who">Your name</label>
-        <select id="who" onchange="onTeacher(this.value)">
-          <option value=""${state.teacherId?"":" selected"} disabled>Select your name…</option>${opts}
-        </select>
-      </div>
+      <div class="field" style="min-width:230px">${whoCtl}</div>
       <div class="field"><label for="dpick">Date</label>
         <div class="wkpick">
           <button class="wkarrow" aria-label="Previous day" onclick="dayStep(-1)">‹</button>
@@ -631,8 +661,13 @@ function inRange(dateStr){ const a=state.admin; if(a.mode==="day") return dateSt
 function rangeLabel(){ const a=state.admin; if(a.mode==="day") return dayName(a.date)+", "+niceDate(a.date); if(a.mode==="month") return monthLabel(a.date); return weekRange(ymd(mondayOf(parseYmd(a.date)))); }
 async function mountAdmin(){
   const a=state.admin;
+  const hod = state.role==="hod";
+  const selfOnly = state.role==="teacher";
+  if(hod){ a.dept=state.dept; if(a.teacher!=="all" && !TEACHERS.some(t=>t.id===a.teacher && t.dept===state.dept)) a.teacher="all"; }
+  if(selfOnly){ a.teacher=state.myTeacherId; a.dept="all"; }
+  const teacherPool = hod ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS;
   const deptOpts=`<option value="all">All departments</option>`+DEPARTMENTS.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("");
-  const teacherOpts=`<option value="all">All teachers</option>`+TEACHERS.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
+  const teacherOpts=`<option value="all">All teachers</option>`+teacherPool.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
   const classOpts=`<option value="all">All classes</option>`+CLASSES.map(c=>`<option value="${c}">${c}</option>`).join("");
   const dayOpts=`<option value="all">All days</option>`+DAYS.map(d=>`<option value="${d}">${d}</option>`).join("");
   const sortOpts=[["date","Date"],["teacher","Teacher"],["cls","Class"],["upd","Recently updated"]].map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("");
@@ -640,6 +675,12 @@ async function mountAdmin(){
   const nav = a.mode==="month"
     ? `<input type="month" id="amon" value="${monthOf(a.date)}" onchange="pickAdminMonth(this.value)">`
     : `<input type="date" id="adate" value="${a.date}" onchange="pickAdminDate(this.value)">`;
+  const deptField = (hod||selfOnly)
+    ? `<div class="field"><label>Department</label><div class="who-fixed">${esc((selfOnly?deptOf(state.myTeacherId):state.dept)||"—")}</div></div>`
+    : `<div class="field"><label for="f-dep">Department</label><select id="f-dep" onchange="af('dept',this.value)">${deptOpts}</select></div>`;
+  const teacherField = selfOnly
+    ? `<div class="field"><label>Teacher</label><div class="who-fixed">${esc(NAME(state.myTeacherId))}</div></div>`
+    : `<div class="field"><label for="f-t">Teacher</label><select id="f-t" onchange="af('teacher',this.value)">${teacherOpts}</select></div>`;
   view().innerHTML=`
     <div class="filters">
       <div class="field"><label>View by</label><div class="modeseg">${seg}</div></div>
@@ -651,8 +692,8 @@ async function mountAdmin(){
         </div>
         <span class="wkcap" id="arange">${esc(rangeLabel())}</span>
       </div>
-      <div class="field"><label for="f-dep">Department</label><select id="f-dep" onchange="af('dept',this.value)">${deptOpts}</select></div>
-      <div class="field"><label for="f-t">Teacher</label><select id="f-t" onchange="af('teacher',this.value)">${teacherOpts}</select></div>
+      ${deptField}
+      ${teacherField}
       <div class="field"><label for="f-c">Class</label><select id="f-c" onchange="af('cls',this.value)">${classOpts}</select></div>
       ${a.mode==="day"?"":`<div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>`}
       <div class="field"><label for="f-sort">Sort by</label><select id="f-sort" onchange="setSort(this.value)">${sortOpts}</select></div>
@@ -672,11 +713,17 @@ function updateAdminNav(){ const a=state.admin; const r=document.getElementById(
 async function adminStep(n){ const a=state.admin; if(a.mode==="day")a.date=ymd(addDays(parseYmd(a.date),n)); else if(a.mode==="week")a.date=ymd(addDays(parseYmd(a.date),n*7)); else{const d=parseYmd(a.date);a.date=ymd(new Date(d.getFullYear(),d.getMonth()+n,1));} updateAdminNav(); await refreshAdmin(false); }
 async function pickAdminDate(v){ if(!v)return; state.admin.date=v; updateAdminNav(); await refreshAdmin(false); }
 async function pickAdminMonth(v){ if(!v)return; state.admin.date=v+"-01"; updateAdminNav(); await refreshAdmin(false); }
-async function refreshAdmin(manual){ const weeks=rangeWeeks(); const nb={}; await Promise.all(weeks.map(wk=>Promise.all(TEACHERS.map(async t=>{const raw=await store.get(wkey(wk,t.id),true);nb[wk+"|"+t.id]=raw?JSON.parse(raw):{};})))); adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻"); }
+async function refreshAdmin(manual){ const weeks=rangeWeeks(); const ids=visibleTeacherIds(); const nb={}; await Promise.all(weeks.map(wk=>Promise.all(ids.map(async id=>{const raw=await store.get(wkey(wk,id),true);nb[wk+"|"+id]=raw?JSON.parse(raw):{};})))); adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻"); }
 function scopeTeachers(){
-  let ids=TEACHERS.filter(t=> state.admin.dept==="all" || t.dept===state.admin.dept).map(t=>t.id);
+  if(state.role==="teacher") return state.myTeacherId?[state.myTeacherId]:[];
+  let base = state.role==="hod" ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS.slice();
+  let ids=base.filter(t=> state.admin.dept==="all" || t.dept===state.admin.dept).map(t=>t.id);
   if(state.admin.teacher!=="all") ids=ids.filter(id=>id===state.admin.teacher);
   return ids;
+}
+function visibleTeacherIds(){
+  if(state.role==="teacher") return state.myTeacherId?[state.myTeacherId]:[];
+  return (state.role==="hod" ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS).map(t=>t.id);
 }
 function classMatch(e,cls){ if(cls==="all")return true; if(e.group)return e.group.indexOf(cls)>=0; return e.code===cls; }
 function buildRows(){
@@ -724,8 +771,11 @@ function renderAdminResults(){
     <div class="kpi"><div class="n">${sched}</div><div class="k">Classes scheduled</div></div>
     <div class="kpi"><div class="n">${logged}<small> / ${sched}</small></div><div class="k">Topics logged</div></div>
     <div class="kpi accent"><div class="n">${pct}<small>%</small></div><div class="k">Coverage</div></div>
-    <div class="kpi"><div class="n">${reporting}<small> / ${ids.length}</small></div><div class="k">Teachers reporting</div></div>
+    ${state.role==="teacher"
+      ? `<div class="kpi"><div class="n">${extraRows.length}</div><div class="k">Extra entries</div></div>`
+      : `<div class="kpi"><div class="n">${reporting}<small> / ${ids.length}</small></div><div class="k">Teachers reporting</div></div>`}
   </div>`;
+  if(state.role!=="teacher"){
   const perT=ids.map(id=>{const rs=schedRows.filter(r=>r.teacher===id);const s=rs.length,l=rs.filter(r=>r.logged).length;const ex=extraRows.filter(r=>r.teacher===id).length;return {id,name:NAME(id),s,l,ex,p:s?l/s:0};}).filter(o=>o.s>0||o.ex>0);
   perT.sort((x,y)=> y.p-x.p || x.name.localeCompare(y.name));
   html+=`<div class="board"><h2>Coverage — ${esc(rangeLabel())}</h2><p class="sub">Logged vs scheduled per teacher for this ${a.mode}. Tap a name to filter the table below.</p><div class="covbars">`;
@@ -739,6 +789,7 @@ function renderAdminResults(){
     </div>`;
   });
   html+=`</div></div>`;
+  }
   const sorted=rows.slice().sort((x,y)=>{let r=0;const k=a.sortKey;
     if(k==="date")r=(x.date||"").localeCompare(y.date||"")||x.tname.localeCompare(y.tname)||cmpClass(x.code,y.code);
     else if(k==="teacher")r=x.tname.localeCompare(y.tname)||(x.date||"").localeCompare(y.date||"")||cmpClass(x.code,y.code);
@@ -772,7 +823,7 @@ function exportCSV(){
 }
 
 /* ---------- Admin (management) view ---------- */
-let TF={id:null,name:"",email:"",dept:"",admin:false};
+let TF={id:null,name:"",email:"",dept:"",role:"teacher"};
 let MG_TT=null;
 
 function mountManage(){
@@ -793,7 +844,7 @@ function mountManage(){
         <div class="field"><label>Name (with title)</label><input id="tf-name" type="text" placeholder="e.g. Mr. John Doe" value="${esc(TF.name)}"></div>
         <div class="field"><label>Google email</label><input id="tf-email" type="email" placeholder="name@gmail.com" value="${esc(TF.email)}"></div>
         <div class="field"><label>Department</label><select id="tf-dept">${dopts||`<option>Value Education</option>`}</select></div>
-        <div class="field"><label>Admin rights</label><label class="mg-check"><input id="tf-admin" type="checkbox"${TF.admin?" checked":""}> Can manage teachers, timetables &amp; settings</label></div>
+        <div class="field"><label>Role</label><select id="tf-role">${ROLES.map(r=>`<option value="${r}"${TF.role===r?" selected":""}>${esc(ROLE_LABEL[r])}</option>`).join("")}</select></div>
       </div>
       <div class="mg-actions">
         <button class="btn primary" onclick="mgSaveTeacher()">${TF.id?"Save changes":"Add teacher"}</button>
@@ -804,7 +855,7 @@ function mountManage(){
   TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).forEach(t=>{
     html+=`<div class="mg-row">
       <div class="mg-row-main"><b>${esc(t.name)}</b><span class="muted">${esc(t.dept||"—")}${t.email?" · "+esc(t.email):" · no email"}</span></div>
-      <div class="mg-row-side">${t.admin?`<span class="tag">Admin</span>`:``}
+      <div class="mg-row-side">${roleOf(t)!=="teacher"?`<span class="tag role-${roleOf(t)}">${ROLE_SHORT[roleOf(t)]}</span>`:``}
         <button class="mini" onclick="mgEditTeacher('${esc(t.id)}')">Edit</button>
         <button class="mini danger" onclick="mgDeleteTeacher('${esc(t.id)}')">Delete</button></div>
     </div>`;
@@ -859,23 +910,24 @@ function mountManage(){
 /* ----- Teacher handlers ----- */
 function slugId(name){ let s=String(name||"").toLowerCase().replace(/^(ms|mr|mrs|dr)\.?\s+/,"").replace(/[^a-z0-9]+/g,"").slice(0,20); return s||"t"; }
 function uniqueId(base){ let id=base,n=2; while(TEACHERS.some(t=>t.id===id)){ id=base+n; n++; } return id; }
-function mgNewTeacher(){ TF={id:null,name:"",email:"",dept:DEPARTMENTS[0]||"",admin:false}; mountManage(); }
-function mgPrefillMe(){ TF.name=TF.name||((state.user&&state.user.name)||""); TF.email=state.email||""; TF.admin=true; mountManage(); }
-function mgEditTeacher(id){ const t=TEACHERS.find(x=>x.id===id); if(!t)return; TF={id:t.id,name:t.name||"",email:t.email||"",dept:t.dept||(DEPARTMENTS[0]||""),admin:!!t.admin}; mountManage(); try{view().scrollIntoView({behavior:"smooth",block:"start"});}catch(e){} }
+function mgNewTeacher(){ TF={id:null,name:"",email:"",dept:DEPARTMENTS[0]||"",role:"teacher"}; mountManage(); }
+function mgPrefillMe(){ TF.name=TF.name||((state.user&&state.user.name)||""); TF.email=state.email||""; TF.role="admin"; mountManage(); }
+function mgEditTeacher(id){ const t=TEACHERS.find(x=>x.id===id); if(!t)return; TF={id:t.id,name:t.name||"",email:t.email||"",dept:t.dept||(DEPARTMENTS[0]||""),role:roleOf(t)}; mountManage(); try{view().scrollIntoView({behavior:"smooth",block:"start"});}catch(e){} }
 async function mgSaveTeacher(){
   const name=(document.getElementById("tf-name").value||"").trim();
   const emailV=(document.getElementById("tf-email").value||"").trim().toLowerCase();
   const dept=(document.getElementById("tf-dept").value||"").trim();
-  const admin=!!document.getElementById("tf-admin").checked;
+  const role=(document.getElementById("tf-role").value||"teacher");
   if(!name){ toast("Enter a name","⚠"); return; }
   if(emailV && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailV)){ toast("That email looks off","⚠"); return; }
+  if(role!=="teacher" && !emailV){ toast("Add their Google email so they're recognised as "+ROLE_SHORT[role],"⚠"); return; }
   if(TF.id){
     const t=TEACHERS.find(x=>x.id===TF.id); if(!t){ mgNewTeacher(); return; }
-    if(t.email && t.email===state.email && !admin && !confirm("This removes your own admin rights — you may lose access to this Admin tab after reloading. Continue?")) return;
-    t.name=name; t.email=emailV; t.dept=dept; t.admin=admin;
+    if(t.email && t.email===state.email && roleOf(t)==="admin" && role!=="admin" && !confirm("This removes your own admin rights — you may lose access to this Admin tab after reloading. Continue?")) return;
+    t.name=name; t.email=emailV; t.dept=dept; t.role=role; delete t.admin;
   }else{
     const id=uniqueId(slugId(name));
-    TEACHERS.push({id,name,email:emailV,dept,admin});
+    TEACHERS.push({id,name,email:emailV,dept,role});
     if(!RAW[id]) RAW[id]={};
   }
   await saveTeachersCfg();
@@ -887,7 +939,7 @@ async function mgDeleteTeacher(id){
   TEACHERS=TEACHERS.filter(x=>x.id!==id);
   delete RAW[id];
   if(MG_TT===id) MG_TT=TEACHERS[0]?TEACHERS[0].id:null;
-  if(TF.id===id) TF={id:null,name:"",email:"",dept:DEPARTMENTS[0]||"",admin:false};
+  if(TF.id===id) TF={id:null,name:"",email:"",dept:DEPARTMENTS[0]||"",role:"teacher"};
   await saveTeachersCfg();
   await saveScheduleCfg();
   mountManage();
@@ -993,10 +1045,15 @@ function mgUploadTeacher(files){
   if(state.user){
     const who=await whoami();
     if(!who.ok){ state.user=null; showGate(); return; }
-    state.isAdmin=who.admin; state.email=who.email; state.bootstrapAdmin=who.bootstrap;
+    state.role=who.role||"teacher"; state.isAdmin=state.role==="admin";
+    state.email=who.email; state.myTeacherId=who.teacherId||null; state.dept=who.dept||""; state.bootstrapAdmin=who.bootstrap;
     await loadAppConfig();
-    const last=prefGet("device:lastTeacher");
-    if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
+    if(state.isAdmin){
+      const last=prefGet("device:lastTeacher");
+      state.teacherId=(last && TEACHERS.some(t=>t.id===last))?last:(state.myTeacherId||null);
+    } else {
+      state.teacherId=state.myTeacherId||null;
+    }
     renderUser(); showApp();
   }else{ state.user=null; showGate(); }
 })();
