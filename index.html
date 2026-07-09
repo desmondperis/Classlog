@@ -32,6 +32,7 @@ a{color:var(--blue)}
 .brand-txt{display:flex; flex-direction:column; min-width:0}
 .brand-txt h1{font-size:19px; font-weight:800; letter-spacing:-.01em; margin:0; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .brand-txt .yr{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.05em; text-transform:uppercase; margin-top:2px}
+[hidden]{display:none !important}
 .user{margin-left:auto; display:flex; align-items:center; gap:10px}
 .user .av,.user img{width:30px; height:30px; border-radius:50%; object-fit:cover; background:var(--orange); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex:0 0 auto}
 .user .uname{font-size:13.5px; font-weight:700; color:var(--ink); max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -235,6 +236,15 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .mg-tt-cells{display:flex; flex-wrap:wrap; gap:5px}
 .mg-tt-cell{background:#eef2f6; border-radius:6px; padding:3px 8px; font-size:12.5px; font-weight:700}
 .mg-tt-cell em{font-style:normal; color:var(--blue-d); opacity:.7; font-size:10.5px; margin-right:1px}
+.mg-tt-cell i{display:block; font-style:normal; font-size:10px; color:var(--muted); font-weight:600; margin-top:1px}
+.tt-grid-wrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:var(--rs)}
+.tt-grid{border-collapse:collapse; width:100%; min-width:600px}
+.tt-grid th,.tt-grid td{border:1px solid #e6ecf3; padding:0}
+.tt-grid thead th{font-size:11px; font-weight:800; color:var(--blue-d); background:#f2f6fb; padding:5px 4px; text-align:center}
+.tt-grid thead th small{display:block; font-weight:600; font-size:9px; color:var(--muted)}
+.tt-grid tbody th{font-size:11px; font-weight:800; color:var(--muted); background:#f6f9fc; width:40px; text-align:center}
+.tt-grid td input{width:100%; min-width:56px; border:none; background:transparent; padding:8px 5px; font-size:12.5px; font-weight:700; min-height:0; box-shadow:none; border-radius:0; text-align:center}
+.tt-grid td input:focus{outline:2px solid var(--blue); outline-offset:-2px; background:#fff}
 .mg-details summary{font-size:15px; font-weight:800; cursor:pointer}
 .mg-rooms{max-height:230px; overflow-y:auto; margin-top:12px}
 @media (max-width:560px){ .mg-grid{grid-template-columns:1fr} }
@@ -948,32 +958,47 @@ function mountManage(){
   // ---- Timetables ----
   const tsel=TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<option value="${esc(t.id)}"${MG_TT===t.id?" selected":""}>${esc(t.name)}</option>`).join("");
   const cur=TEACHERS.find(t=>t.id===MG_TT)||TEACHERS[0];
-  html+=`<section class="card"><div class="card-h"><h2>Timetables</h2></div>
-    <p class="muted mg-note">Edit a teacher's weekly timetable with a CSV sheet: pick the teacher, download their sheet (or a blank one), fill class codes under each period, then upload it back. Rows are weekdays; columns are the teaching periods <b>I–VIII</b> (see bell timings below). Leave a cell blank for a free period — blanks are kept, so a class always stays in its correct period. Special cells: library = <code>Lib:9C</code>, junior library = <code>libJ:7B</code>, group/SDP session = <code>SDP:12F;12B;12D</code> (separate classes with semicolons).</p>
-    ${bellRefHTML()}
-    <div class="field" style="max-width:340px"><label>Teacher</label><select id="tt-teacher" onchange="mgPickTT(this.value)">${tsel}</select></div>
+  html+=`<section class="card"><div class="card-h"><h2>Bulk add people + timetables</h2></div>
+    <p class="muted mg-note">Add many people at once from a CSV. Columns: <code>Name, Email, Department, Day, I … VIII</code> — one row per person per day (up to 5 rows each). New people are added as <b>Teacher</b>; existing people (matched by email) have their timetable replaced. Class codes go under each period; blank = free; specials <code>Lib:9C</code>, <code>libJ:7B</code>, <code>SDP:12F;12B;12D</code>.</p>
     <div class="mg-actions">
-      <button class="btn" onclick="mgDownloadTeacher()">Download this teacher's timetable</button>
-      <button class="btn" onclick="mgDownloadBlank()">Download blank template</button>
-      <label class="btn primary mg-upload">Upload CSV for this teacher<input type="file" accept=".csv,text/csv" onchange="mgUploadTeacher(this.files)"></label>
-    </div>`;
+      <button class="btn" onclick="mgDownloadBulkTemplate()">Download bulk template</button>
+      <label class="btn primary mg-upload">Upload people CSV<input type="file" accept=".csv,text/csv" onchange="mgBulkUpload(this.files)"></label>
+    </div>
+  </section>`;
+
+  html+=`<section class="card"><div class="card-h"><h2>Timetables</h2></div>
+    <p class="muted mg-note">Pick a teacher, then edit the grid directly — type a class code under each period (blank = free). Specials: library <code>Lib:9C</code>, junior library <code>libJ:7B</code>, group/SDP <code>SDP:12F;12B;12D</code> (semicolons). Click <b>Save timetable</b> when done. You can also use CSV for bulk edits.</p>
+    ${bellRefHTML()}
+    <div class="field" style="max-width:340px"><label>Teacher</label><select id="tt-teacher" onchange="mgPickTT(this.value)">${tsel}</select></div>`;
   if(cur){
-    html+=`<div class="mg-tt-preview"><div class="muted" style="margin-bottom:6px">Current — ${esc(cur.name)}</div>`;
+    html+=mgGridHTML(cur.id);
+    html+=`<div class="mg-actions"><button class="btn primary" onclick="mgSaveGrid('${esc(cur.id)}')">Save timetable</button>
+      <button class="btn" onclick="mgDownloadTeacher()">Download CSV</button>
+      <label class="btn mg-upload">Upload CSV<input type="file" accept=".csv,text/csv" onchange="mgUploadTeacher(this.files)"></label>
+      <button class="btn" onclick="mgDownloadBlank()">Blank template</button></div>`;
+    html+=`<div class="mg-tt-preview"><div class="muted" style="margin-bottom:6px">Preview — ${esc(cur.name)} (class · subject · room)</div>`;
     DAYS.forEach(d=>{
       const arr=(SCHEDULE[cur.id]&&SCHEDULE[cur.id][d])||[];
-      const cellTxt=e=> e.act==="SDP" ? ("SDP "+e.group.join(",")) : (e.code+(e.act==="Lib"?" (Lib)":e.act==="libJ"?" (libJ)":""));
-      html+=`<div class="mg-tt-day"><span class="mg-tt-dname">${d.slice(0,3)}</span><span class="mg-tt-cells">${arr.length?arr.map(e=>`<span class="mg-tt-cell"><em>${esc(periodLabel(e.period))}</em> ${esc(cellTxt(e))}</span>`).join(""):`<span class="muted">—</span>`}</span></div>`;
+      const info=e=>{ const subj=e.act==="SDP"?"SDP":((e.act==="Lib"||e.act==="libJ")?"Library":subjectOf(e.act,deptOf(cur.id))); const name=e.act==="SDP"?("SDP "+e.group.join(",")):e.code; const room=e.act==="SDP"?"":(e.room?("R"+e.room):""); return {subj,name,room}; };
+      html+=`<div class="mg-tt-day"><span class="mg-tt-dname">${d.slice(0,3)}</span><span class="mg-tt-cells">${arr.length?arr.map(e=>{const o=info(e);return `<span class="mg-tt-cell"><em>${esc(periodText(e).lab)}</em> ${esc(o.name)}<i>${esc(o.subj)}${o.room?" · "+esc(o.room):""}</i></span>`;}).join(""):`<span class="muted">—</span>`}</span></div>`;
     });
     html+=`</div>`;
   }
   html+=`</section>`;
 
-  // ---- Rooms ----
-  html+=`<section class="card"><details class="mg-details"><summary>Rooms (class → room number)</summary>
-    <p class="muted mg-note">The room shown beside each class in the log comes from here.</p>
+  // ---- Rooms & places ----
+  html+=`<section class="card"><details class="mg-details"><summary>Rooms &amp; places</summary>
+    <p class="muted mg-note">Classrooms (class → room number) drive the room shown beside each class. Places are non-class rooms (labs, library, etc.) that teachers can pick when logging substitutions or other work.</p>
+    <div style="font-weight:800;font-size:12px;margin:10px 0 6px">Classrooms</div>
     <div class="mg-inline"><input id="room-code" type="text" placeholder="Class e.g. 8A" style="max-width:130px"><input id="room-num" type="text" placeholder="Room e.g. 102" style="max-width:130px"><button class="btn" onclick="mgSaveRoom()">Add / update</button></div>
     <div class="mg-chiprow mg-rooms">`;
   CLASSES.forEach(c=>{ html+=`<span class="mg-chip">${esc(c)} <small>${esc(String(ROOMS[c]))}</small><button class="chip-x" title="Remove" onclick="mgDelRoom('${esc(c)}')">×</button></span>`; });
+  html+=`</div>
+    <div style="font-weight:800;font-size:12px;margin:16px 0 6px">Places (non-class rooms)</div>
+    <div class="mg-inline"><input id="place-new" type="text" placeholder="e.g. Physics Lab" style="max-width:220px"><button class="btn" onclick="mgAddPlace()">Add place</button></div>
+    <div class="mg-chiprow">`;
+  (PLACES||[]).forEach(p=>{ html+=`<span class="mg-chip">${esc(p)}<button class="chip-x" title="Remove" onclick="mgDelPlace('${esc(p)}')">×</button></span>`; });
+  if(!(PLACES||[]).length) html+=`<span class="muted">No places yet.</span>`;
   html+=`</div></details></section>`;
 
   html+=`</div>`;
@@ -1105,6 +1130,106 @@ function mgUploadTeacher(files){
     await saveScheduleCfg();
     mountManage();
     if(res.unknown.length) setTimeout(()=>toast("Saved. Unknown class(es): "+res.unknown.join(", ")+" — add them under Rooms","⚠"),400);
+  };
+  reader.onerror=()=>toast("Couldn't read that file","⚠");
+  reader.readAsText(f);
+}
+
+/* inline timetable grid */
+function mgGridHTML(id){
+  const raw=RAW[id]||{};
+  let h=`<div class="tt-grid-wrap"><table class="tt-grid"><thead><tr><th></th>`;
+  for(let p=1;p<=PERIODS;p++) h+=`<th>${periodLabel(p)}<small>${BELL[p]?BELL[p].s:""}</small></th>`;
+  h+=`</tr></thead><tbody>`;
+  DAYS.forEach(day=>{
+    h+=`<tr><th>${day.slice(0,3)}</th>`;
+    for(let p=1;p<=PERIODS;p++){ const v=(raw[day]&&raw[day][p-1])||""; h+=`<td><input id="ttc-${day}-${p}" type="text" value="${esc(v)}" spellcheck="false" autocapitalize="characters"></td>`; }
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  return h;
+}
+async function mgSaveGrid(id){
+  const unknown=new Set();
+  DAYS.forEach(day=>{
+    const cells=[];
+    for(let p=1;p<=PERIODS;p++){ const el=document.getElementById("ttc-"+day+"-"+p); cells.push(cellIn(el?el.value:"")); }
+    while(cells.length && !cells[cells.length-1]) cells.pop();
+    cells.forEach(c=>{ if(!c) return; const e=ent(c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
+    if(!RAW[id]) RAW[id]={};
+    RAW[id][day]=cells;
+  });
+  await saveScheduleCfg();
+  mountManage();
+  if(unknown.size) setTimeout(()=>toast("Saved. Unknown class(es): "+[...unknown].join(", ")+" — add a room under Rooms & places","⚠"),400);
+}
+
+/* places (non-class rooms) */
+async function mgAddPlace(){
+  const el=document.getElementById("place-new"); const v=(el&&el.value||"").trim();
+  if(!v){ toast("Enter a place name","⚠"); return; }
+  if(!PLACES.some(p=>p.toLowerCase()===v.toLowerCase())) PLACES.push(v);
+  await savePlacesCfg();
+  mountManage();
+}
+async function mgDelPlace(name){
+  if(!confirm("Remove place \""+name+"\"?")) return;
+  PLACES=PLACES.filter(p=>p!==name);
+  await savePlacesCfg();
+  mountManage();
+}
+
+/* bulk add people + timetables */
+function bulkHeader(){ const h=["Name","Email","Department","Day"]; for(let p=1;p<=PERIODS;p++) h.push(periodLabel(p)); return h; }
+function mgDownloadBulkTemplate(){
+  const rows=[bulkHeader()];
+  const ex=["Mr Example Teacher","teacher@example.com","Value Education","Monday","8A","","9B","","","","",""];
+  rows.push(ex);
+  rows.push(["Mr Example Teacher","teacher@example.com","Value Education","Tuesday","","10C","","Lib:9C","","","",""]);
+  downloadCSV("people_timetables_template.csv", toCSV(rows));
+}
+function applyBulkCSV(text){
+  const rows=parseCSV(text).filter(r=>r.some(c=>String(c).trim()!==""));
+  if(!rows.length) return {people:0,unknown:[],deptsAdded:false};
+  let start=0; const h0=(rows[0]||[]).map(c=>String(c).trim().toLowerCase());
+  if(h0.indexOf("name")>=0 || h0[0]==="name") start=1;
+  const unknown=new Set(); const groups={};
+  for(let i=start;i<rows.length;i++){
+    const r=rows[i];
+    const name=(r[0]||"").trim(), email=(r[1]||"").trim().toLowerCase(), dept=(r[2]||"").trim(), day=matchDay(r[3]);
+    if(!name && !email) continue;
+    const key=email||name.toLowerCase();
+    if(!groups[key]) groups[key]={name,email,dept,days:{}};
+    if(name) groups[key].name=name; if(email) groups[key].email=email; if(dept) groups[key].dept=dept;
+    if(day){ const cells=r.slice(4,4+PERIODS).map(cellIn); while(cells.length && !cells[cells.length-1]) cells.pop(); cells.forEach(c=>{ if(!c) return; const e=ent(c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); }); groups[key].days[day]=cells; }
+  }
+  let count=0, deptsAdded=false;
+  Object.keys(groups).forEach(key=>{
+    const g=groups[key];
+    let t = g.email ? TEACHERS.find(x=>(x.email||"").toLowerCase()===g.email) : null;
+    if(!t && g.name) t = TEACHERS.find(x=>x.name.toLowerCase()===g.name.toLowerCase());
+    if(!t){ const nid=uniqueId(slugId(g.name||g.email||"teacher")); t={id:nid,name:g.name||g.email,email:g.email||"",dept:g.dept||(DEPARTMENTS[0]||""),role:"teacher"}; TEACHERS.push(t); }
+    else { if(g.email) t.email=g.email; if(g.dept) t.dept=g.dept; if(g.name) t.name=g.name; }
+    if(g.dept && !DEPTS.some(d=>d.toLowerCase()===g.dept.toLowerCase()) && !DEPARTMENTS.some(d=>d.toLowerCase()===g.dept.toLowerCase())){ DEPTS.push(g.dept); deptsAdded=true; }
+    if(!RAW[t.id]) RAW[t.id]={};
+    Object.keys(g.days).forEach(day=>{ RAW[t.id][day]=g.days[day]; });
+    count++;
+  });
+  return {people:count, unknown:[...unknown], deptsAdded};
+}
+function mgBulkUpload(files){
+  const f=files&&files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    let res; try{ res=applyBulkCSV(String(reader.result||"")); }catch(e){ toast("Couldn't parse that CSV","⚠"); return; }
+    if(!res.people){ toast("No valid rows found in that CSV","⚠"); return; }
+    rebuildDerived();
+    const ok1=await apiSet("cfg:teachers",JSON.stringify(TEACHERS));
+    const ok2=await apiSet("cfg:schedule",JSON.stringify(RAW));
+    const ok3=res.deptsAdded ? await apiSet("cfg:depts",JSON.stringify(DEPTS)) : true;
+    mountManage();
+    if(ok1&&ok2&&ok3) toast("Added/updated "+res.people+" people"+(res.unknown.length?" · unknown class(es): "+res.unknown.join(", "):""), "✓");
+    else toast("Couldn't save — admins only / check connection","⚠");
   };
   reader.onerror=()=>toast("Couldn't read that file","⚠");
   reader.readAsText(f);
