@@ -7,7 +7,7 @@ function json(o, s) {
   return new Response(JSON.stringify(o), { status: s || 200, headers: { "content-type": "application/json" } });
 }
 function isDataKey(k) { return typeof k === "string" && /^w:\d{4}-\d{2}-\d{2}:[a-z0-9]+$/.test(k); }
-function isConfigKey(k) { return typeof k === "string" && /^cfg:(teachers|rooms|schedule|depts|places)$/.test(k); }
+function isConfigKey(k) { return typeof k === "string" && /^cfg:(teachers|rooms|schedule|depts|places|subjects|bell)$/.test(k); }
 function tidOfKey(k) { const m = /^w:\d{4}-\d{2}-\d{2}:([a-z0-9]+)$/.exec(k || ""); return m ? m[1] : null; }
 
 const ROLES = ["teacher", "hod", "leader", "admin"];
