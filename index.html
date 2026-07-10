@@ -96,7 +96,11 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .day-h .date{font-size:12px; color:var(--muted); font-weight:600}
 .day-h .cnt{margin-left:auto; font-size:12px; font-weight:700; color:var(--muted)}
 .rows{padding:4px 12px 12px}
-.row{display:grid; grid-template-columns:130px 1fr 1fr; gap:10px; align-items:center; padding:9px 6px; border-top:1px solid #eef2f6}
+.row{display:grid; grid-template-columns:130px 1fr 1fr 1fr; gap:10px; align-items:center; padding:9px 6px; border-top:1px solid #eef2f6}
+.pl input{width:100%}
+.pl.ro{font-size:12.5px; color:var(--ink); font-weight:600; line-height:1.35}
+.pl-lab{display:block; font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+.pl-none{color:var(--muted); font-style:italic; font-weight:500}
 .row:first-child{border-top:0}
 .chip{display:inline-flex; flex-direction:column; gap:1px; font-weight:800; font-size:14px; line-height:1.15}
 .chip .rm{font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.02em}
@@ -120,13 +124,14 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .addx:hover{border-color:var(--blue); background:var(--blue-l)}
 .addx.small{margin-top:6px; padding:8px 12px; font-size:12.5px}
 .row.extra select{width:100%}
-.slot{border-top:1px solid #eef2f6; padding:9px 6px}
-.slot-h{display:flex; align-items:baseline; gap:8px}
-.slot-lab{font-weight:800; font-size:13.5px}
-.slot-time{font-size:11.5px; color:var(--muted); font-weight:600}
-.slot.free .slot-lab{color:var(--muted); font-weight:700}
-.slot.other{background:#fafbfd}
-.slot .row.extra{border-top:none}
+.frow{border-top:1px solid #eef2f6; padding:8px 6px}
+.frow-h{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
+.frow-lab{font-weight:800; font-size:13.5px}
+.frow.free .frow-lab{color:var(--muted); font-weight:700}
+.frow-time{font-size:11.5px; color:var(--muted); font-weight:600}
+.addlink{margin-left:auto; appearance:none; border:none; background:transparent; color:var(--blue); font-weight:700; font-size:12.5px; cursor:pointer; padding:2px 4px}
+.addlink:hover{text-decoration:underline}
+.frow .row.extra{border-top:none; margin-top:6px}
 .tag.extra{background:#fdeecf; color:#9a5b12}
 
 /* Admin */
@@ -249,6 +254,8 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .mg-rooms{max-height:230px; overflow-y:auto; margin-top:12px}
 @media (max-width:560px){ .mg-grid{grid-template-columns:1fr} }
 .who-fixed{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:800; min-height:42px; display:flex; align-items:center; box-shadow:var(--shs)}
+.wkbox{display:flex; align-items:center; justify-content:center; min-width:150px; height:42px; padding:0 12px; border:1px solid var(--line); border-radius:var(--rs); background:var(--surface); font-weight:800; font-size:13.5px; box-shadow:var(--shs); white-space:nowrap}
+.dirbtn{min-width:92px}
 .tag.role-admin{background:#e7effb; color:#1e3a66}
 .tag.role-leader{background:#e9f6ea; color:#22692a}
 .tag.role-hod{background:#fdf0e4; color:#8a4b12}
@@ -606,14 +613,17 @@ function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="ma
 function scheduledCount(id){let n=0;for(const d of DAYS)n+=SCHEDULE[id][d].length;return n;}
 function loggedCount(blob){let n=0;for(const k in blob){if(k==="_x")continue; if((blob[k].t||"").trim())n++;}return n;}
 async function mountTeacher(){
-  if(!state.isAdmin && !state.teacherId){
+  const canPick = state.isAdmin || state.role==="hod";
+  if(!canPick && !state.teacherId){
     view().innerHTML=`<div class="prompt"><b>Your account isn't linked to a teacher yet</b>You're signed in as ${esc(state.email||"your account")}. Ask an admin to add you with this email in the Admin tab — then your classes will appear here.</div>`;
     return;
   }
   let whoCtl;
-  if(state.isAdmin){
-    const opts=TEACHERS.map(t=>`<option value="${t.id}"${t.id===state.teacherId?" selected":""}>${esc(t.name)}</option>`).join("");
-    whoCtl=`<label for="who">Teacher</label>
+  if(canPick){
+    const pool = state.isAdmin ? TEACHERS : TEACHERS.filter(t=>t.dept===state.dept);
+    if(!state.teacherId || !pool.some(t=>t.id===state.teacherId)) state.teacherId = (state.myTeacherId && pool.some(t=>t.id===state.myTeacherId)) ? state.myTeacherId : (pool[0]?pool[0].id:null);
+    const opts=pool.map(t=>`<option value="${t.id}"${t.id===state.teacherId?" selected":""}>${esc(t.name)}${t.id===state.myTeacherId?" (you)":""}</option>`).join("");
+    whoCtl=`<label for="who">${state.isAdmin?"Teacher":"Teacher (your department)"}</label>
       <select id="who" onchange="onTeacher(this.value)">
         <option value=""${state.teacherId?"":" selected"} disabled>Select a teacher…</option>${opts}
       </select>`;
@@ -686,32 +696,37 @@ function renderDay(){
   const allX=(state.blob._x && state.blob._x[dName]) || [];
   const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
   let html=`<section class="day" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span></div><div class="rows">`;
+  const canPlan = (state.role==="hod"||state.role==="admin");
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
       if(s.type==="break"){ html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div>`; return; }
       if(s.type==="class"){
-        const e=s.e, dk=dkeyOf(dName,e.slug), rec=state.blob[dk]||{}, t=rec.t||"", r=rec.r||"";
+        const e=s.e, dk=dkeyOf(dName,e.slug), rec=state.blob[dk]||{}, t=rec.t||"", r=rec.r||"", p=rec.p||"";
         const per=`<span class="per">${esc(s.label)} · ${esc(s.time)}</span>`;
         const chip = e.act==="SDP"
           ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span>${per}</span>`
           : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(subjectOf(e.act,dept))}</span><span class="rm">Room ${e.room}</span>${per}</span>`;
+        const plannedCell = canPlan
+          ? `<div class="pl"><input type="text" placeholder="Planned topic" value="${esc(p)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','p',this.value)"></div>`
+          : `<div class="pl ro">${p?`<span class="pl-lab">Planned</span>${esc(p)}`:`<span class="pl-none">No planned topic</span>`}</div>`;
         html+=`<div class="row">${chip}
+          ${plannedCell}
           <div class="lg${t.trim()?" has":""}" data-lg="${esc(dk)}"><input type="text" placeholder="Topic covered" value="${esc(t)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','t',this.value)"></div>
           <div><input type="text" placeholder="Remark (optional)" value="${esc(r)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','r',this.value)"></div></div>`;
         return;
       }
       const items=xFor(s.sid);
-      html+=`<div class="slot${s.free?" free":""}"><div class="slot-h"><span class="slot-lab">${esc(s.label)}</span><span class="slot-time">${esc(s.time)}${s.free?" · free":""}</span></div>`;
+      html+=`<div class="frow${s.free?" free":""}"><div class="frow-h"><span class="frow-lab">${esc(s.label)}</span><span class="frow-time">${esc(s.time)}${s.free?" · free":""}</span><button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
       items.forEach(o=> html+=xRow(dName,o.xi,o.x));
-      html+=`<button class="addx small" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
+      html+=`</div>`;
     });
   } else {
     html+=`<div class="noclass">It's the weekend — no scheduled periods. You can still log any duty, event, or training below.</div>`;
   }
   const other=xFor("");
-  html+=`<div class="slot other"><div class="slot-h"><span class="slot-lab">Other work</span><span class="slot-time">not tied to a period</span></div>`;
+  html+=`<div class="frow other"><div class="frow-h"><span class="frow-lab">Other work</span><span class="frow-time">not tied to a period</span><button class="addlink" onclick="addX('${esc(dName)}','')">+ Add event / duty / other</button></div>`;
   other.forEach(o=> html+=xRow(dName,o.xi,o.x));
-  html+=`<button class="addx small" onclick="addX('${esc(dName)}','')">+ Add event / duty / other</button></div>`;
+  html+=`</div>`;
   html+=`</div></section>`;
   host.innerHTML=html; updateProg();
 }
@@ -737,7 +752,7 @@ function cssq(s){return s.replace(/["\\]/g,"\\$&");}
 function edit(day,slug,field,val){
   const dk=dkeyOf(day,slug); const rec=state.blob[dk]||{};
   rec[field]=val; rec.u=new Date().toISOString();
-  if(!(rec.t||"").trim() && !(rec.r||"").trim()) delete state.blob[dk]; else state.blob[dk]=rec;
+  if(!(rec.t||"").trim() && !(rec.r||"").trim() && !(rec.p||"").trim()) delete state.blob[dk]; else state.blob[dk]=rec;
   if(field==="t"){const box=document.querySelector('[data-lg="'+cssq(dk)+'"]'); if(box) box.classList.toggle("has",!!val.trim());}
   updateProg(); clearTimeout(saveTimer); saveTimer=setTimeout(saveTeacher,550);
 }
@@ -756,42 +771,43 @@ function rangeLabel(){ const a=state.admin; if(a.mode==="day") return dayName(a.
 async function mountAdmin(){
   const a=state.admin;
   const hod = state.role==="hod";
-  const selfOnly = state.role==="teacher";
-  if(hod){ a.dept=state.dept; if(a.teacher!=="all" && !TEACHERS.some(t=>t.id===a.teacher && t.dept===state.dept)) a.teacher="all"; }
-  if(selfOnly){ a.teacher=state.myTeacherId; a.dept="all"; }
-  const teacherPool = hod ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS;
+  const deptLocked = hod || state.role==="teacher";
+  if(deptLocked){ a.dept=state.dept; if(a.teacher!=="all" && !TEACHERS.some(t=>t.id===a.teacher && t.dept===state.dept)) a.teacher="all"; }
+  const teacherPool = deptLocked ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS;
   const deptOpts=`<option value="all">All departments</option>`+DEPARTMENTS.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join("");
   const teacherOpts=`<option value="all">All teachers</option>`+teacherPool.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
   const classOpts=`<option value="all">All classes</option>`+CLASSES.map(c=>`<option value="${c}">${c}</option>`).join("");
   const dayOpts=`<option value="all">All days</option>`+DAYS.map(d=>`<option value="${d}">${d}</option>`).join("");
-  const sortOpts=[["date","Date"],["teacher","Teacher"],["cls","Class"],["upd","Recently updated"]].map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("");
+  const sortOpts=[["date","Date"],["teacher","Teacher"],["cls","Class"],["upd","Recently updated"]].map(o=>`<option value="${o[0]}"${a.sortKey===o[0]?" selected":""}>${o[1]}</option>`).join("");
   const seg=["day","week","month"].map(m=>`<button class="segbtn${a.mode===m?" on":""}" onclick="setAdminMode('${m}')">${m[0].toUpperCase()+m.slice(1)}</button>`).join("");
   const nav = a.mode==="month"
     ? `<input type="month" id="amon" value="${monthOf(a.date)}" onchange="pickAdminMonth(this.value)">`
+    : a.mode==="week"
+    ? `<div class="wkbox" id="adate">${esc(weekRange(ymd(mondayOf(parseYmd(a.date)))))}</div>`
     : `<input type="date" id="adate" value="${a.date}" onchange="pickAdminDate(this.value)">`;
-  const deptField = (hod||selfOnly)
-    ? `<div class="field"><label>Department</label><div class="who-fixed">${esc((selfOnly?deptOf(state.myTeacherId):state.dept)||"—")}</div></div>`
+  const deptField = deptLocked
+    ? `<div class="field"><label>Department</label><div class="who-fixed">${esc(state.dept||"—")}</div></div>`
     : `<div class="field"><label for="f-dep">Department</label><select id="f-dep" onchange="af('dept',this.value)">${deptOpts}</select></div>`;
-  const teacherField = selfOnly
-    ? `<div class="field"><label>Teacher</label><div class="who-fixed">${esc(NAME(state.myTeacherId))}</div></div>`
-    : `<div class="field"><label for="f-t">Teacher</label><select id="f-t" onchange="af('teacher',this.value)">${teacherOpts}</select></div>`;
+  const teacherField = `<div class="field"><label for="f-t">Teacher</label><select id="f-t" onchange="af('teacher',this.value)">${teacherOpts}</select></div>`;
   view().innerHTML=`
     <div class="filters">
       <div class="field"><label>View by</label><div class="modeseg">${seg}</div></div>
-      <div class="field"><label>${a.mode==="month"?"Month":(a.mode==="day"?"Date":"Week of")}</label>
+      <div class="field"><label>${a.mode==="month"?"Month":(a.mode==="day"?"Date":"Week")}</label>
         <div class="wkpick">
           <button class="wkarrow" aria-label="Previous" onclick="adminStep(-1)">‹</button>
           ${nav}
           <button class="wkarrow" aria-label="Next" onclick="adminStep(1)">›</button>
         </div>
-        <span class="wkcap" id="arange">${esc(rangeLabel())}</span>
+        <span class="wkcap" id="arange">${esc(adminCap())}</span>
       </div>
       ${deptField}
       ${teacherField}
       <div class="field"><label for="f-c">Class</label><select id="f-c" onchange="af('cls',this.value)">${classOpts}</select></div>
       ${a.mode==="day"?"":`<div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>`}
       <div class="field"><label for="f-sort">Sort by</label><select id="f-sort" onchange="setSort(this.value)">${sortOpts}</select></div>
+      <div class="field"><label>Order</label><button class="btn dirbtn" id="dirbtn" onclick="toggleSortDir()">${a.sortDir>0?"↑ Asc":"↓ Desc"}</button></div>
       <div class="field grow"><label for="f-q">Search topic or remark</label><input id="f-q" type="text" placeholder="e.g. honesty, chapter 3…" oninput="af('q',this.value)"></div>
+      <div class="field"><label>&nbsp;</label><button class="btn" onclick="resetFilters()">Reset</button></div>
       <div class="field"><label>&nbsp;</label><button class="btn" onclick="refreshAdmin(true)">↻ Refresh</button></div>
       <div class="field"><label>&nbsp;</label><button class="btn primary" onclick="exportCSV()">Export CSV</button></div>
     </div>
@@ -799,25 +815,28 @@ async function mountAdmin(){
   syncFilterUI(); await refreshAdmin(false);
   if(store.ok) pollTimer=setInterval(()=>refreshAdmin(false),30000);
 }
+function adminCap(){ const a=state.admin; if(a.mode==="week") return "Week "+isoWeek(ymd(mondayOf(parseYmd(a.date)))); return rangeLabel(); }
+function toggleSortDir(){ state.admin.sortDir*=-1; const b=document.getElementById("dirbtn"); if(b)b.textContent=state.admin.sortDir>0?"↑ Asc":"↓ Desc"; renderAdminResults(); }
+function resetFilters(){ const a=state.admin; const locked=(state.role==="hod"||state.role==="teacher"); a.dept=locked?state.dept:"all"; a.teacher="all"; a.cls="all"; a.day="all"; a.q=""; a.sortKey="date"; a.sortDir=1; mountAdmin(); }
 function setAdminMode(m){ state.admin.mode=m; if(m==="day")state.admin.day="all"; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} mountAdmin(); }
-function syncFilterUI(){const a=state.admin;const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};set("f-dep",a.dept);set("f-t",a.teacher);set("f-c",a.cls);set("f-d",a.day);set("f-sort",a.sortKey);set("f-q",a.q);const r=document.getElementById("arange");if(r)r.textContent=rangeLabel();}
+function syncFilterUI(){const a=state.admin;const set=(id,v)=>{const el=document.getElementById(id);if(el&&el.tagName!=="DIV")el.value=v;};set("f-dep",a.dept);set("f-t",a.teacher);set("f-c",a.cls);set("f-d",a.day);set("f-sort",a.sortKey);set("f-q",a.q);const r=document.getElementById("arange");if(r)r.textContent=adminCap();}
 function af(k,v){ state.admin[k]=v; if(k==="q"){renderAdminResults();const el=document.getElementById("f-q");if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n);}} else renderAdminResults(); }
-function setSort(k){ state.admin.sortKey=k; state.admin.sortDir=(k==="upd")?-1:1; renderAdminResults(); }
-function updateAdminNav(){ const a=state.admin; const r=document.getElementById("arange"); if(r)r.textContent=rangeLabel(); const dd=document.getElementById("adate"); if(dd)dd.value=a.date; const mm=document.getElementById("amon"); if(mm)mm.value=monthOf(a.date); }
+function setSort(k){ state.admin.sortKey=k; state.admin.sortDir=(k==="upd")?-1:1; const b=document.getElementById("dirbtn"); if(b)b.textContent=state.admin.sortDir>0?"↑ Asc":"↓ Desc"; renderAdminResults(); }
+function updateAdminNav(){ const a=state.admin; const r=document.getElementById("arange"); if(r)r.textContent=adminCap(); const dd=document.getElementById("adate"); if(dd){ if(dd.tagName==="INPUT") dd.value=a.date; else dd.textContent=weekRange(ymd(mondayOf(parseYmd(a.date)))); } const mm=document.getElementById("amon"); if(mm)mm.value=monthOf(a.date); }
 async function adminStep(n){ const a=state.admin; if(a.mode==="day")a.date=ymd(addDays(parseYmd(a.date),n)); else if(a.mode==="week")a.date=ymd(addDays(parseYmd(a.date),n*7)); else{const d=parseYmd(a.date);a.date=ymd(new Date(d.getFullYear(),d.getMonth()+n,1));} updateAdminNav(); await refreshAdmin(false); }
 async function pickAdminDate(v){ if(!v)return; state.admin.date=v; updateAdminNav(); await refreshAdmin(false); }
 async function pickAdminMonth(v){ if(!v)return; state.admin.date=v+"-01"; updateAdminNav(); await refreshAdmin(false); }
 async function refreshAdmin(manual){ const weeks=rangeWeeks(); const ids=visibleTeacherIds(); const nb={}; await Promise.all(weeks.map(wk=>Promise.all(ids.map(async id=>{const raw=await store.get(wkey(wk,id),true);nb[wk+"|"+id]=raw?JSON.parse(raw):{};})))); adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻"); }
 function scopeTeachers(){
-  if(state.role==="teacher") return state.myTeacherId?[state.myTeacherId]:[];
-  let base = state.role==="hod" ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS.slice();
+  const deptLocked = state.role==="hod" || state.role==="teacher";
+  let base = deptLocked ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS.slice();
   let ids=base.filter(t=> state.admin.dept==="all" || t.dept===state.admin.dept).map(t=>t.id);
   if(state.admin.teacher!=="all") ids=ids.filter(id=>id===state.admin.teacher);
   return ids;
 }
 function visibleTeacherIds(){
-  if(state.role==="teacher") return state.myTeacherId?[state.myTeacherId]:[];
-  return (state.role==="hod" ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS).map(t=>t.id);
+  const deptLocked = state.role==="hod" || state.role==="teacher";
+  return (deptLocked ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS).map(t=>t.id);
 }
 function classMatch(e,cls){ if(cls==="all")return true; if(e.group)return e.group.indexOf(cls)>=0; return e.code===cls; }
 function buildRows(){
@@ -831,9 +850,9 @@ function buildRows(){
         if(a.day!=="all"&&day!==a.day)continue;
         for(const e of SCHEDULE[id][day]){
           if(!classMatch(e,a.cls))continue;
-          const rec=blob[dkeyOf(day,e.slug)]||{}, topic=(rec.t||""), remark=(rec.r||"");
-          if(q && !(topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||(e.code||"").toLowerCase().includes(q)))continue;
-          rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day,dayi:dayIndex(day),period:e.period||null,periodEnd:e.periodEnd||e.period||null,cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,subject:subjectOf(e.act,dept),topic,remark,u:rec.u||"",logged:!!topic.trim(),extra:false});
+          const rec=blob[dkeyOf(day,e.slug)]||{}, topic=(rec.t||""), remark=(rec.r||""), planned=(rec.p||"");
+          if(q && !(topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||planned.toLowerCase().includes(q)||(e.code||"").toLowerCase().includes(q)))continue;
+          rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day,dayi:dayIndex(day),period:e.period||null,periodEnd:e.periodEnd||e.period||null,cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,subject:subjectOf(e.act,dept),planned,topic,remark,u:rec.u||"",logged:!!topic.trim(),extra:false});
         }
       }
       const xd=blob._x||{};
@@ -867,9 +886,7 @@ function renderAdminResults(){
     <div class="kpi"><div class="n">${sched}</div><div class="k">Classes scheduled</div></div>
     <div class="kpi"><div class="n">${logged}<small> / ${sched}</small></div><div class="k">Topics logged</div></div>
     <div class="kpi"><div class="n">${pct}<small>%</small></div><div class="k">Coverage</div></div>
-    ${state.role==="teacher"
-      ? `<div class="kpi"><div class="n">${extraRows.length}</div><div class="k">Extra entries</div></div>`
-      : `<div class="kpi"><div class="n">${reporting}<small> / ${ids.length}</small></div><div class="k">Teachers reporting</div></div>`}
+    <div class="kpi"><div class="n">${reporting}<small> / ${ids.length}</small></div><div class="k">Teachers reporting</div></div>
   </div>`;
   const sorted=rows.slice().sort((x,y)=>{let r=0;const k=a.sortKey;
     if(k==="date")r=(x.date||"").localeCompare(y.date||"")||x.tname.localeCompare(y.tname)||cmpClass(x.code,y.code);
@@ -884,7 +901,7 @@ function renderAdminResults(){
     <th onclick="sortBy('date')">Date ${arrow("date")}</th><th onclick="sortBy('teacher')">Teacher ${arrow("teacher")}</th><th onclick="sortBy('cls')">Class ${arrow("cls")}</th><th>Room</th><th>Subject</th><th onclick="sortBy('topic')">Topic covered ${arrow("topic")}</th><th>Remark</th><th onclick="sortBy('upd')">Updated ${arrow("upd")}</th>
   </tr></thead><tbody>`;
   if(!sorted.length){ html+=`<tr><td colspan="8" class="emptyrow">No entries match these filters.</td></tr>`; }
-  else{ for(const r of sorted){ html+=`<tr><td class="dt">${esc(shortDate(r.date))}</td><td>${esc(r.tname)}</td><td class="cls">${esc(r.cls)}${r.period?`<span class="cls-per">${esc(periodText(r).lab)} · ${esc(periodText(r).tim)}</span>`:""}</td><td class="rm">${r.room||"—"}</td><td class="act"><span class="tag${r.extra?" extra":""}">${esc(r.subject)}</span></td><td class="${r.topic?"":"empty"}">${r.topic?esc(r.topic):"—"}</td><td class="${r.remark?"":"empty"}">${r.remark?esc(r.remark):"—"}</td><td class="upd">${r.u?fmtWhen(r.u):"—"}</td></tr>`; } }
+  else{ for(const r of sorted){ html+=`<tr><td class="dt">${esc(shortDate(r.date))}</td><td>${esc(r.tname)}</td><td class="cls">${esc(r.cls)}${r.period?`<span class="cls-per">${esc(periodText(r).lab)} · ${esc(periodText(r).tim)}</span>`:""}</td><td class="rm">${r.room||"—"}</td><td class="act"><span class="tag${r.extra?" extra":""}">${esc(r.subject)}</span></td><td class="${r.topic?"":"empty"}">${r.topic?esc(r.topic):"—"}${r.planned?`<span class="cls-per">Planned: ${esc(r.planned)}</span>`:""}</td><td class="${r.remark?"":"empty"}">${r.remark?esc(r.remark):"—"}</td><td class="upd">${r.u?fmtWhen(r.u):"—"}</td></tr>`; } }
   html+=`</tbody></table></div></div>`;
   host.innerHTML=html;
 }
@@ -894,9 +911,9 @@ function fmtWhen(iso){const d=new Date(iso);if(isNaN(d))return "—";return d.ge
 function exportCSV(){
   const a=state.admin;
   const rows=buildRows().slice().sort((x,y)=>(x.date||"").localeCompare(y.date||"")||x.tname.localeCompare(y.tname)||cmpClass(x.code,y.code));
-  const head=["Date","Day","Period","Time","Teacher","Class","Room","Subject","Topic covered","Remark","Updated"];
+  const head=["Date","Day","Period","Time","Teacher","Class","Room","Subject","Planned topic","Topic covered","Remark","Updated"];
   const q=v=>{v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-  let csv=head.join(",")+"\n"; for(const r of rows)csv+=[r.date,r.day,r.period?periodText(r).lab:"",r.period?periodText(r).tim:"",r.tname,r.cls,r.room,r.subject,r.topic,r.remark,r.u?fmtWhen(r.u):""].map(q).join(",")+"\n";
+  let csv=head.join(",")+"\n"; for(const r of rows)csv+=[r.date,r.day,r.period?periodText(r).lab:"",r.period?periodText(r).tim:"",r.tname,r.cls,r.room,r.subject,r.planned||"",r.topic,r.remark,r.u?fmtWhen(r.u):""].map(q).join(",")+"\n";
   const tag=a.mode==="month"?monthOf(a.date):a.date;
   const fn="class-log_"+a.mode+"_"+tag+(a.teacher==="all"?"":"_"+a.teacher)+".csv";
   try{const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const el=document.createElement("a");el.href=url;el.download=fn;document.body.appendChild(el);el.click();setTimeout(()=>{URL.revokeObjectURL(url);el.remove();},500);toast("CSV downloaded","↓");}
