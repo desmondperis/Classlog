@@ -32,12 +32,13 @@ async function identify(env, email) {
 }
 function canRead(idn, tid) {
   if (idn.role === "admin" || idn.role === "leader") return true;
-  if (idn.role === "hod") { const t = idn.teachers.find((x) => x.id === tid); return !!t && t.dept === idn.dept; }
-  return tid === idn.teacherId; // teacher
+  if (idn.role === "hod" || idn.role === "teacher") { const t = idn.teachers.find((x) => x.id === tid); return !!t && t.dept === idn.dept; }
+  return tid === idn.teacherId;
 }
 function canWrite(idn, tid) {
   if (idn.role === "admin") return true;
-  return tid === idn.teacherId; // everyone else may write only their own log
+  if (idn.role === "hod") { const t = idn.teachers.find((x) => x.id === tid); return tid === idn.teacherId || (!!t && t.dept === idn.dept); }
+  return tid === idn.teacherId; // teacher / leader write own only
 }
 
 async function requireSession(context) {
