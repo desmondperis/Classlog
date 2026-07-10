@@ -15,6 +15,8 @@
   --r:14px; --rs:10px;
   --sh:0 1px 2px rgba(23,35,59,.05), 0 10px 30px rgba(23,35,59,.06);
   --shs:0 1px 2px rgba(23,35,59,.06);
+  --sh-hover:0 2px 4px rgba(23,35,59,.06), 0 18px 44px rgba(23,35,59,.11);
+  --ease:cubic-bezier(.4,0,.2,1); --ease-spring:cubic-bezier(.34,1.56,.64,1);
   --fs: 'Hanken Grotesk', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
 }
 *{box-sizing:border-box}
@@ -314,6 +316,81 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
   .tablecard,.board,.kpi{box-shadow:none; border-color:#ccc}
   th{position:static}
 }
+
+/* ===================== Motion & polish layer ===================== */
+@keyframes fadeUp{ from{opacity:0; transform:translateY(9px)} to{opacity:1; transform:none} }
+@keyframes popIn{ from{opacity:0; transform:scale(.965)} to{opacity:1; transform:none} }
+@keyframes slideDown{ from{opacity:0; transform:translateY(-10px)} to{opacity:1; transform:none} }
+@keyframes floaty{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+@keyframes shimmerBar{ 0%{background-position:0% 0} 100%{background-position:200% 0} }
+@keyframes dotPulse{ 0%{box-shadow:0 0 0 0 rgba(245,145,30,.5)} 70%{box-shadow:0 0 0 6px rgba(245,145,30,0)} 100%{box-shadow:0 0 0 0 rgba(245,145,30,0)} }
+@keyframes toastPop{ 0%{opacity:0; transform:translateX(-50%) translateY(14px) scale(.94)} 60%{transform:translateX(-50%) translateY(-2px) scale(1.02)} 100%{opacity:1; transform:translateX(-50%) translateY(0) scale(1)} }
+@keyframes skel{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+/* header + gate entrances (static, once on load) */
+.top{ animation:slideDown .5s var(--ease) both }
+.brand{ animation:fadeUp .55s .08s var(--ease) both }
+.tabs{ animation:fadeUp .55s .16s var(--ease) both }
+
+/* animated tab underline */
+.tab{ position:relative; transition:color .18s var(--ease) }
+.tab[aria-selected="true"]{ border-bottom-color:transparent }
+.tab::after{ content:""; position:absolute; left:14px; right:14px; bottom:-1px; height:3px; border-radius:3px 3px 0 0; background:linear-gradient(90deg,var(--blue),var(--blue-d)); transform:scaleX(0); transform-origin:center; transition:transform .3s var(--ease-spring) }
+.tab[aria-selected="true"]::after{ transform:scaleX(1) }
+
+/* content entrances (mount-once containers) */
+.gate-card{ animation:popIn .5s var(--ease-spring) both }
+.gate-logo{ animation:floaty 4.5s ease-in-out infinite }
+.gate-card::before{ background:linear-gradient(90deg,var(--blue),var(--orange),var(--blue)); background-size:200% 100%; animation:shimmerBar 3.4s linear infinite }
+.banner{ animation:fadeUp .4s var(--ease) both }
+.ctl,.filters{ animation:fadeUp .45s var(--ease) both }
+.day{ animation:fadeUp .45s var(--ease) both }
+.prompt,.noclass{ animation:popIn .5s var(--ease-spring) both }
+.card{ animation:fadeUp .45s var(--ease) both }
+@media (hover:hover){ .card{ transition:box-shadow .22s var(--ease) } .card:hover{ box-shadow:var(--sh-hover) } .kpi{ transition:transform .18s var(--ease), box-shadow .18s var(--ease) } .kpi:hover{ transform:translateY(-2px); box-shadow:var(--sh-hover) } }
+
+/* staggered rows in Log a class (mount-once, not polled) */
+.rows > *{ animation:fadeUp .4s var(--ease) both }
+.rows > *:nth-child(1){animation-delay:.02s} .rows > *:nth-child(2){animation-delay:.05s} .rows > *:nth-child(3){animation-delay:.08s} .rows > *:nth-child(4){animation-delay:.11s} .rows > *:nth-child(5){animation-delay:.14s} .rows > *:nth-child(6){animation-delay:.17s} .rows > *:nth-child(7){animation-delay:.2s} .rows > *:nth-child(8){animation-delay:.23s} .rows > *:nth-child(9){animation-delay:.26s} .rows > *:nth-child(10){animation-delay:.29s} .rows > *:nth-child(11){animation-delay:.32s} .rows > *:nth-child(12){animation-delay:.35s} .rows > *:nth-child(n+13){animation-delay:.38s}
+
+/* buttons: press + hover lift */
+.btn,.gbtn,.signout,.tab,.segbtn,.wkarrow,.chip-x,.addlink,.mg-upload{ transition:transform .12s var(--ease), box-shadow .2s var(--ease), background .18s var(--ease), color .18s var(--ease), border-color .18s var(--ease) }
+@media (hover:hover){ .btn:hover,.gbtn:hover{ transform:translateY(-1px) } }
+.btn:active,.gbtn:active,.signout:active,.segbtn:active,.wkarrow:active,.tab:active{ transform:scale(.96) }
+.btn.primary{ background:linear-gradient(180deg,var(--blue),var(--blue-d)); border-color:var(--blue-d); box-shadow:0 2px 10px rgba(56,102,176,.32) }
+.btn.primary:hover{ background:linear-gradient(180deg,var(--blue-d),var(--blue-d)); color:#fff }
+.btn.primary:active{ transform:scale(.97) }
+
+/* inputs: soft focus glow */
+select,input[type=text],input[type=date],input[type=time],textarea{ transition:border-color .16s var(--ease), box-shadow .16s var(--ease) }
+input:focus,select:focus,textarea:focus{ box-shadow:0 0 0 3px var(--blue-l) }
+
+/* segmented control + sortable headers + rows */
+.segbtn.on{ box-shadow:0 2px 8px rgba(56,102,176,.35) }
+tbody tr{ transition:background .14s var(--ease) }
+th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
+@media(hover:hover){ th[onclick]:hover{ color:var(--blue) } }
+
+/* progress pill pulse while incomplete */
+.pill:not(.done) .dot{ animation:dotPulse 1.9s ease-in-out infinite }
+
+/* toast spring in */
+.toast.show{ animation:toastPop .34s var(--ease-spring) both }
+
+/* coverage colour by value + bell duration line */
+.cval.cov.good{ color:var(--ok) } .cval.cov.mid{ color:var(--orange-d) } .cval.cov.low{ color:#c0392b }
+.bell-chip{ transition:transform .14s var(--ease), box-shadow .14s var(--ease) }
+.bell-chip em{ font-style:normal; font-size:10px; font-weight:700; color:var(--blue-d); margin-top:1px }
+@media(hover:hover){ .bell-chip:hover{ transform:translateY(-1px); box-shadow:var(--shs) } }
+
+/* dashboard loading skeleton */
+.skel{ background:linear-gradient(90deg,#eaf0f7 25%,#dde6f1 37%,#eaf0f7 63%); background-size:200% 100%; animation:skel 1.3s linear infinite; border-radius:8px }
+.skel-n{ height:30px; width:54px; margin-bottom:9px } .skel-k{ height:11px; width:82px }
+.skel-h{ height:16px; width:150px } .skel-row{ height:34px; margin:9px 0 }
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important }
+}
 </style>
 
 <div class="top">
@@ -552,6 +629,23 @@ const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",
 const dkeyOf=(day,slug)=>day+"|"+slug;
 const view=()=>document.getElementById("view");
 function toast(msg,mark){const t=document.getElementById("toast");document.getElementById("toast-msg").textContent=msg;t.querySelector(".c").textContent=mark||"✓";t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),1400);}
+function prefersReduce(){ return !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches); }
+let _lastKpi={};
+function animateCounts(host){
+  host.querySelectorAll(".cval[data-to]").forEach(el=>{
+    const to=parseInt(el.dataset.to,10)||0, key=el.dataset.k||el.textContent;
+    const from=(_lastKpi[key]!=null)?_lastKpi[key]:0; _lastKpi[key]=to;
+    if(prefersReduce()||from===to){ el.textContent=to; return; }
+    const dur=650, t0=performance.now();
+    (function step(t){ const p=Math.min(1,(t-t0)/dur); el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-p,3))); if(p<1)requestAnimationFrame(step); })(t0);
+  });
+}
+function dashSkeleton(){
+  let k=`<div class="kpis">`; for(let i=0;i<4;i++) k+=`<div class="kpi"><div class="skel skel-n"></div><div class="skel skel-k"></div></div>`; k+=`</div>`;
+  k+=`<div class="tablecard"><div class="th"><div class="skel skel-h"></div></div><div style="padding:10px 14px 16px">`;
+  for(let i=0;i<6;i++) k+=`<div class="skel skel-row"></div>`;
+  k+=`</div></div>`; return k;
+}
 
 /* ---------- Auth / gate ---------- */
 const GOOGLE_G='<svg viewBox="0 0 48 48"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>';
@@ -856,7 +950,9 @@ async function mountAdmin(){
       <div class="field"><label>&nbsp;</label><button class="btn primary" onclick="exportCSV()">Export CSV</button></div>
     </div>
     <div id="adminResults"></div>`;
-  syncFilterUI(); await refreshAdmin(false);
+  syncFilterUI();
+  const ar=document.getElementById("adminResults"); if(ar) ar.innerHTML=dashSkeleton();
+  await refreshAdmin(false);
   if(store.ok) pollTimer=setInterval(()=>refreshAdmin(false),30000);
 }
 function adminCap(){ const a=state.admin; if(a.mode==="week") return "Week "+isoWeek(ymd(mondayOf(parseYmd(a.date)))); return rangeLabel(); }
@@ -927,10 +1023,10 @@ function renderAdminResults(){
   const ids=scopeTeachers();
   const reporting=new Set(schedRows.filter(r=>r.logged).map(r=>r.teacher)).size;
   let html=`<div class="kpis">
-    <div class="kpi"><div class="n">${sched}</div><div class="k">Classes scheduled</div></div>
-    <div class="kpi"><div class="n">${logged}<small> / ${sched}</small></div><div class="k">Topics logged</div></div>
-    <div class="kpi"><div class="n">${pct}<small>%</small></div><div class="k">Coverage</div></div>
-    <div class="kpi"><div class="n">${reporting}<small> / ${ids.length}</small></div><div class="k">Teachers reporting</div></div>
+    <div class="kpi"><div class="n"><span class="cval" data-k="sched" data-to="${sched}">${sched}</span></div><div class="k">Classes scheduled</div></div>
+    <div class="kpi"><div class="n"><span class="cval" data-k="logged" data-to="${logged}">${logged}</span><small> / ${sched}</small></div><div class="k">Topics logged</div></div>
+    <div class="kpi"><div class="n"><span class="cval cov ${pct>=80?"good":(pct>=50?"mid":"low")}" data-k="pct" data-to="${pct}">${pct}</span><small>%</small></div><div class="k">Coverage</div></div>
+    <div class="kpi"><div class="n"><span class="cval" data-k="reporting" data-to="${reporting}">${reporting}</span><small> / ${ids.length}</small></div><div class="k">Teachers reporting</div></div>
   </div>`;
   const sorted=rows.slice().sort((x,y)=>{let r=0;const k=a.sortKey;
     if(k==="date")r=(x.date||"").localeCompare(y.date||"")||x.tname.localeCompare(y.tname)||cmpClass(x.code,y.code);
@@ -948,6 +1044,7 @@ function renderAdminResults(){
   else{ for(const r of sorted){ html+=`<tr><td class="dt">${esc(shortDate(r.date))}</td><td>${esc(r.tname)}</td><td class="cls">${esc(r.cls)}${r.period?`<span class="cls-per">${esc(periodText(r).lab)} · ${esc(periodText(r).tim)}</span>`:""}</td><td class="rm">${r.room||"—"}</td><td class="act"><span class="tag${r.extra?" extra":""}">${esc(r.subject)}</span></td><td class="${r.topic?"":"empty"}">${r.topic?esc(r.topic):"—"}${r.planned?`<span class="cls-per">Planned: ${esc(r.planned)}</span>`:""}</td><td class="${r.remark?"":"empty"}">${r.remark?esc(r.remark):"—"}</td><td class="upd">${r.u?fmtWhen(r.u):"—"}</td></tr>`; } }
   html+=`</tbody></table></div></div>`;
   host.innerHTML=html;
+  animateCounts(host);
 }
 function cmpClass(a,b){if(!a)return 1;if(!b)return -1;const ga=parseInt(a),gb=parseInt(b);return ga!==gb?ga-gb:a.localeCompare(b);}
 function sortBy(k){ const a=state.admin; if(a.sortKey===k)a.sortDir*=-1; else{a.sortKey=k;a.sortDir=1;} const el=document.getElementById("f-sort"); if(el && ["date","teacher","cls","upd"].indexOf(k)>=0)el.value=k; renderAdminResults(); }
