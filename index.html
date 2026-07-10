@@ -275,7 +275,12 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 @media (max-width:560px){ .mg-grid{grid-template-columns:1fr} }
 .who-fixed{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:800; min-height:42px; display:flex; align-items:center; box-shadow:var(--shs)}
 .wkbox{display:flex; align-items:center; justify-content:center; min-width:150px; height:42px; padding:0 12px; border:1px solid var(--line); border-radius:var(--rs); background:var(--surface); font-weight:800; font-size:13.5px; box-shadow:var(--shs); white-space:nowrap}
-.dirbtn{min-width:92px}
+.sortwrap{display:flex; gap:6px; align-items:stretch}
+.sortwrap select{flex:1; min-width:0}
+.sortdir{appearance:none; border:1px solid var(--line); background:var(--surface); border-radius:var(--rs); width:42px; min-height:42px; flex:0 0 auto; cursor:pointer; font-size:16px; font-weight:800; color:var(--blue); box-shadow:var(--shs); display:flex; align-items:center; justify-content:center; transition:transform .12s var(--ease), background .18s var(--ease), border-color .18s var(--ease)}
+.sortdir:hover{border-color:var(--blue); background:var(--blue-l)}
+.sortdir:active{transform:scale(.94)}
+.sortdir:focus-visible{outline:2px solid var(--orange); outline-offset:2px}
 .tag.role-admin{background:#e7effb; color:#1e3a66}
 .tag.role-leader{background:#e9f6ea; color:#22692a}
 .tag.role-hod{background:#fdf0e4; color:#8a4b12}
@@ -349,9 +354,10 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .card{ animation:fadeUp .45s var(--ease) both }
 @media (hover:hover){ .card{ transition:box-shadow .22s var(--ease) } .card:hover{ box-shadow:var(--sh-hover) } .kpi{ transition:transform .18s var(--ease), box-shadow .18s var(--ease) } .kpi:hover{ transform:translateY(-2px); box-shadow:var(--sh-hover) } }
 
-/* staggered rows in Log a class (mount-once, not polled) */
-.rows > *{ animation:fadeUp .4s var(--ease) both }
-.rows > *:nth-child(1){animation-delay:.02s} .rows > *:nth-child(2){animation-delay:.05s} .rows > *:nth-child(3){animation-delay:.08s} .rows > *:nth-child(4){animation-delay:.11s} .rows > *:nth-child(5){animation-delay:.14s} .rows > *:nth-child(6){animation-delay:.17s} .rows > *:nth-child(7){animation-delay:.2s} .rows > *:nth-child(8){animation-delay:.23s} .rows > *:nth-child(9){animation-delay:.26s} .rows > *:nth-child(10){animation-delay:.29s} .rows > *:nth-child(11){animation-delay:.32s} .rows > *:nth-child(12){animation-delay:.35s} .rows > *:nth-child(n+13){animation-delay:.38s}
+/* day + staggered rows: only on a genuine load (mount / teacher / date change), NOT on add/remove */
+.day.enter{ animation:fadeUp .45s var(--ease) both }
+.day.enter .rows > *{ animation:fadeUp .4s var(--ease) both }
+.day.enter .rows > *:nth-child(1){animation-delay:.02s} .day.enter .rows > *:nth-child(2){animation-delay:.05s} .day.enter .rows > *:nth-child(3){animation-delay:.08s} .day.enter .rows > *:nth-child(4){animation-delay:.11s} .day.enter .rows > *:nth-child(5){animation-delay:.14s} .day.enter .rows > *:nth-child(6){animation-delay:.17s} .day.enter .rows > *:nth-child(7){animation-delay:.2s} .day.enter .rows > *:nth-child(8){animation-delay:.23s} .day.enter .rows > *:nth-child(9){animation-delay:.26s} .day.enter .rows > *:nth-child(10){animation-delay:.29s} .day.enter .rows > *:nth-child(11){animation-delay:.32s} .day.enter .rows > *:nth-child(12){animation-delay:.35s} .day.enter .rows > *:nth-child(n+13){animation-delay:.38s}
 
 /* buttons: press + hover lift */
 .btn,.gbtn,.signout,.tab,.segbtn,.wkarrow,.chip-x,.addlink,.mg-upload{ transition:transform .12s var(--ease), box-shadow .2s var(--ease), background .18s var(--ease), color .18s var(--ease), border-color .18s var(--ease) }
@@ -792,7 +798,8 @@ async function onTeacher(id){ state.teacherId=id; await store.set("device:lastTe
 function updateDateCap(){ const el=document.getElementById("dcap"); if(el)el.textContent=dayName(state.date)+" · "+niceDate(state.date); const inp=document.getElementById("dpick"); if(inp)inp.value=state.date; }
 async function pickDate(v){ if(!v)return; state.date=v; updateDateCap(); if(state.teacherId) await loadTeacher(); }
 async function dayStep(n){ state.date=ymd(addDays(parseYmd(state.date),n)); updateDateCap(); if(state.teacherId) await loadTeacher(); }
-async function loadTeacher(){ const raw=await store.get(wkey(curWeek(),state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; renderDay(); }
+let dayEnter=false;
+async function loadTeacher(){ const raw=await store.get(wkey(curWeek(),state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; dayEnter=true; renderDay(); }
 function updateProg(){
   const pill=document.getElementById("prog"); if(!pill)return;
   const id=state.teacherId, dName=dayName(state.date);
@@ -833,7 +840,8 @@ function renderDay(){
   const cnt=list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend");
   const allX=(state.blob._x && state.blob._x[dName]) || [];
   const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
-  let html=`<section class="day" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span></div><div class="rows">`;
+  const en = dayEnter; dayEnter=false;
+  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span></div><div class="rows">`;
   const canPlan = (state.role==="hod"||state.role==="admin");
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
@@ -941,9 +949,13 @@ async function mountAdmin(){
       ${deptField}
       ${teacherField}
       <div class="field"><label for="f-c">Class</label><select id="f-c" onchange="af('cls',this.value)">${classOpts}</select></div>
-      ${a.mode==="day"?"":`<div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>`}
-      <div class="field"><label for="f-sort">Sort by</label><select id="f-sort" onchange="setSort(this.value)">${sortOpts}</select></div>
-      <div class="field"><label>Order</label><button class="btn dirbtn" id="dirbtn" onclick="toggleSortDir()">${a.sortDir>0?"↑ Asc":"↓ Desc"}</button></div>
+      ${a.mode==="month"?`<div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>`:""}
+      <div class="field"><label for="f-sort">Sort by</label>
+        <div class="sortwrap">
+          <select id="f-sort" onchange="setSort(this.value)">${sortOpts}</select>
+          <button class="sortdir" id="dirbtn" onclick="toggleSortDir()" title="${a.sortDir>0?"Ascending":"Descending"}" aria-label="Toggle sort direction">${a.sortDir>0?"↑":"↓"}</button>
+        </div>
+      </div>
       <div class="field grow"><label for="f-q">Search topic or remark</label><input id="f-q" type="text" placeholder="e.g. honesty, chapter 3…" oninput="af('q',this.value)"></div>
       <div class="field"><label>&nbsp;</label><button class="btn" onclick="resetFilters()">Reset</button></div>
       <div class="field"><label>&nbsp;</label><button class="btn" onclick="refreshAdmin(true)">↻ Refresh</button></div>
@@ -956,12 +968,13 @@ async function mountAdmin(){
   if(store.ok) pollTimer=setInterval(()=>refreshAdmin(false),30000);
 }
 function adminCap(){ const a=state.admin; if(a.mode==="week") return "Week "+isoWeek(ymd(mondayOf(parseYmd(a.date)))); return rangeLabel(); }
-function toggleSortDir(){ state.admin.sortDir*=-1; const b=document.getElementById("dirbtn"); if(b)b.textContent=state.admin.sortDir>0?"↑ Asc":"↓ Desc"; renderAdminResults(); }
+function toggleSortDir(){ state.admin.sortDir*=-1; setDirArrow(); renderAdminResults(); }
+function setDirArrow(){ const b=document.getElementById("dirbtn"); if(b){ b.textContent=state.admin.sortDir>0?"↑":"↓"; b.title=state.admin.sortDir>0?"Ascending":"Descending"; } }
 function resetFilters(){ const a=state.admin; const locked=(state.role==="hod"||state.role==="teacher"); a.dept=locked?state.dept:"all"; a.teacher="all"; a.cls="all"; a.day="all"; a.q=""; a.sortKey="date"; a.sortDir=1; mountAdmin(); }
 function setAdminMode(m){ state.admin.mode=m; if(m==="day")state.admin.day="all"; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} mountAdmin(); }
 function syncFilterUI(){const a=state.admin;const set=(id,v)=>{const el=document.getElementById(id);if(el&&el.tagName!=="DIV")el.value=v;};set("f-dep",a.dept);set("f-t",a.teacher);set("f-c",a.cls);set("f-d",a.day);set("f-sort",a.sortKey);set("f-q",a.q);const r=document.getElementById("arange");if(r)r.textContent=adminCap();}
 function af(k,v){ state.admin[k]=v; if(k==="q"){renderAdminResults();const el=document.getElementById("f-q");if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n);}} else renderAdminResults(); }
-function setSort(k){ state.admin.sortKey=k; state.admin.sortDir=(k==="upd")?-1:1; const b=document.getElementById("dirbtn"); if(b)b.textContent=state.admin.sortDir>0?"↑ Asc":"↓ Desc"; renderAdminResults(); }
+function setSort(k){ state.admin.sortKey=k; state.admin.sortDir=(k==="upd")?-1:1; setDirArrow(); renderAdminResults(); }
 function updateAdminNav(){ const a=state.admin; const r=document.getElementById("arange"); if(r)r.textContent=adminCap(); const dd=document.getElementById("adate"); if(dd){ if(dd.tagName==="INPUT") dd.value=a.date; else dd.textContent=weekRange(ymd(mondayOf(parseYmd(a.date)))); } const mm=document.getElementById("amon"); if(mm)mm.value=monthOf(a.date); }
 async function adminStep(n){ const a=state.admin; if(a.mode==="day")a.date=ymd(addDays(parseYmd(a.date),n)); else if(a.mode==="week")a.date=ymd(addDays(parseYmd(a.date),n*7)); else{const d=parseYmd(a.date);a.date=ymd(new Date(d.getFullYear(),d.getMonth()+n,1));} updateAdminNav(); await refreshAdmin(false); }
 async function pickAdminDate(v){ if(!v)return; state.admin.date=v; updateAdminNav(); await refreshAdmin(false); }
