@@ -242,14 +242,32 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .mg-tt-cell{background:#eef2f6; border-radius:6px; padding:3px 8px; font-size:12.5px; font-weight:700}
 .mg-tt-cell em{font-style:normal; color:var(--blue-d); opacity:.7; font-size:10.5px; margin-right:1px}
 .mg-tt-cell i{display:block; font-style:normal; font-size:10px; color:var(--muted); font-weight:600; margin-top:1px}
-.tt-grid-wrap{overflow-x:auto; margin:12px 0; border:1px solid var(--line); border-radius:var(--rs)}
+.tt-grid-wrap{overflow-x:auto; margin:10px 0; border:1px solid var(--line); border-radius:var(--rs)}
 .tt-grid{border-collapse:collapse; width:100%; min-width:600px}
 .tt-grid th,.tt-grid td{border:1px solid #e6ecf3; padding:0}
-.tt-grid thead th{font-size:11px; font-weight:800; color:var(--blue-d); background:#f2f6fb; padding:5px 4px; text-align:center}
-.tt-grid thead th small{display:block; font-weight:600; font-size:9px; color:var(--muted)}
-.tt-grid tbody th{font-size:11px; font-weight:800; color:var(--muted); background:#f6f9fc; width:40px; text-align:center}
-.tt-grid td input{width:100%; min-width:56px; border:none; background:transparent; padding:8px 5px; font-size:12.5px; font-weight:700; min-height:0; box-shadow:none; border-radius:0; text-align:center}
-.tt-grid td input:focus{outline:2px solid var(--blue); outline-offset:-2px; background:#fff}
+.tt-grid thead th{font-size:11px; font-weight:800; color:var(--blue-d); background:#f2f6fb; padding:6px 4px; text-align:center}
+.tt-grid tbody th{font-size:12px; font-weight:800; color:var(--ink); background:#f6f9fc; width:96px; text-align:left; padding:6px 8px; white-space:nowrap}
+.tt-grid tbody th small{display:block; font-weight:600; font-size:9.5px; color:var(--muted)}
+.ttcell{padding:2px}
+.ttc-c{width:100%; min-width:64px; border:none; background:transparent; padding:6px 5px 2px; font-size:12.5px; font-weight:700; min-height:0; box-shadow:none; border-radius:0; text-align:center}
+.ttc-c:focus{outline:2px solid var(--blue); outline-offset:-2px; background:#fff}
+.ttc-s{width:100%; border:none; background:transparent; font-size:10px; color:var(--muted); font-weight:600; min-height:0; box-shadow:none; border-radius:0; padding:0 2px 4px; text-align:center; -webkit-appearance:none; appearance:none}
+.tt-grid .ttx-row th{background:#eef1f5; color:var(--muted); font-weight:700}
+.tt-grid td.ttx{background:#f4f6f9; color:#9aa7b4; text-align:center; font-size:11px; padding:6px}
+.tt-view td{padding:6px 8px; text-align:center; vertical-align:middle}
+.tt-view td b{font-size:12.5px; font-weight:800}
+.tt-view td i{display:block; font-style:normal; font-size:10px; color:var(--muted); font-weight:600; margin-top:1px}
+.tt-view td.tv-free{color:#cdd6e0}
+.tt-view td.tv-cont{background:#fafbfd}
+.tt-sub{font-weight:800; font-size:13px; margin:6px 0}
+.danger-btn{color:var(--err,#c0392b)}
+.danger-btn:hover{background:#fdeeec; border-color:#e6a89f}
+.be-grid{min-width:420px}
+.be-grid tbody th{width:auto; min-width:96px}
+.be-grid td{padding:4px 6px; text-align:center}
+.be-grid input[type=time]{width:118px; border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:13px; font-weight:700; background:var(--surface); box-shadow:none}
+.be-grid input[type=time]:focus{outline:2px solid var(--blue); outline-offset:-2px}
+.be-dur{font-weight:800; font-size:12.5px; color:var(--blue-d); white-space:nowrap}
 .mg-details summary{font-size:15px; font-weight:800; cursor:pointer}
 .mg-rooms{max-height:230px; overflow-y:auto; margin-top:12px}
 @media (max-width:560px){ .mg-grid{grid-template-columns:1fr} }
@@ -362,6 +380,8 @@ const DEFAULT_RAW={
 let ROOMS = Object.assign({}, DEFAULT_ROOMS);
 const DEFAULT_PLACES=["Library","Physics Lab","Chemistry Lab","Biology Lab","Computer Lab","Music Room","Art Room","Activity Room","Auditorium","Sports Ground","Staff Room"];
 let PLACES = DEFAULT_PLACES.slice();
+const DEFAULT_SUBJECTS=["Value Education","English","Hindi","Mathematics","Science","Social Science","Computer Science","Library","Junior Library","SDP"];
+let SUBJECTS = DEFAULT_SUBJECTS.slice();
 let TEACHERS = DEFAULT_TEACHERS.map(t=>Object.assign({},t));
 let RAW = JSON.parse(JSON.stringify(DEFAULT_RAW));
 let DEPTS = [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))];
@@ -369,23 +389,41 @@ let SCHEDULE={}, CLASSES=[], DEPARTMENTS=[];
 
 const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday"];
 const DAYVAR={Monday:"--mon",Tuesday:"--tue",Wednesday:"--wed",Thursday:"--thu",Friday:"--fri"};
-/* Bell timings 2026-27 — teaching periods I–VIII map to periods 1–8. */
-const BELL={1:{r:"I",s:"9:15",e:"9:50"},2:{r:"II",s:"9:50",e:"10:25"},3:{r:"III",s:"10:25",e:"11:00"},4:{r:"IV",s:"11:25",e:"12:00"},5:{r:"V",s:"12:00",e:"12:30"},6:{r:"VI",s:"12:30",e:"1:00"},7:{r:"VII",s:"1:00",e:"1:30"},8:{r:"VIII",s:"1:30",e:"2:00"}};
-const BELL_PRE=[{id:"assembly",r:"Assembly",t:"7:55–8:20"},{id:"ct",r:"CT",t:"8:20–8:25"},{id:"ext",r:"Extended Slot",t:"8:25–9:15"}];
-const BREAK_AFTER=3, BREAK_TIME="11:00–11:25";
+/* Bell timings 2026-27 — teaching periods I–VIII map to periods 1–8. Times stored 24h "HH:MM"; editable via cfg:bell. */
+const DEFAULT_BELL={
+  pre:[{id:"assembly",r:"Assembly",s:"07:55",e:"08:20"},{id:"ct",r:"CT",s:"08:20",e:"08:25"},{id:"ext",r:"Extended Slot",s:"08:25",e:"09:15"}],
+  periods:[{r:"I",s:"09:15",e:"09:50"},{r:"II",s:"09:50",e:"10:25"},{r:"III",s:"10:25",e:"11:00"},{r:"IV",s:"11:25",e:"12:00"},{r:"V",s:"12:00",e:"12:30"},{r:"VI",s:"12:30",e:"13:00"},{r:"VII",s:"13:00",e:"13:30"},{r:"VIII",s:"13:30",e:"14:00"}],
+  breakAfter:3,
+  brk:{r:"Break",s:"11:00",e:"11:25"}
+};
+let BELLCFG = JSON.parse(JSON.stringify(DEFAULT_BELL));
+let BELL={}, BELL_PRE=[], BREAK_AFTER=3, BREAK_TIME="";
+function norm24(v){ const m=String(v||"").match(/^(\d{1,2}):(\d{2})$/); if(!m) return "00:00"; return String(Math.min(23,+m[1])).padStart(2,"0")+":"+m[2]; }
+function fmtT(hhmm){ const m=String(hhmm||"").match(/^(\d{1,2}):(\d{2})$/); if(!m) return hhmm||""; const h=+m[1], h12=((h%12)||12); return h12+":"+m[2]; }
+function durMin(s,e){ const p=x=>{ const m=String(x||"").match(/^(\d{1,2}):(\d{2})$/); return m?(+m[1])*60+(+m[2]):null; }; const a=p(s), b=p(e); return (a==null||b==null)?null:(b-a); }
+function validBell(o){ return !!(o && Array.isArray(o.pre) && Array.isArray(o.periods) && o.periods.length===PERIODS && o.brk && typeof o.breakAfter==="number"); }
+function normBell(){ (BELLCFG.pre||[]).forEach(b=>{b.s=norm24(b.s);b.e=norm24(b.e);}); (BELLCFG.periods||[]).forEach(p=>{p.s=norm24(p.s);p.e=norm24(p.e);}); if(BELLCFG.brk){BELLCFG.brk.s=norm24(BELLCFG.brk.s);BELLCFG.brk.e=norm24(BELLCFG.brk.e);} }
+function applyBell(){ normBell(); BELL={}; (BELLCFG.periods||[]).forEach((p,i)=>{ BELL[i+1]={r:p.r,s:p.s,e:p.e}; }); BELL_PRE=(BELLCFG.pre||[]).map(b=>({id:b.id,r:b.r,s:b.s,e:b.e,t:fmtT(b.s)+"–"+fmtT(b.e)})); BREAK_AFTER=BELLCFG.breakAfter||3; const bk=BELLCFG.brk||{}; BREAK_TIME=(bk.s&&bk.e)?(fmtT(bk.s)+"–"+fmtT(bk.e)):""; }
 const periodLabel=p=>(BELL[p]?BELL[p].r:("P"+p));
-const periodTime=p=>(BELL[p]?BELL[p].s+"–"+BELL[p].e:"");
-function periodText(e){ const a=e.period, b=e.periodEnd||e.period; const lab=b>a?periodLabel(a)+"–"+periodLabel(b):periodLabel(a); const tim=(BELL[a]&&BELL[b])?BELL[a].s+"–"+BELL[b].e:""; return {lab,tim}; }
+const periodTime=p=>(BELL[p]?fmtT(BELL[p].s)+"–"+fmtT(BELL[p].e):"");
+function periodText(e){ const a=e.period, b=e.periodEnd||e.period; const lab=b>a?periodLabel(a)+"–"+periodLabel(b):periodLabel(a); const tim=(BELL[a]&&BELL[b])?fmtT(BELL[a].s)+"–"+fmtT(BELL[b].e):""; return {lab,tim}; }
 function bellRefHTML(){
-  const chip=(r,t,cls)=>`<span class="bell-chip${cls?" "+cls:""}"><b>${esc(r)}</b><span>${esc(t)}</span></span>`;
+  const chip=(r,s,e,cls)=>{ const d=durMin(s,e); return `<span class="bell-chip${cls?" "+cls:""}"><b>${esc(r)}</b><span>${esc(fmtT(s)+"–"+fmtT(e))}</span>${d!=null?`<em>${d} min</em>`:""}</span>`; };
   let h=`<div class="bell-ref"><div class="bell-ref-h">Bell timings 2026–27 · Monday to Friday</div><div class="bell-chips">`;
-  BELL_PRE.forEach(b=>{ h+=chip(b.r,b.t,"pre"); });
-  for(let p=1;p<=PERIODS;p++){ if(p===BREAK_AFTER+1) h+=chip("Break",BREAK_TIME,"brk"); h+=chip(BELL[p].r,BELL[p].t); }
+  BELL_PRE.forEach(b=>{ h+=chip(b.r,b.s,b.e,"pre"); });
+  const bk=BELLCFG.brk||{};
+  for(let p=1;p<=PERIODS;p++){ if(p===BREAK_AFTER+1) h+=chip(bk.r||"Break",bk.s,bk.e,"brk"); h+=chip(BELL[p].r,BELL[p].s,BELL[p].e); }
   h+=`</div></div>`;
   return h;
 }
 
 function classSort(a,b){const ga=parseInt(a),gb=parseInt(b);return ga!==gb?ga-gb:a.slice(String(ga).length).localeCompare(b.slice(String(gb).length));}
+function cellObj(cell){
+  if(cell==null) return null;
+  if(typeof cell==="object"){ const c=String(cell.c||"").trim(); if(!c) return null; return {c, s:String(cell.s||"").trim()}; }
+  const s=String(cell||"").trim(); if(!s) return null;
+  return {c:s, s:""};
+}
 function ent(s){
   s=String(s||"").trim();
   if(s.indexOf("SDP:")===0){const g=s.slice(4).split(",").map(x=>x.trim()).filter(Boolean).sort(classSort);return{act:"SDP",group:g,slug:"SDP_"+g.join("_"),label:"SDP "+g.join(", ")};}
@@ -401,12 +439,13 @@ const ROLE_SHORT={teacher:"Teacher", hod:"HOD", leader:"Leader", admin:"Admin"};
 function roleOf(t){ if(!t) return "teacher"; if(t.role && ROLES.includes(t.role)) return t.role; if(t.admin===true) return "admin"; return "teacher"; }
 function canSeeDashboard(){ if(state.role==="admin"||state.role==="leader"||state.role==="hod") return true; return !!state.myTeacherId; }
 function rebuildDerived(){
+  applyBell();
   CLASSES=Object.keys(ROOMS).sort(classSort);
   DEPARTMENTS=[...new Set([...(DEPTS||[]), ...TEACHERS.map(t=>t.dept)])].filter(Boolean).sort();
   SCHEDULE={};
   for(const t of TEACHERS){ SCHEDULE[t.id]={}; for(const d of DAYS){
-    const arr=(((RAW[t.id]||{})[d])||[]).map((code,i)=> String(code||"").trim() ? Object.assign(ent(code),{period:i+1,periodEnd:i+1}) : null).filter(Boolean);
-    const merged=[]; for(const e of arr){ const last=merged[merged.length-1]; if(last && last.slug===e.slug && e.period===last.periodEnd+1) last.periodEnd=e.period; else merged.push(e); }
+    const arr=(((RAW[t.id]||{})[d])||[]).map((cell,i)=>{ const co=cellObj(cell); if(!co) return null; const e=ent(co.c); e.period=i+1; e.periodEnd=i+1; e.subject=co.s||subjectOf(e.act,t.dept); return e; }).filter(Boolean);
+    const merged=[]; for(const e of arr){ const last=merged[merged.length-1]; if(last && last.slug===e.slug && last.subject===e.subject && e.period===last.periodEnd+1) last.periodEnd=e.period; else merged.push(e); }
     SCHEDULE[t.id][d]=merged;
   } }
 }
@@ -444,17 +483,20 @@ async function apiGetMany(keys){
   }catch(e){ return {}; }
 }
 async function loadAppConfig(){
-  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:depts","cfg:places"]);
+  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:depts","cfg:places","cfg:subjects","cfg:bell"]);
   try{ if(v["cfg:teachers"]) TEACHERS=JSON.parse(v["cfg:teachers"]); }catch(e){}
   try{ if(v["cfg:rooms"]) ROOMS=JSON.parse(v["cfg:rooms"]); }catch(e){}
   try{ if(v["cfg:schedule"]) RAW=JSON.parse(v["cfg:schedule"]); }catch(e){}
   try{ if(v["cfg:depts"]) DEPTS=JSON.parse(v["cfg:depts"]); }catch(e){}
   try{ if(v["cfg:places"]) PLACES=JSON.parse(v["cfg:places"]); }catch(e){}
+  try{ if(v["cfg:subjects"]) SUBJECTS=JSON.parse(v["cfg:subjects"]); }catch(e){}
+  try{ if(v["cfg:bell"]){ const b=JSON.parse(v["cfg:bell"]); if(validBell(b)) BELLCFG=b; } }catch(e){}
   if(!Array.isArray(TEACHERS)||!TEACHERS.length) TEACHERS=DEFAULT_TEACHERS.map(t=>Object.assign({},t));
   if(!ROOMS||typeof ROOMS!=="object") ROOMS=Object.assign({},DEFAULT_ROOMS);
   if(!RAW||typeof RAW!=="object") RAW={};
   if(!Array.isArray(DEPTS)) DEPTS=[];
   if(!Array.isArray(PLACES)) PLACES=DEFAULT_PLACES.slice();
+  if(!Array.isArray(SUBJECTS)) SUBJECTS=DEFAULT_SUBJECTS.slice();
   rebuildDerived();
 }
 async function saveCfg(key,obj,label){ rebuildDerived(); const ok=await apiSet(key,JSON.stringify(obj)); toast(ok?(label||"Saved"):"Couldn't save — admins only / check connection", ok?"✓":"⚠"); return ok; }
@@ -463,6 +505,8 @@ const saveRoomsCfg    = ()=> saveCfg("cfg:rooms",ROOMS,"Rooms saved");
 const saveScheduleCfg = ()=> saveCfg("cfg:schedule",RAW,"Timetable saved");
 const saveDeptsCfg    = ()=> saveCfg("cfg:depts",DEPTS,"Departments saved");
 const savePlacesCfg   = ()=> saveCfg("cfg:places",PLACES,"Rooms saved");
+const saveSubjectsCfg = ()=> saveCfg("cfg:subjects",SUBJECTS,"Subjects saved");
+const saveBellCfg     = ()=> saveCfg("cfg:bell",BELLCFG,"Bell timings saved");
 function roomOptions(sel){
   sel=sel||"";
   let o=`<option value=""${sel?"":" selected"}>Room / place…</option>`;
@@ -705,7 +749,7 @@ function renderDay(){
         const per=`<span class="per">${esc(s.label)} · ${esc(s.time)}</span>`;
         const chip = e.act==="SDP"
           ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span>${per}</span>`
-          : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(subjectOf(e.act,dept))}</span><span class="rm">Room ${e.room}</span>${per}</span>`;
+          : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(e.subject)}</span><span class="rm">Room ${e.room}</span>${per}</span>`;
         const plannedCell = canPlan
           ? `<div class="pl"><input type="text" placeholder="Planned topic" value="${esc(p)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','p',this.value)"></div>`
           : `<div class="pl ro">${p?`<span class="pl-lab">Planned</span>${esc(p)}`:`<span class="pl-none">No planned topic</span>`}</div>`;
@@ -852,7 +896,7 @@ function buildRows(){
           if(!classMatch(e,a.cls))continue;
           const rec=blob[dkeyOf(day,e.slug)]||{}, topic=(rec.t||""), remark=(rec.r||""), planned=(rec.p||"");
           if(q && !(topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||planned.toLowerCase().includes(q)||(e.code||"").toLowerCase().includes(q)))continue;
-          rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day,dayi:dayIndex(day),period:e.period||null,periodEnd:e.periodEnd||e.period||null,cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,subject:subjectOf(e.act,dept),planned,topic,remark,u:rec.u||"",logged:!!topic.trim(),extra:false});
+          rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day,dayi:dayIndex(day),period:e.period||null,periodEnd:e.periodEnd||e.period||null,cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,subject:e.subject,planned,topic,remark,u:rec.u||"",logged:!!topic.trim(),extra:false});
         }
       }
       const xd=blob._x||{};
@@ -984,24 +1028,29 @@ function mountManage(){
   </section>`;
 
   html+=`<section class="card"><div class="card-h"><h2>Timetables</h2></div>
-    <p class="muted mg-note">Pick a teacher, then edit the grid directly — type a class code under each period (blank = free). Specials: library <code>Lib:9C</code>, junior library <code>libJ:7B</code>, group/SDP <code>SDP:12F;12B;12D</code> (semicolons). Click <b>Save timetable</b> when done. You can also use CSV for bulk edits.</p>
+    <p class="muted mg-note">Pick a teacher, then edit the grid: each period row has a <b>class</b> (pick from the list or type) and a <b>subject</b> for every weekday. Blank = free. For a group/SDP session type <code>SDP:12F;12B;12D</code> in the class box. Click <b>Save timetable</b> when done. CSV is still there for bulk edits.</p>
     ${bellRefHTML()}
     <div class="field" style="max-width:340px"><label>Teacher</label><select id="tt-teacher" onchange="mgPickTT(this.value)">${tsel}</select></div>`;
   if(cur){
+    html+=`<div class="tt-sub">Edit — ${esc(cur.name)}</div>`;
     html+=mgGridHTML(cur.id);
     html+=`<div class="mg-actions"><button class="btn primary" onclick="mgSaveGrid('${esc(cur.id)}')">Save timetable</button>
+      <button class="btn danger-btn" onclick="mgClearGrid('${esc(cur.id)}')">Reset (clear all)</button>
       <button class="btn" onclick="mgDownloadTeacher()">Download CSV</button>
       <label class="btn mg-upload">Upload CSV<input type="file" accept=".csv,text/csv" onchange="mgUploadTeacher(this.files)"></label>
       <button class="btn" onclick="mgDownloadBlank()">Blank template</button></div>`;
-    html+=`<div class="mg-tt-preview"><div class="muted" style="margin-bottom:6px">Preview — ${esc(cur.name)} (class · subject · room)</div>`;
-    DAYS.forEach(d=>{
-      const arr=(SCHEDULE[cur.id]&&SCHEDULE[cur.id][d])||[];
-      const info=e=>{ const subj=e.act==="SDP"?"SDP":((e.act==="Lib"||e.act==="libJ")?"Library":subjectOf(e.act,deptOf(cur.id))); const name=e.act==="SDP"?("SDP "+e.group.join(",")):e.code; const room=e.act==="SDP"?"":(e.room?("R"+e.room):""); return {subj,name,room}; };
-      html+=`<div class="mg-tt-day"><span class="mg-tt-dname">${d.slice(0,3)}</span><span class="mg-tt-cells">${arr.length?arr.map(e=>{const o=info(e);return `<span class="mg-tt-cell"><em>${esc(periodText(e).lab)}</em> ${esc(o.name)}<i>${esc(o.subj)}${o.room?" · "+esc(o.room):""}</i></span>`;}).join(""):`<span class="muted">—</span>`}</span></div>`;
-    });
-    html+=`</div>`;
+    html+=`<div class="tt-sub" style="margin-top:16px">Preview — ${esc(cur.name)} (class · subject · room)</div>`;
+    html+=mgPreviewHTML(cur.id);
   }
   html+=`</section>`;
+
+  // ---- Bell timings ----
+  html+=`<section class="card"><div class="card-h"><h2>Bell timings</h2></div>
+    <p class="muted mg-note">Edit the start and end time of each slot (24-hour picker). Duration updates as you type. These times drive the period times shown across the app.</p>
+    ${bellEditorHTML()}
+    <div class="mg-actions"><button class="btn primary" onclick="beSave()">Save bell timings</button>
+      <button class="btn danger-btn" onclick="beReset()">Reset to default</button></div>
+  </section>`;
 
   // ---- Rooms & places ----
   html+=`<section class="card"><details class="mg-details"><summary>Rooms &amp; places</summary>
@@ -1016,6 +1065,13 @@ function mountManage(){
     <div class="mg-chiprow">`;
   (PLACES||[]).forEach(p=>{ html+=`<span class="mg-chip">${esc(p)}<button class="chip-x" title="Remove" onclick="mgDelPlace('${esc(p)}')">×</button></span>`; });
   if(!(PLACES||[]).length) html+=`<span class="muted">No places yet.</span>`;
+  html+=`</div>
+    <div style="font-weight:800;font-size:12px;margin:16px 0 6px">Subjects</div>
+    <p class="muted mg-note">Subjects available in the timetable's subject dropdown.</p>
+    <div class="mg-inline"><input id="subj-new" type="text" placeholder="e.g. Mathematics" style="max-width:220px"><button class="btn" onclick="mgAddSubject()">Add subject</button></div>
+    <div class="mg-chiprow">`;
+  (SUBJECTS||[]).forEach(s=>{ html+=`<span class="mg-chip">${esc(s)}<button class="chip-x" title="Remove" onclick="mgDelSubject('${esc(s)}')">×</button></span>`; });
+  if(!(SUBJECTS||[]).length) html+=`<span class="muted">No subjects yet.</span>`;
   html+=`</div></details></section>`;
 
   html+=`</div>`;
@@ -1152,15 +1208,30 @@ function mgUploadTeacher(files){
   reader.readAsText(f);
 }
 
-/* inline timetable grid */
+/* inline timetable grid — periods as rows, days as columns */
+function slotRows(){ const rows=[]; BELL_PRE.forEach(b=>rows.push({fixed:true,label:b.r,time:b.t})); for(let p=1;p<=PERIODS;p++){ if(p===BREAK_AFTER+1) rows.push({fixed:true,label:"Break",time:BREAK_TIME}); rows.push({p,label:periodLabel(p),time:periodTime(p)}); } return rows; }
+function subjSelHTML(day,p,v){ return `<select class="ttc-s" id="tts-${day}-${p}"><option value=""${v?"":" selected"}>subject…</option>${(SUBJECTS||[]).map(s=>`<option${v===s?" selected":""}>${esc(s)}</option>`).join("")}${(v&&(SUBJECTS||[]).indexOf(v)<0)?`<option selected>${esc(v)}</option>`:""}</select>`; }
 function mgGridHTML(id){
   const raw=RAW[id]||{};
-  let h=`<div class="tt-grid-wrap"><table class="tt-grid"><thead><tr><th></th>`;
-  for(let p=1;p<=PERIODS;p++) h+=`<th>${periodLabel(p)}<small>${BELL[p]?BELL[p].s:""}</small></th>`;
-  h+=`</tr></thead><tbody>`;
-  DAYS.forEach(day=>{
-    h+=`<tr><th>${day.slice(0,3)}</th>`;
-    for(let p=1;p<=PERIODS;p++){ const v=(raw[day]&&raw[day][p-1])||""; h+=`<td><input id="ttc-${day}-${p}" type="text" value="${esc(v)}" spellcheck="false" autocapitalize="characters"></td>`; }
+  let h=`<datalist id="ttclasses">`+CLASSES.map(c=>`<option value="${esc(c)}">`).join("")+`</datalist>`;
+  h+=`<div class="tt-grid-wrap"><table class="tt-grid"><thead><tr><th>Period</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
+  slotRows().forEach(s=>{
+    if(s.fixed){ h+=`<tr class="ttx-row"><th>${esc(s.label)}<small>${esc(s.time)}</small></th><td class="ttx" colspan="${DAYS.length}">—</td></tr>`; return; }
+    h+=`<tr><th>${esc(s.label)}<small>${esc(s.time)}</small></th>`;
+    DAYS.forEach(day=>{ const co=cellObj((raw[day]||[])[s.p-1])||{c:"",s:""}; h+=`<td class="ttcell"><input class="ttc-c" id="ttc-${day}-${s.p}" list="ttclasses" value="${esc(co.c)}" placeholder="—" spellcheck="false" autocapitalize="characters">${subjSelHTML(day,s.p,co.s)}</td>`; });
+    h+=`</tr>`;
+  });
+  h+=`</tbody></table></div>`;
+  return h;
+}
+function mgPreviewHTML(id){
+  const sch=SCHEDULE[id]||{};
+  const byDay={}; DAYS.forEach(d=>{ byDay[d]={}; (sch[d]||[]).forEach(e=>{ byDay[d][e.period]=e; for(let p=e.period+1;p<=(e.periodEnd||e.period);p++) byDay[d][p]="cont"; }); });
+  let h=`<div class="tt-grid-wrap"><table class="tt-grid tt-view"><thead><tr><th>Period</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
+  slotRows().forEach(s=>{
+    if(s.fixed){ h+=`<tr class="ttx-row"><th>${esc(s.label)}<small>${esc(s.time)}</small></th><td class="ttx" colspan="${DAYS.length}">—</td></tr>`; return; }
+    h+=`<tr><th>${esc(s.label)}<small>${esc(s.time)}</small></th>`;
+    DAYS.forEach(d=>{ const e=byDay[d][s.p]; if(!e){ h+=`<td class="tv-free">·</td>`; } else if(e==="cont"){ h+=`<td class="tv-cont"></td>`; } else { const name=e.act==="SDP"?("SDP "+e.group.join(",")):e.code; const room=e.act==="SDP"?"":(e.room?("R"+e.room):""); h+=`<td><b>${esc(name)}</b><i>${esc(e.subject)}${room?" · "+esc(room):""}</i></td>`; } });
     h+=`</tr>`;
   });
   h+=`</tbody></table></div>`;
@@ -1170,9 +1241,9 @@ async function mgSaveGrid(id){
   const unknown=new Set();
   DAYS.forEach(day=>{
     const cells=[];
-    for(let p=1;p<=PERIODS;p++){ const el=document.getElementById("ttc-"+day+"-"+p); cells.push(cellIn(el?el.value:"")); }
+    for(let p=1;p<=PERIODS;p++){ const ce=document.getElementById("ttc-"+day+"-"+p); const se=document.getElementById("tts-"+day+"-"+p); const c=cellIn(ce?ce.value:""); const s=(se?se.value:"").trim(); cells.push(c?(s?{c,s}:c):""); }
     while(cells.length && !cells[cells.length-1]) cells.pop();
-    cells.forEach(c=>{ if(!c) return; const e=ent(c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
+    cells.forEach(cell=>{ const co=cellObj(cell); if(!co) return; const e=ent(co.c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
     if(!RAW[id]) RAW[id]={};
     RAW[id][day]=cells;
   });
@@ -1180,6 +1251,27 @@ async function mgSaveGrid(id){
   mountManage();
   if(unknown.size) setTimeout(()=>toast("Saved. Unknown class(es): "+[...unknown].join(", ")+" — add a room under Rooms & places","⚠"),400);
 }
+async function mgClearGrid(id){ if(!confirm("Clear the entire timetable for "+NAME(id)+"? This removes all classes for every day.")) return; RAW[id]={}; await saveScheduleCfg(); mountManage(); }
+
+/* bell timings editor */
+function bellEditorHTML(){
+  const row=(key,idx,label,s,e)=>{ const d=durMin(s,e); return `<tr><th>${esc(label)}</th><td><input type="time" id="be-s-${key}-${idx}" value="${esc(norm24(s))}" oninput="beDur('${key}',${idx})"></td><td><input type="time" id="be-e-${key}-${idx}" value="${esc(norm24(e))}" oninput="beDur('${key}',${idx})"></td><td class="be-dur" id="be-d-${key}-${idx}">${d!=null?d+" min":"—"}</td></tr>`; };
+  let h=`<div class="tt-grid-wrap"><table class="tt-grid be-grid"><thead><tr><th>Slot</th><th>Start</th><th>End</th><th>Duration</th></tr></thead><tbody>`;
+  (BELLCFG.pre||[]).forEach((b,i)=> h+=row("pre",i,b.r,b.s,b.e));
+  const ba=BELLCFG.breakAfter||3;
+  (BELLCFG.periods||[]).forEach((p,i)=>{ if(i===ba){ const bk=BELLCFG.brk||{}; h+=row("brk",0,bk.r||"Break",bk.s,bk.e); } h+=row("per",i,"Period "+p.r,p.s,p.e); });
+  h+=`</tbody></table></div>`;
+  return h;
+}
+function beVal(id){ const el=document.getElementById(id); return el?el.value:""; }
+function beDur(key,idx){ const d=durMin(beVal("be-s-"+key+"-"+idx),beVal("be-e-"+key+"-"+idx)); const el=document.getElementById("be-d-"+key+"-"+idx); if(el) el.textContent=(d!=null?d+" min":"—"); }
+async function beSave(){
+  (BELLCFG.pre||[]).forEach((b,i)=>{ b.s=norm24(beVal("be-s-pre-"+i)); b.e=norm24(beVal("be-e-pre-"+i)); });
+  (BELLCFG.periods||[]).forEach((p,i)=>{ p.s=norm24(beVal("be-s-per-"+i)); p.e=norm24(beVal("be-e-per-"+i)); });
+  if(BELLCFG.brk){ BELLCFG.brk.s=norm24(beVal("be-s-brk-0")); BELLCFG.brk.e=norm24(beVal("be-e-brk-0")); }
+  await saveBellCfg(); mountManage();
+}
+async function beReset(){ if(!confirm("Reset all bell timings to the default schedule?")) return; BELLCFG=JSON.parse(JSON.stringify(DEFAULT_BELL)); await saveBellCfg(); mountManage(); }
 
 /* places (non-class rooms) */
 async function mgAddPlace(){
@@ -1193,6 +1285,19 @@ async function mgDelPlace(name){
   if(!confirm("Remove place \""+name+"\"?")) return;
   PLACES=PLACES.filter(p=>p!==name);
   await savePlacesCfg();
+  mountManage();
+}
+async function mgAddSubject(){
+  const el=document.getElementById("subj-new"); const v=(el&&el.value||"").trim();
+  if(!v){ toast("Enter a subject","⚠"); return; }
+  if(!SUBJECTS.some(s=>s.toLowerCase()===v.toLowerCase())) SUBJECTS.push(v);
+  await saveSubjectsCfg();
+  mountManage();
+}
+async function mgDelSubject(name){
+  if(!confirm("Remove subject \""+name+"\"?")) return;
+  SUBJECTS=SUBJECTS.filter(s=>s!==name);
+  await saveSubjectsCfg();
   mountManage();
 }
 
