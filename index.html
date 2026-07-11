@@ -563,9 +563,19 @@ const store={ ok:true,
   async get(k,shared){ return shared ? await apiGet(k) : prefGet(k); },
   async set(k,v,shared){ if(shared) return await apiSet(k,v); prefSet(k,v); return true; } };
 const wkey=(week,id)=>"w:"+week+":"+id;
-/* School branches (label/selector at login; data is shared for now) */
+/* School branches — each branch has its own separate data (server namespaces KV by branch) */
 const BRANCHES=["Anand Niketan","Junior-Anand Niketan","Gurugram","ILC","Dwarka","Junior-Dwarka","Junior Wing-Dwarka"];
+const BRANCH_ADDR={
+  "Anand Niketan":"A-21, Anand Niketan, New Delhi",
+  "Junior-Anand Niketan":"D Block, Anand Niketan, New Delhi",
+  "Gurugram":"Sector-115, Gurugram, Haryana",
+  "ILC":"Sector-28, Dwarka, New Delhi",
+  "Dwarka":"Sector-22, Dwarka, New Delhi",
+  "Junior-Dwarka":"Sector-22, Dwarka, New Delhi",
+  "Junior Wing-Dwarka":"Sector-28, Dwarka, New Delhi"
+};
 const DEFAULT_BRANCH="Anand Niketan";
+function branchLabel(b){ return b + (BRANCH_ADDR[b]?" ("+BRANCH_ADDR[b]+")":""); }
 function getBranch(){ const b=prefGet("pref:branch"); return (b && BRANCHES.indexOf(b)>=0) ? b : DEFAULT_BRANCH; }
 function setBranch(v){ prefSet("pref:branch", (v && BRANCHES.indexOf(v)>=0)?v:DEFAULT_BRANCH); }
 function applyBranchHeader(){ const y=document.querySelector(".brand-txt .yr"); if(y) y.textContent=getBranch()+" · 2026–27"; }
@@ -579,7 +589,7 @@ async function whoami(){
     if(r.status===401){ SID=""; prefSet("sid",""); prefSet("session:user",""); return {ok:false}; }
     if(!r.ok) return {ok:false};
     const d=await r.json();
-    return {ok:true, email:d.email||"", role:d.role||"teacher", teacherId:d.teacherId||null, dept:d.dept||"", admin:!!d.admin, bootstrap:!!d.bootstrap};
+    return {ok:true, email:d.email||"", role:d.role||"teacher", teacherId:d.teacherId||null, dept:d.dept||"", admin:!!d.admin, bootstrap:!!d.bootstrap, branch:d.branch||DEFAULT_BRANCH};
   }catch(e){ return {ok:false}; }
 }
 async function apiGetMany(keys){
@@ -592,21 +602,18 @@ async function apiGetMany(keys){
 }
 async function loadAppConfig(){
   const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:schedulex","cfg:depts","cfg:places","cfg:subjects","cfg:bell"]);
-  try{ if(v["cfg:teachers"]) TEACHERS=JSON.parse(v["cfg:teachers"]); }catch(e){}
-  try{ if(v["cfg:rooms"]) ROOMS=JSON.parse(v["cfg:rooms"]); }catch(e){}
-  try{ if(v["cfg:schedule"]) RAW=JSON.parse(v["cfg:schedule"]); }catch(e){}
-  try{ if(v["cfg:schedulex"]) RAWX=JSON.parse(v["cfg:schedulex"]); }catch(e){}
-  try{ if(v["cfg:depts"]) DEPTS=JSON.parse(v["cfg:depts"]); }catch(e){}
-  try{ if(v["cfg:places"]) PLACES=JSON.parse(v["cfg:places"]); }catch(e){}
-  try{ if(v["cfg:subjects"]) SUBJECTS=JSON.parse(v["cfg:subjects"]); }catch(e){}
-  try{ if(v["cfg:bell"]){ const b=JSON.parse(v["cfg:bell"]); if(validBell(b)) BELLCFG=b; } }catch(e){}
-  if(!Array.isArray(TEACHERS)||!TEACHERS.length) TEACHERS=DEFAULT_TEACHERS.map(t=>Object.assign({},t));
-  if(!ROOMS||typeof ROOMS!=="object") ROOMS=Object.assign({},DEFAULT_ROOMS);
-  if(!RAW||typeof RAW!=="object") RAW={};
-  if(!RAWX||typeof RAWX!=="object") RAWX={};
-  if(!Array.isArray(DEPTS)) DEPTS=[];
-  if(!Array.isArray(PLACES)) PLACES=DEFAULT_PLACES.slice();
-  if(!Array.isArray(SUBJECTS)) SUBJECTS=DEFAULT_SUBJECTS.slice();
+  const seed=(getBranch()===DEFAULT_BRANCH); // only the home branch seeds the built-in defaults; other branches start empty
+  const pArr=s=>{ try{ const a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } };
+  const pObj=s=>{ try{ const o=JSON.parse(s); return (o&&typeof o==="object"&&!Array.isArray(o))?o:null; }catch(e){ return null; } };
+  TEACHERS = pArr(v["cfg:teachers"]) || (seed ? DEFAULT_TEACHERS.map(t=>Object.assign({},t)) : []);
+  ROOMS    = pObj(v["cfg:rooms"])    || (seed ? Object.assign({},DEFAULT_ROOMS) : {});
+  RAW      = pObj(v["cfg:schedule"]) || (seed ? JSON.parse(JSON.stringify(DEFAULT_RAW)) : {});
+  RAWX     = pObj(v["cfg:schedulex"])|| {};
+  DEPTS    = pArr(v["cfg:depts"])    || (seed ? [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))] : []);
+  PLACES   = pArr(v["cfg:places"])   || (seed ? DEFAULT_PLACES.slice() : []);
+  SUBJECTS = pArr(v["cfg:subjects"]) || (seed ? DEFAULT_SUBJECTS.slice() : []);
+  let bell=null; try{ const b=JSON.parse(v["cfg:bell"]); if(validBell(b)) bell=b; }catch(e){}
+  BELLCFG  = bell || JSON.parse(JSON.stringify(DEFAULT_BELL));
   rebuildDerived();
   lastCfgSync=Date.now();
 }
@@ -699,7 +706,7 @@ function showGate(){
       <div class="gate-branch">
         <label for="branchSel">Your school</label>
         <select id="branchSel" onchange="onBranchChange(this.value)">
-          ${BRANCHES.map(b=>`<option value="${esc(b)}"${b===getBranch()?" selected":""}>${esc(b)}</option>`).join("")}
+          ${BRANCHES.map(b=>`<option value="${esc(b)}"${b===getBranch()?" selected":""}>${esc(branchLabel(b))}</option>`).join("")}
         </select>
       </div>
       <div class="gbtn-wrap" id="gbtn"></div>
@@ -726,7 +733,7 @@ function onCredential(resp){ doLogin(resp&&resp.credential||""); }
 async function doLogin(cred){
   if(!cred){ toast("Sign-in failed","⚠"); return; }
   try{
-    const r=await fetch(API_BASE+"/api/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:cred})});
+    const r=await fetch(API_BASE+"/api/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({credential:cred, branch:getBranch()})});
     if(!r.ok){ let e={}; try{e=await r.json();}catch(_){} toast((e.error==="domain not allowed"||e.error==="email not allowed")?"This account isn't allowed":"Sign-in failed","⚠"); return; }
     const d=await r.json(); SID=d.sid||""; prefSet("sid",SID);
     signIn(Object.assign({method:"google"}, d.user||{}));
@@ -742,6 +749,7 @@ async function signIn(user){
   state.user=user;
   await store.set("session:user",JSON.stringify(user),false);
   const who=await whoami();
+  if(who.ok && who.branch) setBranch(who.branch);
   state.role=(who.ok&&who.role)||((who.ok&&who.admin)?"admin":"teacher"); state.isAdmin=(who.ok&&!!who.admin)||state.role==="admin";
   state.email=(who.ok&&who.email)||user.email||""; state.myTeacherId=(who.ok&&who.teacherId)||null; state.dept=(who.ok&&who.dept)||""; state.bootstrapAdmin=who.ok&&who.bootstrap;
   await loadAppConfig();
@@ -1673,6 +1681,7 @@ function mgBulkUpload(files){
   if(state.user){
     const who=await whoami();
     if(!who.ok){ state.user=null; showGate(); return; }
+    if(who.branch) setBranch(who.branch);
     state.role=who.role||(who.admin?"admin":"teacher"); state.isAdmin=!!who.admin||state.role==="admin";
     state.email=who.email; state.myTeacherId=who.teacherId||null; state.dept=who.dept||""; state.bootstrapAdmin=who.bootstrap;
     await loadAppConfig();
