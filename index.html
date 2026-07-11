@@ -253,6 +253,11 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .ttcell{padding:2px}
 .ttc-c{width:100%; min-width:66px; border:none; background:transparent; padding:6px 4px 2px; font-size:12.5px; font-weight:700; min-height:0; box-shadow:none; border-radius:0; text-align:center; cursor:pointer; -webkit-appearance:none; appearance:none}
 .ttc-c:focus{outline:2px solid var(--blue); outline-offset:-2px; background:#fff}
+.ttc-d{width:100%; min-width:66px; border:none; background:transparent; padding:8px 6px; font-size:12px; font-weight:600; min-height:0; box-shadow:none; border-radius:0; text-align:center; color:var(--blue-d)}
+.ttc-d:focus{outline:2px solid var(--blue); outline-offset:-2px; background:#fff}
+.ttc-d::placeholder{color:#9aa7b4; font-weight:600}
+.duty-note{display:inline-block; margin-left:8px; font-size:12px; font-weight:800; color:var(--blue-d)}
+.brk-duty{font-weight:800; color:var(--blue-d)}
 .ttc-s{width:100%; border:none; background:transparent; font-size:10px; color:var(--muted); font-weight:600; min-height:0; box-shadow:none; border-radius:0; padding:0 2px 4px; text-align:center; cursor:pointer; -webkit-appearance:none; appearance:none}
 .tt-grid tbody tr.fxrow th{background:#eef3fa; color:var(--blue-d)}
 .tt-grid tbody tr.fxrow td{background:#f7fafe}
@@ -539,9 +544,6 @@ function rebuildDerived(){
   for(const t of TEACHERS){ SCHEDULE[t.id]={}; for(const d of DAYS){
     const arr=(((RAW[t.id]||{})[d])||[]).map((cell,i)=>{ const co=cellObj(cell); if(!co) return null; const e=ent(co.c); e.period=i+1; e.periodEnd=i+1; e.subject=co.s||subjectOf(e.act,t.dept); return e; }).filter(Boolean);
     const merged=[]; for(const e of arr){ const last=merged[merged.length-1]; if(last && last.slug===e.slug && last.subject===e.subject && e.period===last.periodEnd+1) last.periodEnd=e.period; else merged.push(e); }
-    const xr=(RAWX[t.id]||{})[d]||{};
-    FIXED_ORDER.forEach(([sid,ord])=>{ const co=cellObj(xr[sid]); if(!co) return; const e=ent(co.c); const b = sid==="brk" ? {r:(BELLCFG.brk&&BELLCFG.brk.r)||"Break",t:BREAK_TIME} : (BELL_PRE.find(x=>x.id===sid)||{r:sid,t:""}); e.period=ord; e.periodEnd=ord; e.subject=co.s||subjectOf(e.act,t.dept); e.fixedSlot=true; e.slotId=sid; e.slotLabel=b.r; e.slotTime=b.t; e.slug=sid+"_"+e.slug; merged.push(e); });
-    merged.sort((a,b)=>(a.period||0)-(b.period||0));
     SCHEDULE[t.id][d]=merged;
   } }
 }
@@ -828,12 +830,14 @@ function updateProg(){
 function subjectOf(act,dept){ return (act==="Lib"||act==="libJ") ? "Library" : (act==="SDP" ? "SDP" : (dept||"Value Education")); }
 function daySlots(id,dName){
   const classes=(SCHEDULE[id]&&SCHEDULE[id][dName])||[];
-  const byStart={},covered={},fixedBy={};
-  classes.forEach(e=>{ if(e.fixedSlot){ fixedBy[e.slotId]=e; return; } byStart[e.period]=e; for(let p=e.period;p<=(e.periodEnd||e.period);p++) covered[p]=true; });
+  const byStart={},covered={};
+  classes.forEach(e=>{ byStart[e.period]=e; for(let p=e.period;p<=(e.periodEnd||e.period);p++) covered[p]=true; });
+  const duty=(RAWX[id]||{})[dName]||{};
+  const dtxt=v=> (v&&typeof v==="object") ? String(v.c||"") : String(v||"");
   const out=[];
-  BELL_PRE.forEach(b=>{ if(fixedBy[b.id]){ out.push({type:"class",e:fixedBy[b.id],label:b.r,time:b.t}); } else out.push({type:"slot",sid:b.id,label:b.r,time:b.t}); });
+  BELL_PRE.forEach(b=>{ if(b.id==="ct") return; out.push({type:"duty",sid:b.id,label:b.r,time:b.t,note:dtxt(duty[b.id])}); });
   for(let p=1;p<=PERIODS;p++){
-    if(p===BREAK_AFTER+1){ if(fixedBy["brk"]){ out.push({type:"class",e:fixedBy["brk"],label:(BELLCFG.brk&&BELLCFG.brk.r)||"Break",time:BREAK_TIME}); } else out.push({type:"break"}); }
+    if(p===BREAK_AFTER+1){ out.push({type:"break",note:dtxt(duty.brk)}); }
     if(byStart[p]){ const e=byStart[p],pt=periodText(e); out.push({type:"class",e,label:pt.lab,time:pt.tim}); }
     else if(covered[p]) continue;
     else out.push({type:"slot",sid:"p"+p,label:"Period "+periodLabel(p),time:periodTime(p),free:true});
@@ -861,7 +865,14 @@ function renderDay(){
   const canPlan = (state.role==="hod"||state.role==="admin");
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
-      if(s.type==="break"){ html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div>`; return; }
+      if(s.type==="break"){ html+=`<div class="brk"><span>Break${s.note?` <span class="brk-duty">${esc(s.note)}</span>`:""}</span><span class="brk-t">${BREAK_TIME}</span></div>`; return; }
+      if(s.type==="duty"){
+        const items=xFor(s.sid);
+        html+=`<div class="frow"><div class="frow-h"><span class="frow-lab">${esc(s.label)}${s.note?`<span class="duty-note">${esc(s.note)}</span>`:""}</span><span class="frow-time">${esc(s.time)}</span><button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
+        items.forEach(o=> html+=xRow(dName,o.xi,o.x));
+        html+=`</div>`;
+        return;
+      }
       if(s.type==="class"){
         const e=s.e, dk=dkeyOf(dName,e.slug), rec=state.blob[dk]||{}, t=rec.t||"", r=rec.r||"", p=rec.p||"";
         const per=`<span class="per">${esc(s.label)} · ${esc(s.time)}</span>`;
@@ -1136,7 +1147,7 @@ function mountManage(){
   // ===== Timetables =====
   html+=`<div class="mg-grouptitle">Timetables</div>`;
   html+=`<section class="card"><div class="card-h"><h2>Timetables</h2>${cur?`<span class="muted">${esc(cur.name)}</span>`:""}</div>
-    <p class="muted mg-note">Pick a teacher, then set each slot's <b>class</b> and <b>subject</b> for every weekday — both are dropdowns, blank = free. Assembly, CT, Extended Slot and Break can be filled too. For a library period pick the class and set its subject to <b>Library</b>. Click <b>Save timetable</b> when done.</p>
+    <p class="muted mg-note">Pick a teacher, then set each period's <b>class</b> and <b>subject</b> for every weekday — both are dropdowns, blank = free. <b>Assembly</b> and <b>Break</b> take a free-text <b>duty</b>, <b>Extended Slot</b> a free-text <b>clubs</b> note; <b>CT</b> has none. For a library period pick the class and set its subject to <b>Library</b>. Click <b>Save timetable</b> when done.</p>
     <div class="field" style="max-width:340px"><label>Teacher</label><select id="tt-teacher" onchange="mgPickTT(this.value)">${tsel}</select></div>`;
   if(cur){
     html+=`<div class="tt-sub">Edit — ${esc(cur.name)}</div>`;
@@ -1342,7 +1353,6 @@ function slotRows(){ const rows=[]; BELL_PRE.forEach(b=>rows.push({fixed:true,sl
 function gv(id){ const el=document.getElementById(id); return el?el.value:""; }
 function ttAllGroups(){ const set=new Set();
   Object.values(RAW||{}).forEach(days=>Object.values(days||{}).forEach(arr=>(arr||[]).forEach(cell=>{ const co=cellObj(cell); if(co&&/^SDP:/i.test(co.c)) set.add(co.c); })));
-  Object.values(RAWX||{}).forEach(days=>Object.values(days||{}).forEach(x=>Object.values(x||{}).forEach(cell=>{ const co=cellObj(cell); if(co&&/^SDP:/i.test(co.c)) set.add(co.c); })));
   return [...set].sort();
 }
 function ttClassOptions(current){
@@ -1356,26 +1366,35 @@ function ttClassOptions(current){
 function classSelHTML(day,key,v){ return `<select class="ttc-c" id="ttc-${day}-${key}" onchange="ttSyncSubj(this)">${ttClassOptions(v)}</select>`; }
 function subjSelHTML(day,key,v){ return `<select class="ttc-s" id="tts-${day}-${key}"><option value=""${v?"":" selected"}>subject…</option>${(SUBJECTS||[]).map(s=>`<option${v===s?" selected":""}>${esc(s)}</option>`).join("")}${(v&&(SUBJECTS||[]).indexOf(v)<0)?`<option selected>${esc(v)}</option>`:""}</select>`; }
 function ttSyncSubj(sel){ const td=sel.closest("td"); if(!td) return; const sub=td.querySelector(".ttc-s"); if(!sub) return; const c=sel.value; if(!c){ sub.value=""; return; } const want=subjectOf(ent(c).act, deptOf(MG_TT)); if(!want) return; let opt=Array.from(sub.options).find(o=>o.value===want); if(!opt){ opt=document.createElement("option"); opt.value=want; opt.textContent=want; sub.appendChild(opt); } sub.value=want; }
+function dutyText(v){ return (v&&typeof v==="object") ? String(v.c||"") : String(v||""); }
 function mgGridHTML(id){
   const raw=RAW[id]||{}, rx=RAWX[id]||{}, dept=deptOf(id);
   let h=`<div class="tt-grid-wrap"><table class="tt-grid"><thead><tr><th>Slot</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
   slotRows().forEach(s=>{
-    const key = s.fixed ? s.slotId : s.p;
-    h+=`<tr${s.fixed?' class="fxrow"':''}><th>${esc(s.label)}<small>${esc(s.time)}</small></th>`;
-    DAYS.forEach(day=>{ const cell = s.fixed ? ((rx[day]||{})[s.slotId]) : ((raw[day]||[])[s.p-1]); const co=cellObj(cell)||{c:"",s:""}; const subj = co.c ? (co.s || subjectOf(ent(co.c).act, dept)) : co.s; h+=`<td class="ttcell">${classSelHTML(day,key,co.c)}${subjSelHTML(day,key,subj)}</td>`; });
+    if(s.fixed){
+      h+=`<tr class="fxrow"><th>${esc(s.label)}<small>${esc(s.time)}</small></th>`;
+      if(s.slotId==="ct"){ DAYS.forEach(()=>{ h+=`<td class="ttx">—</td>`; }); h+=`</tr>`; return; }
+      const ph = s.slotId==="ext" ? "clubs" : "duty";
+      DAYS.forEach(day=>{ const v=dutyText((rx[day]||{})[s.slotId]); h+=`<td class="ttcell"><input class="ttc-d" id="ttd-${day}-${s.slotId}" type="text" value="${esc(v)}" placeholder="${ph}" spellcheck="false"></td>`; });
+      h+=`</tr>`;
+      return;
+    }
+    const key = s.p;
+    h+=`<tr><th>${esc(s.label)}<small>${esc(s.time)}</small></th>`;
+    DAYS.forEach(day=>{ const cell = (raw[day]||[])[s.p-1]; const co=cellObj(cell)||{c:"",s:""}; const subj = co.c ? (co.s || subjectOf(ent(co.c).act, dept)) : co.s; h+=`<td class="ttcell">${classSelHTML(day,key,co.c)}${subjSelHTML(day,key,subj)}</td>`; });
     h+=`</tr>`;
   });
   h+=`</tbody></table></div>`;
   return h;
 }
 function mgPreviewHTML(id){
-  const sch=SCHEDULE[id]||{};
-  const byDay={}, fixedBy={}; DAYS.forEach(d=>{ byDay[d]={}; fixedBy[d]={}; (sch[d]||[]).forEach(e=>{ if(e.fixedSlot){ fixedBy[d][e.slotId]=e; return; } byDay[d][e.period]=e; for(let p=e.period+1;p<=(e.periodEnd||e.period);p++) byDay[d][p]="cont"; }); });
+  const sch=SCHEDULE[id]||{}, rx=RAWX[id]||{};
+  const byDay={}; DAYS.forEach(d=>{ byDay[d]={}; (sch[d]||[]).forEach(e=>{ byDay[d][e.period]=e; for(let p=e.period+1;p<=(e.periodEnd||e.period);p++) byDay[d][p]="cont"; }); });
   const cellHTML=e=>{ const name=e.act==="SDP"?("SDP "+e.group.join(",")):e.code; const room=e.act==="SDP"?"":(e.room?("R"+e.room):""); return `<td><b>${esc(name)}</b><i>${esc(e.subject)}${room?" · "+esc(room):""}</i></td>`; };
   let h=`<div class="tt-grid-wrap"><table class="tt-grid tt-view"><thead><tr><th>Slot</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
   slotRows().forEach(s=>{
     h+=`<tr${s.fixed?' class="fxrow"':''}><th>${esc(s.label)}<small>${esc(s.time)}</small></th>`;
-    DAYS.forEach(d=>{ if(s.fixed){ const e=fixedBy[d][s.slotId]; h+= e?cellHTML(e):`<td class="tv-free">·</td>`; } else { const e=byDay[d][s.p]; if(!e) h+=`<td class="tv-free">·</td>`; else if(e==="cont") h+=`<td class="tv-cont"></td>`; else h+=cellHTML(e); } });
+    DAYS.forEach(d=>{ if(s.fixed){ if(s.slotId==="ct"){ h+=`<td class="tv-free">·</td>`; return; } const v=dutyText((rx[d]||{})[s.slotId]); h+= v?`<td><b>${esc(v)}</b></td>`:`<td class="tv-free">·</td>`; } else { const e=byDay[d][s.p]; if(!e) h+=`<td class="tv-free">·</td>`; else if(e==="cont") h+=`<td class="tv-cont"></td>`; else h+=cellHTML(e); } });
     h+=`</tr>`;
   });
   h+=`</tbody></table></div>`;
@@ -1391,9 +1410,9 @@ async function mgSaveGrid(id){
     while(cells.length && !cells[cells.length-1]) cells.pop();
     RAW[id][day]=cells;
     const xr={};
-    ["assembly","ct","ext","brk"].forEach(sid=>{ const c=cellIn(gv("ttc-"+day+"-"+sid)); const s=(gv("tts-"+day+"-"+sid)||"").trim(); if(c) xr[sid]=s?{c,s}:c; });
+    ["assembly","ext","brk"].forEach(sid=>{ const v=(gv("ttd-"+day+"-"+sid)||"").trim(); if(v) xr[sid]=v; });
     if(Object.keys(xr).length) RAWX[id][day]=xr; else delete RAWX[id][day];
-    [...cells, ...Object.values(xr)].forEach(cell=>{ const co=cellObj(cell); if(!co) return; const e=ent(co.c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
+    cells.forEach(cell=>{ const co=cellObj(cell); if(!co) return; const e=ent(co.c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
   });
   await saveTimetableCfg();
   mountManage();
