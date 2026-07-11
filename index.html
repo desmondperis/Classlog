@@ -66,6 +66,9 @@ a{color:var(--blue)}
 .gbtn:focus-visible{outline:2px solid var(--blue); outline-offset:2px}
 .gbtn svg{width:19px; height:19px; flex:0 0 auto}
 .gnote{margin:16px 0 0; font-size:11.5px; color:var(--muted); line-height:1.5}
+.gate-branch{display:flex; flex-direction:column; gap:6px; text-align:left; max-width:280px; margin:0 auto 18px}
+.gate-branch label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+.gate-branch select{width:100%}
 
 /* Controls */
 .ctl{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-top:18px}
@@ -560,6 +563,13 @@ const store={ ok:true,
   async get(k,shared){ return shared ? await apiGet(k) : prefGet(k); },
   async set(k,v,shared){ if(shared) return await apiSet(k,v); prefSet(k,v); return true; } };
 const wkey=(week,id)=>"w:"+week+":"+id;
+/* School branches (label/selector at login; data is shared for now) */
+const BRANCHES=["Anand Niketan","Junior-Anand Niketan","Gurugram","ILC","Dwarka","Junior-Dwarka","Junior Wing-Dwarka"];
+const DEFAULT_BRANCH="Anand Niketan";
+function getBranch(){ const b=prefGet("pref:branch"); return (b && BRANCHES.indexOf(b)>=0) ? b : DEFAULT_BRANCH; }
+function setBranch(v){ prefSet("pref:branch", (v && BRANCHES.indexOf(v)>=0)?v:DEFAULT_BRANCH); }
+function applyBranchHeader(){ const y=document.querySelector(".brand-txt .yr"); if(y) y.textContent=getBranch()+" · 2026–27"; }
+function onBranchChange(v){ setBranch(v); applyBranchHeader(); }
 async function loadConfig(){ try{ const r=await fetch(API_BASE+"/api/config"); if(r.ok){ const d=await r.json(); if(d.clientId) GOOGLE_CLIENT_ID=d.clientId; } }catch(e){} }
 function onAuthLost(){ SID=""; prefSet("sid",""); prefSet("session:user",""); state.user=null; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} try{ if(document.getElementById("toast")) toast("Session expired — please sign in again","⚠"); }catch(e){} showGate(); }
 async function whoami(){
@@ -686,9 +696,16 @@ function showGate(){
       <div class="gate-div"></div>
       <h2>Class Log</h2>
       <p>Sign in to record what you covered in class, or to review coverage across the school.</p>
+      <div class="gate-branch">
+        <label for="branchSel">Your school</label>
+        <select id="branchSel" onchange="onBranchChange(this.value)">
+          ${BRANCHES.map(b=>`<option value="${esc(b)}"${b===getBranch()?" selected":""}>${esc(b)}</option>`).join("")}
+        </select>
+      </div>
       <div class="gbtn-wrap" id="gbtn"></div>
       ${GOOGLE_CLIENT_ID?"":`<p class="gnote">Sign-in is required to use this app. Google sign-in switches on once you publish it with your own Google Client ID — follow the setup steps to enable it.</p>`}
     </div></div>`;
+  applyBranchHeader();
   initGoogle();
 }
 function initGoogle(){
@@ -745,6 +762,7 @@ async function signOut(){
   showGate();
 }
 function renderUser(){
+  applyBranchHeader();
   const chip=document.getElementById("userchip"); const u=state.user;
   if(!u){chip.hidden=true;chip.innerHTML="";return;}
   chip.hidden=false;
@@ -1310,7 +1328,7 @@ function parseCSV(text){
   if(cur.length||row.length){ row.push(cur); rows.push(row); }
   return rows;
 }
-function cellOut(s){ s=String(s||""); return s.indexOf("SDP:")===0 ? "SDP:"+s.slice(4).split(",").map(x=>x.trim()).filter(Boolean).join(";") : s; }
+function cellOut(cell){ const co=cellObj(cell); if(!co) return ""; let cls=co.c; if(cls.indexOf("SDP:")===0) cls="SDP:"+cls.slice(4).split(",").map(x=>x.trim()).filter(Boolean).join(";"); return co.s ? (cls+" - "+co.s) : cls; }
 function cellIn(s){ s=String(s||"").trim(); if(!s) return ""; if(s.indexOf("SDP:")===0) return "SDP:"+s.slice(4).split(/[;,]/).map(x=>x.trim()).filter(Boolean).join(","); return s; }
 function matchDay(s){ s=String(s||"").trim().toLowerCase(); for(const d of DAYS){ if(d.toLowerCase()===s) return d; } for(const d of DAYS){ if(s.length>=3 && d.toLowerCase().slice(0,3)===s.slice(0,3)) return d; } return null; }
 function ttHeader(){ const h=["Day"]; for(let p=1;p<=PERIODS;p++) h.push(periodLabel(p)); return h; }
@@ -1331,9 +1349,9 @@ function applyTimetableCSV(id,text){
   const newRaw={}; const unknown=new Set(); let count=0;
   rows.forEach(r=>{
     const day=matchDay(r[0]); if(!day) return;
-    const cells=r.slice(1,1+PERIODS).map(cellIn);
+    const cells=r.slice(1,1+PERIODS).map(parseCellText);
     while(cells.length && !cells[cells.length-1]) cells.pop();
-    cells.forEach(c=>{ if(!c) return; const e=ent(c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
+    cells.forEach(c=>{ if(!c) return; const code=(typeof c==="object")?c.c:c; const e=ent(code); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); });
     newRaw[day]=cells; count++;
   });
   RAW[id]=newRaw;
@@ -1487,18 +1505,24 @@ function classifyHeader(t){ const s=blow(t); if(s.indexOf("assembly")>=0) return
 const _classRe=/^\d{1,2}[A-Za-z]{1,2}$/;
 function isClassCode(t){ return _classRe.test(String(t||"").replace(/\s+/g,"")); }
 function normClass(t){ return String(t||"").replace(/\s+/g,"").toUpperCase(); }
-function toClassStr(list){ const cs=list.map(normClass).filter(Boolean); if(!cs.length) return ""; return cs.length===1?cs[0]:("SDP:"+cs.join(",")); }
+function toClassStr(list){ const cs=list.map(normClass).filter(Boolean); if(!cs.length) return ""; if(cs.length===1) return cs[0]; return "SDP:"+cs.slice().sort(classSort).join(","); }
 /* period cell text -> "" | classString | {c,s}.  dash separates class & subject (either order); ";" separates group sections */
 function parseCellText(raw){
   const s0=String(raw==null?"":raw).trim(); if(!s0) return "";
-  let classPart=s0, subject=""; const di=s0.indexOf("-");
-  if(di>=0){ const a=s0.slice(0,di).trim(), b=s0.slice(di+1).trim();
-    const aTok=a.split(";").map(x=>x.trim()).filter(Boolean), bTok=b.split(";").map(x=>x.trim()).filter(Boolean);
-    const aCls=aTok.length>0 && aTok.every(isClassCode), bCls=bTok.length>0 && bTok.every(isClassCode);
-    if(bCls && !aCls){ classPart=b; subject=a; } else { classPart=a; subject=b; } }
-  let cc;
-  if(/^(SDP:|Lib:|libJ:)/i.test(classPart)){ cc=cellIn(classPart); }
-  else { const list=classPart.split(";").map(x=>x.trim()).filter(Boolean); cc=toClassStr(list)||cellIn(classPart); }
+  if(/^(SDP:|Lib:|libJ:)/i.test(s0)){ const di=s0.indexOf("-"); if(di<0) return cellIn(s0); const cc=cellIn(s0.slice(0,di).trim()); const sub=s0.slice(di+1).trim(); return sub?{c:cc,s:sub}:cc; }
+  const isList=str=>{ const t=String(str).split(";").map(x=>x.trim()).filter(Boolean); return t.length>0 && t.every(isClassCode); };
+  const di=s0.indexOf("-");
+  if(di<0){ return toClassStr(s0.split(";").map(x=>x.trim()).filter(Boolean))||cellIn(s0); }
+  const dl=s0.lastIndexOf("-");
+  const a1=s0.slice(0,di).trim(), b1=s0.slice(di+1).trim();
+  const a2=s0.slice(0,dl).trim(), b2=s0.slice(dl+1).trim();
+  let classPart, subject;
+  if(isList(a1)){ classPart=a1; subject=b1; }
+  else if(isList(b2)){ classPart=b2; subject=a2; }
+  else if(isList(b1)){ classPart=b1; subject=a1; }
+  else if(isList(a2)){ classPart=a2; subject=b2; }
+  else { classPart=a1; subject=b1; }
+  const cc=toClassStr(classPart.split(";").map(x=>x.trim()).filter(Boolean))||cellIn(classPart);
   if(!cc) return "";
   return subject ? {c:cc, s:subject} : cc;
 }
@@ -1507,7 +1531,6 @@ function parseBulkGrid(rows){
   while(i<n){
     const a0=blow(rows[i][0]);
     if(a0.indexOf("teacher")===0 && a0.indexOf("timetable")<0){
-      const isExample=a0.indexOf("example")>=0;
       const meta={title:"",name:"",email:"",dept:"",role:""}; let headerRow=-1; let j=i+1;
       while(j<n){
         const aj=blow(rows[j][0]);
@@ -1538,18 +1561,16 @@ function parseBulkGrid(rows){
         }
         i=k;
       } else { i=j; }
-      if(!isExample){
-        const fullName=String(meta.name||"").trim(), fnl=blow(fullName);
-        const ph=(fnl===""||fnl==="example name"||fnl==="example teacher"||fnl==="full name of the teacher"||fnl==="name");
-        if(!ph){
-          const email=(blow(meta.email)==="examplename@test.com")?"":String(meta.email||"").trim();
-          const dept=(blow(meta.dept)==="example department"||blow(meta.dept)==="")?"":String(meta.dept||"").trim();
-          const disp=[titleCase(meta.title),fullName].filter(Boolean).join(" ").trim();
-          const key=(email||disp).toLowerCase();
-          if(!groups[key]) groups[key]={name:disp,email,dept,role:normRole(meta.role),days:{}};
-          const g=groups[key]; if(disp)g.name=disp; if(email)g.email=email; if(dept)g.dept=dept; const nr=normRole(meta.role); if(nr)g.role=nr;
-          Object.keys(daysData).forEach(d=>{ g.days[d]=daysData[d]; });
-        }
+      const fullName=String(meta.name||"").trim(), fnl=blow(fullName);
+      const ph=(fnl===""||fnl==="example name"||fnl==="example teacher"||fnl==="full name of the teacher"||fnl==="name");
+      if(!ph){
+        const email=(blow(meta.email)==="examplename@test.com")?"":String(meta.email||"").trim();
+        const dept=(blow(meta.dept)==="example department"||blow(meta.dept)==="")?"":String(meta.dept||"").trim();
+        const disp=[titleCase(meta.title),fullName].filter(Boolean).join(" ").trim();
+        const key=(email||disp).toLowerCase();
+        if(!groups[key]) groups[key]={name:disp,email,dept,role:normRole(meta.role),days:{}};
+        const g=groups[key]; if(disp)g.name=disp; if(email)g.email=email; if(dept)g.dept=dept; const nr=normRole(meta.role); if(nr)g.role=nr;
+        Object.keys(daysData).forEach(d=>{ g.days[d]=daysData[d]; });
       }
       continue;
     }
@@ -1594,7 +1615,10 @@ function commitBulkGroups(groups, unknownSet){
 }
 function applyBulkRows(rows){
   rows=(rows||[]).map(r=>Array.isArray(r)?r:[r]);
-  const gridish = rows.some(r=>blow(r[0]).indexOf("teacher")===0) || (rows.some(r=>matchDay(r[0])) && rows.some(r=>r.some(c=>/assembly|extended slot/i.test(String(c)))));
+  const hasGridHdr = rows.some(r=>r.some(c=>/extended slot|assembly/i.test(String(c))));
+  const hasCard = rows.some(r=>blow(r[0]).indexOf("teacher")===0);
+  const hasWeekdayColA = rows.some(r=>matchDay(r[0]));
+  const gridish = hasGridHdr || (hasCard && hasWeekdayColA);
   const parsed = gridish ? parseBulkGrid(rows) : parseBulkFlat(rows);
   return commitBulkGroups(parsed.groups||{}, parsed.unknown||new Set());
 }
