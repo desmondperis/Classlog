@@ -1,11 +1,16 @@
-// POST /api/login  body: { credential: <Google ID token> }
-// Verifies the token with Google, then mints a 30-day session in KV.
+// POST /api/login  body: { credential: <Google ID token>, branch: <school branch name> }
+// Verifies the token with Google, then mints a 30-day session in KV (with the chosen branch).
 function json(o, s) {
   return new Response(JSON.stringify(o), {
     status: s || 200,
     headers: { "content-type": "application/json" },
   });
 }
+
+// School branches (must match whoami.js / data.js / the client)
+const BRANCHES = ["Anand Niketan", "Junior-Anand Niketan", "Gurugram", "ILC", "Dwarka", "Junior-Dwarka", "Junior Wing-Dwarka"];
+const DEFAULT_BRANCH = "Anand Niketan";
+function normBranch(b) { b = (b || "").trim(); return BRANCHES.indexOf(b) >= 0 ? b : DEFAULT_BRANCH; }
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -15,6 +20,7 @@ export async function onRequestPost(context) {
   try { body = await request.json(); } catch (e) { return json({ error: "bad json" }, 400); }
   const cred = body && body.credential;
   if (!cred) return json({ error: "missing credential" }, 400);
+  const branch = normBranch(body && body.branch);
 
   // Verify the ID token with Google (checks signature + expiry).
   let info;
@@ -48,6 +54,7 @@ export async function onRequestPost(context) {
     email: info.email || "",
     picture: info.picture || "",
     sub: info.sub || "",
+    branch: branch,
   };
   const sid = crypto.randomUUID();
   await env.LOG_KV.put("sess:" + sid, JSON.stringify(user), {

@@ -1,14 +1,23 @@
-// /api/data — shared storage in KV. Every call requires a valid session.
+// /api/data — shared storage in KV, namespaced per school branch (from the session).
 //   GET  ?key=w:YYYY-MM-DD:teacher   → { value }   (class log; gated by role)
 //   GET  ?key=cfg:teachers           → { value }   (config; any signed-in user)
 //   GET  ?keys=k1,k2,...             → { values }   (each key gated)
 //   POST { key, value }              → { ok:true }  (own log, or admin for any; cfg:* admin-only)
+// Keys are LOGICAL (cfg:*, w:*). The server prepends the branch prefix before touching KV.
+// The default branch (Anand Niketan) uses the legacy unprefixed keys, so existing data is untouched.
 function json(o, s) {
   return new Response(JSON.stringify(o), { status: s || 200, headers: { "content-type": "application/json" } });
 }
 function isDataKey(k) { return typeof k === "string" && /^w:\d{4}-\d{2}-\d{2}:[a-z0-9]+$/.test(k); }
 function isConfigKey(k) { return typeof k === "string" && /^cfg:(teachers|rooms|schedule|schedulex|depts|places|subjects|bell)$/.test(k); }
 function tidOfKey(k) { const m = /^w:\d{4}-\d{2}-\d{2}:([a-z0-9]+)$/.exec(k || ""); return m ? m[1] : null; }
+
+// School branches (must match login.js / whoami.js / the client)
+const BRANCHES = ["Anand Niketan", "Junior-Anand Niketan", "Gurugram", "ILC", "Dwarka", "Junior-Dwarka", "Junior Wing-Dwarka"];
+const DEFAULT_BRANCH = "Anand Niketan";
+function normBranch(b) { b = (b || "").trim(); return BRANCHES.indexOf(b) >= 0 ? b : DEFAULT_BRANCH; }
+function branchSlug(b) { return String(b || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""); }
+function branchPrefix(b) { b = normBranch(b); return b === DEFAULT_BRANCH ? "" : ("b:" + branchSlug(b) + ":"); }
 
 const ROLES = ["teacher", "hod", "leader", "admin"];
 function roleOf(t) {
@@ -17,17 +26,16 @@ function roleOf(t) {
   if (t.admin === true) return "admin";
   return "teacher";
 }
-async function identify(env, email) {
+async function identify(env, email, prefix) {
+  prefix = prefix || "";
   email = (email || "").toLowerCase();
   let teachers = [];
-  try { const t = await env.LOG_KV.get("cfg:teachers"); teachers = t ? JSON.parse(t) : []; if (!Array.isArray(teachers)) teachers = []; } catch (e) { teachers = []; }
+  try { const t = await env.LOG_KV.get(prefix + "cfg:teachers"); teachers = t ? JSON.parse(t) : []; if (!Array.isArray(teachers)) teachers = []; } catch (e) { teachers = []; }
   const OWNER = ["desmondperis@gmail.com"];
   const envList = (env.ADMIN_EMAILS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean).concat(OWNER);
-  const configuredAdmin = envList.length > 0 || teachers.some((t) => t && t.email && (t.role === "admin" || t.admin === true));
   const me = email ? teachers.find((t) => (t.email || "").toLowerCase() === email) : null;
   let role = roleOf(me);
   if (envList.indexOf(email) >= 0) role = "admin";
-  if (!configuredAdmin) role = "admin";
   return { teacherId: me ? me.id : null, role, dept: me ? (me.dept || "") : "", teachers };
 }
 function canRead(idn, tid) {
@@ -56,7 +64,8 @@ export async function onRequestGet(context) {
   const a = await requireSession(context);
   if (a.err) return a.err;
   const env = a.env;
-  const idn = await identify(env, (a.user || {}).email);
+  const prefix = branchPrefix((a.user || {}).branch);
+  const idn = await identify(env, (a.user || {}).email, prefix);
   const url = new URL(context.request.url);
 
   const keysParam = url.searchParams.get("keys");
@@ -64,24 +73,25 @@ export async function onRequestGet(context) {
     const keys = keysParam ? keysParam.split(",").filter(Boolean) : [];
     const values = {};
     await Promise.all(keys.map(async (k) => {
-      if (isConfigKey(k)) { values[k] = await env.LOG_KV.get(k); return; }
-      if (isDataKey(k) && canRead(idn, tidOfKey(k))) { values[k] = await env.LOG_KV.get(k); }
+      if (isConfigKey(k)) { values[k] = await env.LOG_KV.get(prefix + k); return; }
+      if (isDataKey(k) && canRead(idn, tidOfKey(k))) { values[k] = await env.LOG_KV.get(prefix + k); }
     }));
     return json({ values });
   }
 
   const key = url.searchParams.get("key");
-  if (isConfigKey(key)) return json({ value: await env.LOG_KV.get(key) });
+  if (isConfigKey(key)) return json({ value: await env.LOG_KV.get(prefix + key) });
   if (!isDataKey(key)) return json({ error: "bad key" }, 400);
   if (!canRead(idn, tidOfKey(key))) return json({ error: "forbidden" }, 403);
-  return json({ value: await env.LOG_KV.get(key) });
+  return json({ value: await env.LOG_KV.get(prefix + key) });
 }
 
 export async function onRequestPost(context) {
   const a = await requireSession(context);
   if (a.err) return a.err;
   const env = a.env;
-  const idn = await identify(env, (a.user || {}).email);
+  const prefix = branchPrefix((a.user || {}).branch);
+  const idn = await identify(env, (a.user || {}).email, prefix);
 
   let body;
   try { body = await context.request.json(); } catch (e) { return json({ error: "bad json" }, 400); }
@@ -98,6 +108,6 @@ export async function onRequestPost(context) {
     if (!canWrite(idn, tidOfKey(key))) return json({ error: "forbidden" }, 403);
   }
 
-  await env.LOG_KV.put(key, value);
+  await env.LOG_KV.put(prefix + key, value);
   return json({ ok: true });
 }
