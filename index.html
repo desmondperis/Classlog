@@ -1137,7 +1137,6 @@ function mountManage(){
   html+=`<div class="mg-grouptitle">Timetables</div>`;
   html+=`<section class="card"><div class="card-h"><h2>Timetables</h2>${cur?`<span class="muted">${esc(cur.name)}</span>`:""}</div>
     <p class="muted mg-note">Pick a teacher, then set each slot's <b>class</b> and <b>subject</b> for every weekday — both are dropdowns, blank = free. Assembly, CT, Extended Slot and Break can be filled too. For a library period pick the class and set its subject to <b>Library</b>. Click <b>Save timetable</b> when done.</p>
-    ${bellRefHTML()}
     <div class="field" style="max-width:340px"><label>Teacher</label><select id="tt-teacher" onchange="mgPickTT(this.value)">${tsel}</select></div>`;
   if(cur){
     html+=`<div class="tt-sub">Edit — ${esc(cur.name)}</div>`;
@@ -1166,6 +1165,7 @@ function mountManage(){
 
   // Bell timings
   html+=`<section class="card"><details class="mg-details"><summary>Bell timings</summary>
+    ${bellRefHTML()}
     <p class="muted mg-note">Edit the start and end time of each slot (24-hour picker). Duration updates as you type. These drive the times shown across the app.</p>
     ${bellEditorHTML()}
     <div class="mg-actions"><button class="btn primary" onclick="beSave()">Save bell timings</button>
@@ -1353,15 +1353,16 @@ function ttClassOptions(current){
   if(cur && !CLASSES.includes(cur) && groups.indexOf(cur)<0) o+=`<option value="${esc(cur)}" selected>${esc(ent(cur).label||cur)}</option>`;
   return o;
 }
-function classSelHTML(day,key,v){ return `<select class="ttc-c" id="ttc-${day}-${key}">${ttClassOptions(v)}</select>`; }
+function classSelHTML(day,key,v){ return `<select class="ttc-c" id="ttc-${day}-${key}" onchange="ttSyncSubj(this)">${ttClassOptions(v)}</select>`; }
 function subjSelHTML(day,key,v){ return `<select class="ttc-s" id="tts-${day}-${key}"><option value=""${v?"":" selected"}>subject…</option>${(SUBJECTS||[]).map(s=>`<option${v===s?" selected":""}>${esc(s)}</option>`).join("")}${(v&&(SUBJECTS||[]).indexOf(v)<0)?`<option selected>${esc(v)}</option>`:""}</select>`; }
+function ttSyncSubj(sel){ const td=sel.closest("td"); if(!td) return; const sub=td.querySelector(".ttc-s"); if(!sub) return; const c=sel.value; if(!c){ sub.value=""; return; } const want=subjectOf(ent(c).act, deptOf(MG_TT)); if(!want) return; let opt=Array.from(sub.options).find(o=>o.value===want); if(!opt){ opt=document.createElement("option"); opt.value=want; opt.textContent=want; sub.appendChild(opt); } sub.value=want; }
 function mgGridHTML(id){
-  const raw=RAW[id]||{}, rx=RAWX[id]||{};
+  const raw=RAW[id]||{}, rx=RAWX[id]||{}, dept=deptOf(id);
   let h=`<div class="tt-grid-wrap"><table class="tt-grid"><thead><tr><th>Slot</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
   slotRows().forEach(s=>{
     const key = s.fixed ? s.slotId : s.p;
     h+=`<tr${s.fixed?' class="fxrow"':''}><th>${esc(s.label)}<small>${esc(s.time)}</small></th>`;
-    DAYS.forEach(day=>{ const cell = s.fixed ? ((rx[day]||{})[s.slotId]) : ((raw[day]||[])[s.p-1]); const co=cellObj(cell)||{c:"",s:""}; h+=`<td class="ttcell">${classSelHTML(day,key,co.c)}${subjSelHTML(day,key,co.s)}</td>`; });
+    DAYS.forEach(day=>{ const cell = s.fixed ? ((rx[day]||{})[s.slotId]) : ((raw[day]||[])[s.p-1]); const co=cellObj(cell)||{c:"",s:""}; const subj = co.c ? (co.s || subjectOf(ent(co.c).act, dept)) : co.s; h+=`<td class="ttcell">${classSelHTML(day,key,co.c)}${subjSelHTML(day,key,subj)}</td>`; });
     h+=`</tr>`;
   });
   h+=`</tbody></table></div>`;
