@@ -598,6 +598,7 @@ async function loadAppConfig(){
   if(!Array.isArray(PLACES)) PLACES=DEFAULT_PLACES.slice();
   if(!Array.isArray(SUBJECTS)) SUBJECTS=DEFAULT_SUBJECTS.slice();
   rebuildDerived();
+  lastCfgSync=Date.now();
 }
 async function saveCfg(key,obj,label){ rebuildDerived(); const ok=await apiSet(key,JSON.stringify(obj)); toast(ok?(label||"Saved"):"Couldn't save — admins only / check connection", ok?"✓":"⚠"); return ok; }
 const saveTeachersCfg = ()=> saveCfg("cfg:teachers",TEACHERS,"Teachers saved");
@@ -648,7 +649,7 @@ const today=ymd(new Date());
 const state={mode:"teacher", user:null, teacherId:null, isAdmin:false, role:"teacher", myTeacherId:null, dept:"", email:"", bootstrapAdmin:false, date:today, blob:{},
   admin:{mode:"week", date:today, dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"date",sortDir:1}};
 function curWeek(){return ymd(mondayOf(parseYmd(state.date)));}
-let saveTimer=null, pollTimer=null;
+let saveTimer=null, pollTimer=null, lastCfgSync=0;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const dkeyOf=(day,slug)=>day+"|"+slug;
 const view=()=>document.getElementById("view");
@@ -759,7 +760,7 @@ function showApp(){
   renderUser(); mountView();
 }
 
-function setMode(m){
+async function setMode(m){
   if(m==="manage" && !state.isAdmin) m="teacher";
   if(m==="admin" && !canSeeDashboard()) m="teacher";
   state.mode=m;
@@ -767,6 +768,8 @@ function setMode(m){
   document.getElementById("tab-admin").setAttribute("aria-selected",m==="admin");
   const tm=document.getElementById("tab-manage"); if(tm) tm.setAttribute("aria-selected",m==="manage");
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+  await flushTeacherSave();
+  await syncConfig(false);
   mountView();
 }
 function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="manage"){ if(!state.isAdmin){ state.mode="teacher"; return mountTeacher(); } return mountManage(); } if(state.mode==="teacher")mountTeacher(); else mountAdmin(); }
@@ -812,10 +815,10 @@ function showTeacherPrompt(){
   document.getElementById("day").innerHTML=`<div class="prompt"><b>Pick your name to begin</b>Choose a date above and your classes for that day appear below. Type what you covered — it saves automatically.</div>`;
   document.getElementById("prog").style.visibility="hidden";
 }
-async function onTeacher(id){ state.teacherId=id; await store.set("device:lastTeacher",id,false); await loadTeacher(); }
+async function onTeacher(id){ await flushTeacherSave(); state.teacherId=id; await store.set("device:lastTeacher",id,false); await loadTeacher(); }
 function updateDateCap(){ const el=document.getElementById("dcap"); if(el)el.textContent=dayName(state.date)+" · "+niceDate(state.date); const inp=document.getElementById("dpick"); if(inp)inp.value=state.date; }
-async function pickDate(v){ if(!v)return; state.date=v; updateDateCap(); if(state.teacherId) await loadTeacher(); }
-async function dayStep(n){ state.date=ymd(addDays(parseYmd(state.date),n)); updateDateCap(); if(state.teacherId) await loadTeacher(); }
+async function pickDate(v){ if(!v)return; const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(v))); state.date=v; updateDateCap(); if(!state.teacherId){ return; } if(sameWk){ dayEnter=true; renderDay(); } else { await flushTeacherSave(); await loadTeacher(); } }
+async function dayStep(n){ const nv=ymd(addDays(parseYmd(state.date),n)); const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(nv))); state.date=nv; updateDateCap(); if(!state.teacherId) return; if(sameWk){ dayEnter=true; renderDay(); } else { await flushTeacherSave(); await loadTeacher(); } }
 let dayEnter=false;
 async function loadTeacher(){ const raw=await store.get(wkey(curWeek(),state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; dayEnter=true; renderDay(); }
 function updateProg(){
@@ -878,7 +881,7 @@ function renderDay(){
         const per=`<span class="per">${esc(s.label)} · ${esc(s.time)}</span>`;
         const chip = e.act==="SDP"
           ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span>${per}</span>`
-          : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(e.subject)}</span><span class="rm">Room ${e.room}</span>${per}</span>`;
+          : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(e.subject)}</span>${e.room?`<span class="rm">Room ${esc(String(e.room))}</span>`:""}${per}</span>`;
         const plannedCell = canPlan
           ? `<div class="pl"><input type="text" placeholder="Planned topic" value="${esc(p)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','p',this.value)"></div>`
           : `<div class="pl ro">${p?`<span class="pl-lab">Planned</span>${esc(p)}`:`<span class="pl-none">No planned topic</span>`}</div>`;
@@ -935,6 +938,8 @@ async function saveTeacher(){
   const okr=await store.set(wkey(curWeek(),state.teacherId),JSON.stringify(payload),true);
   toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠");
 }
+async function flushTeacherSave(){ if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; if(state.teacherId){ try{ await saveTeacher(); }catch(e){} } } }
+async function syncConfig(force){ if(!state.user) return; const now=Date.now(); if(!force && now-lastCfgSync<10000) return; try{ await loadAppConfig(); }catch(e){} }
 
 /* ---------- Admin view ---------- */
 let adminBlobs={};
@@ -992,6 +997,7 @@ async function mountAdmin(){
   syncFilterUI();
   const ar=document.getElementById("adminResults"); if(ar) ar.innerHTML=dashSkeleton();
   await refreshAdmin(false);
+  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
   if(store.ok) pollTimer=setInterval(()=>refreshAdmin(false),30000);
 }
 function adminCap(){ const a=state.admin; if(a.mode==="week") return "Week "+isoWeek(ymd(mondayOf(parseYmd(a.date)))); return rangeLabel(); }
@@ -1087,7 +1093,7 @@ function renderAdminResults(){
   animateCounts(host);
 }
 function cmpClass(a,b){if(!a)return 1;if(!b)return -1;const ga=parseInt(a),gb=parseInt(b);return ga!==gb?ga-gb:a.localeCompare(b);}
-function sortBy(k){ const a=state.admin; if(a.sortKey===k)a.sortDir*=-1; else{a.sortKey=k;a.sortDir=1;} const el=document.getElementById("f-sort"); if(el && ["date","teacher","cls","upd"].indexOf(k)>=0)el.value=k; renderAdminResults(); }
+function sortBy(k){ const a=state.admin; if(a.sortKey===k)a.sortDir*=-1; else{a.sortKey=k;a.sortDir=1;} const el=document.getElementById("f-sort"); if(el && ["date","teacher","cls","upd"].indexOf(k)>=0)el.value=k; setDirArrow(); renderAdminResults(); }
 function fmtWhen(iso){const d=new Date(iso);if(isNaN(d))return "—";return d.getDate()+" "+MON[d.getMonth()]+", "+pad(d.getHours())+":"+pad(d.getMinutes());}
 function exportCSV(){
   const a=state.admin;
@@ -1162,11 +1168,11 @@ function mountManage(){
   } else {
     html+=`<p class="muted">Add a teacher first.</p>`;
   }
-  html+=`<details class="mg-details mg-sub"><summary>Bulk import (people + timetables via CSV)</summary>
-    <p class="muted mg-note">Add many people at once from a CSV. Columns: <code>Name, Email, Department, Day, I … VIII</code> — one row per person per day. New people are added as <b>Teacher</b>; existing people (matched by email) have their timetable replaced. Cells hold class codes; blank = free.</p>
+  html+=`<details class="mg-details mg-sub"><summary>Bulk import (people + timetables)</summary>
+    <p class="muted mg-note">Download the Excel template, fill one card per teacher (Title, name, email, department, role + the weekly grid), then upload it here. People are matched by <b>email</b> — an existing teacher's timetable is replaced; a new email is added as a new teacher. In each period cell type the class (<code>8A</code>); add a subject after a dash (<code>9C - Library</code>); combine sections into a group with semicolons (<code>12B; 11C</code>). Duty notes go in Assembly/Break, a club in Extended Slot. Upload the filled <b>.xlsx</b> directly, or a <b>.csv</b> exported from it.</p>
     <div class="mg-actions">
-      <button class="btn" onclick="mgDownloadBulkTemplate()">Download bulk template</button>
-      <label class="btn primary mg-upload">Upload people CSV<input type="file" accept=".csv,text/csv" onchange="mgBulkUpload(this.files)"></label>
+      <button class="btn" onclick="mgDownloadBulkTemplate()">Download Excel template</button>
+      <label class="btn primary mg-upload">Upload filled file<input type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="mgBulkUpload(this.files)"></label>
     </div>
   </details>`;
   html+=`</section>`;
@@ -1468,60 +1474,170 @@ async function mgDelSubject(name){
   mountManage();
 }
 
-/* bulk add people + timetables */
-function bulkHeader(){ const h=["Name","Email","Department","Day"]; for(let p=1;p<=PERIODS;p++) h.push(periodLabel(p)); return h; }
-function mgDownloadBulkTemplate(){
-  const rows=[bulkHeader()];
-  const ex=["Mr Example Teacher","teacher@example.com","Value Education","Monday","8A","","9B","","","","",""];
-  rows.push(ex);
-  rows.push(["Mr Example Teacher","teacher@example.com","Value Education","Tuesday","","10C","","Lib:9C","","","",""]);
-  downloadCSV("people_timetables_template.csv", toCSV(rows));
+/* bulk add people + timetables (Excel or CSV) */
+const BULK_TEMPLATE_B64="UEsDBBQAAAAIAKCQ61xGx01IlQAAAM0AAAAQAAAAZG9jUHJvcHMvYXBwLnhtbE3PTQvCMAwG4L9SdreZih6kDkQ9ip68zy51hbYpbYT67+0EP255ecgboi6JIia2mEXxLuRtMzLHDUDWI/o+y8qhiqHke64x3YGMsRoPpB8eA8OibdeAhTEMOMzit7Dp1C5GZ3XPlkJ3sjpRJsPiWDQ6sScfq9wcChDneiU+ixNLOZcrBf+LU8sVU57mym/8ZAW/B7oXUEsDBBQAAAAIAKCQ61wRjTan8AAAACsCAAARAAAAZG9jUHJvcHMvY29yZS54bWzNks9OwzAMh18F5d666WBA1PWyiRNISEwCcYsSb4to/igxavf2tGHrhOABOMb+5fNnyY0KQvmIz9EHjGQwXQ22c0mosGIHoiAAkjqglakcE25s7ny0ksZn3EOQ6kPuEeqqWoJFklqShAlYhJnI2kYroSJK8vGE12rGh8/YZZhWgB1adJSAlxxYO00Mx6Fr4AKYYITRpu8C6pmYq39icwfYKTkkM6f6vi/7Rc6NO3B4e3p8yesWxiWSTuH4KxlBx4Ardp78ulhvtg+srat6WVS3Bedbfieqa3Fz/z65/vC7CFuvzc78Y+OzYNvAr7tovwBQSwMEFAAAAAgAoJDrXJlcnCMQBgAAnCcAABMAAAB4bC90aGVtZS90aGVtZTEueG1s7Vpbc9o4FH7vr9B4Z/ZtC8Y2gba0E3Npdtu0mYTtTh+FEViNbHlkkYR/v0c2EMuWDe2STbqbPAQs6fvORUfn6Dh58+4uYuiGiJTyeGDZL9vWu7cv3uBXMiQRQTAZp6/wwAqlTF61WmkAwzh9yRMSw9yCiwhLeBTL1lzgWxovI9bqtNvdVoRpbKEYR2RgfV4saEDQVFFab18gtOUfM/gVy1SNZaMBE1dBJrmItPL5bMX82t4+Zc/pOh0ygW4wG1ggf85vp+ROWojhVMLEwGpnP1Zrx9HSSICCyX2UBbpJ9qPTFQgyDTs6nVjOdnz2xO2fjMradDRtGuDj8Xg4tsvSi3AcBOBRu57CnfRsv6RBCbSjadBk2PbarpGmqo1TT9P3fd/rm2icCo1bT9Nrd93TjonGrdB4Db7xT4fDronGq9B062kmJ/2ua6TpFmhCRuPrehIVteVA0yAAWHB21szSA5ZeKfp1lBrZHbvdQVzwWO45iRH+xsUE1mnSGZY0RnKdkAUOADfE0UxQfK9BtorgwpLSXJDWzym1UBoImsiB9UeCIcXcr/31l7vJpDN6nX06zmuUf2mrAaftu5vPk/xz6OSfp5PXTULOcLwsCfH7I1thhyduOxNyOhxnQnzP9vaRpSUyz+/5CutOPGcfVpawXc/P5J6MciO73fZYffZPR24j16nAsyLXlEYkRZ/ILbrkETi1SQ0yEz8InYaYalAcAqQJMZahhvi0xqwR4BN9t74IyN+NiPerb5o9V6FYSdqE+BBGGuKcc+Zz0Wz7B6VG0fZVvNyjl1gVAZcY3zSqNSzF1niVwPGtnDwdExLNlAsGQYaXJCYSqTl+TUgT/iul2v6c00DwlC8k+kqRj2mzI6d0Js3oMxrBRq8bdYdo0jx6/gX5nDUKHJEbHQJnG7NGIYRpu/AerySOmq3CEStCPmIZNhpytRaBtnGphGBaEsbReE7StBH8Waw1kz5gyOzNkXXO1pEOEZJeN0I+Ys6LkBG/HoY4SprtonFYBP2eXsNJweiCy2b9uH6G1TNsLI73R9QXSuQPJqc/6TI0B6OaWQm9hFZqn6qHND6oHjIKBfG5Hj7lengKN5bGvFCugnsB/9HaN8Kr+ILAOX8ufc+l77n0PaHStzcjfWfB04tb3kZuW8T7rjHa1zQuKGNXcs3Ix1SvkynYOZ/A7P1oPp7x7frZJISvmlktIxaQS4GzQSS4/IvK8CrECehkWyUJy1TTZTeKEp5CG27pU/VKldflr7kouDxb5OmvoXQ+LM/5PF/ntM0LM0O3ckvqtpS+tSY4SvSxzHBOHssMO2c8kh22d6AdNfv2XXbkI6UwU5dDuBpCvgNtup3cOjiemJG5CtNSkG/D+enFeBriOdkEuX2YV23n2NHR++fBUbCj7zyWHceI8qIh7qGGmM/DQ4d5e1+YZ5XGUDQUbWysJCxGt2C41/EsFOBkYC2gB4OvUQLyUlVgMVvGAyuQonxMjEXocOeXXF/j0ZLj26ZltW6vKXcZbSJSOcJpmBNnq8reZbHBVR3PVVvysL5qPbQVTs/+Wa3InwwRThYLEkhjlBemSqLzGVO+5ytJxFU4v0UzthKXGLzj5sdxTlO4Ena2DwIyubs5qXplMWem8t8tDAksW4hZEuJNXe3V55ucrnoidvqXd8Fg8v1wyUcP5TvnX/RdQ65+9t3j+m6TO0hMnHnFEQF0RQIjlRwGFhcy5FDukpAGEwHNlMlE8AKCZKYcgJj6C73yDLkpFc6tPjl/RSyDhk5e0iUSFIqwDAUhF3Lj7++TaneM1/osgW2EVDJk1RfKQ4nBPTNyQ9hUJfOu2iYLhdviVM27Gr4mYEvDem6dLSf/217UPbQXPUbzo5ngHrOHc5t6uMJFrP9Y1h75Mt85cNs63gNe5hMsQ6R+wX2KioARq2K+uq9P+SWcO7R78YEgm/zW26T23eAMfNSrWqVkKxE/Swd8H5IGY4xb9DRfjxRiraaxrcbaMQx5gFjzDKFmON+HRZoaM9WLrDmNCm9B1UDlP9vUDWj2DTQckQVeMZm2NqPkTgo83P7vDbDCxI7h7Yu/AVBLAwQUAAAACACgkOtcQw9/hx8OAACtcgAAGAAAAHhsL3dvcmtzaGVldHMvc2hlZXQxLnhtbO2dWXPbOBaF/wpKU9WTVLktc6fXGtvcl5pUkk7PKy3BNieUqCap2J5fP+BiUUyDOCy5kqc8dNomvwNc4kIQcAiTF0958bV8pLQiz6tsXV7OHqtqczafl4tHukrK43xD1+zMfV6skor9WjzMy01Bk2UjWmVz+eREn6+SdD27umiOfSiuLvJtlaVr+qEg5Xa1SoqXG5rlT5czafZ64GP68FjVB+ZXF5vkgX6i1R+bDwX7bb4rZZmu6LpM8zUp6P3l7Fo6i029FjTEl5Q+lXs/k/pS7vL8a/2Lv7ycnczqoteUPH/aZGlTGXnpflRmpMo3Eb2vbmmWXc5u1BlJFlX6jX5gisvZXV5V+aoJkoVcJRU7dl/k/6Prpn6aUQazwDYNzYpqUc65tqS6pvGzXT1tAG1A13VT/dVd92zXLPW17f/82gBOkx/W3ndJSW/z7M90WT1ezswZWdL7ZJtVH/Mnj3ZtrtXlLfKsbP4lTy0rsRoX25KF04nZ76t03f4/ee5ytS9QRgRyJ5C/E+gjvNLxytQK1E6gfi9QRwRaJ9CmCvROoE8VGJ3AmHoNZicwp9Zw2glOpwqkk9fEnUyW7HL9t2SPSl6zLX2f7nHJa8KlJuPztis2/dhKquTqosifSNHwdX+Vzddydj2YfbIXNdF8ShqQHU3X9ZjzqSrY2ZQVWF3F+XZdkdukWNGMfFo85iy43/5hypJ8Tm622Vey3WR5sjwjpKIJG/CKkvyWrDbnpGIjT5XcZbS8mFcswrq4+YL9xyLbhSe34anyeHhyE548Ep6TZhnJ2QC1SIol2dDiNYwjUj3SdRcd+zktyX2aUbJdLxlErpesGesL0U7Vc/J5F+vuUHNt6WqTF9UxIe/+2Cvn+Dkrn8kyLdgwlL0ckbwgCTlelN8Ifa55uiRsnFuRtDp+T0icVCyeJbl7IezbIM3OSLJmYFpW6frhNdp/ln17EVZFQTdZsqDLc1bymo3LjbI+kSyXrKyk7I538mNBEyttE+u8Fh6AatdVBLlQm1woI7n4bF/fevZHIhHWipKpnBNi/+c6/hDZux6zZGN3RdtmbDL2jjVe/o0WT0XKjqfVe3JH2Rcl7RLHmkhwadouMK0JTB0LLK0yOiynkd20Mm2s64t6rr6rWxfW7WxZB10nK279urB++5l9kFh/+NwmWRCMsQvGEAZj192IF4ghDIS2gRx3ve1fq3pMWDRDQtmMCMeLfCUIz9yFZwrDs+gmKSo2Yal4MZrCGL8k2ZYSe7ldJPXcQBDN6S6aU2E0H3N+pzkVxoGTVX+noEGvZsrmQ8ut5E9Kv2Yve0PG6+eLsEGtDqAeCdN8SRZsIkSql039kWNjZJaU5RGhxw9sSDOvCfuXDYRsOGEzyrv/stGMJPcVrUezZVI+siH99Jb8TqL0rmCzzYa+zVd3LBZStjMwNqY2g99DkW837DuremRnVin7MmLnmF6Sb86JJN22NZXs3B0Lu/1+uGEz4K/ksq78kQ2aZLmtXsg6r+jr4GE/V3Rdj3afsrxqwEW2vXs9m9HkGyW3n8ldlqy/vh6lqw0r5ZKNv5R2bSAaG6UpX4+SuM8mL7xO0qmMEdWuLd7Vl/2eU8ItKOH2M0dkAdGwSd/V7VnyKrdBOT5H4yANT+RCEU/lAVXbtUab1keVfuGIAiDiaUKk4V1cBEU8VYxVvuiDIPf9vZ1wmaPzwfVypMvLwoHRZWPEetl8zLndfUy917nFFXzM2UowXZTNMMHt1GK9ec3t1WLR/gjJ7d/wsjxQw22yriibyY40nA/k0skNtzfDuEKMRBiJhciwDyp9H1SEffDzlpZjnVBBEd1ixMKIPYp0zS47593Xn2xx+5VYb/Cy5qJKJV4X9vDV+BgJMBJiJMJILESGPUbte4wq7DF/0uV6vM+owlaN2O+/s+nN6Mg1Jt/rTxCxQRC6ze1EYpF5wwanOC+SeuWe0vWCN591cXAeRnyMBBgJMRJhJBYiwx7ULyElTTzmPG6L0Q40to7c6yQQsTBiY8TBiIsRDyM+RgKMhBiJMBILkWHC+3W7pAsT7hTpWLrHlu176YaIhREbIw5GXIx4GPExEmAkxEiEkViIDNNtYlNLao2FU+BqyWwJ++6+thvrpTQrvyR39R2Z3dq7XZHWJ58e86xzJNvVaZWT8mu6eS+agfe2hCT2JUbdLGnMmfi77XrS26snh9tXnXZKhXt+rng9PWpRdboplfWLGVl+g+EkT566yv3UVVYOMpXkyZMeWZ3gmau/7KOfYB/JGraPZLE1PWIfdao32EegBL59BEST7SNQDtc+QhqufQRFXPsIqJB9hCrl2kdAxLWPkIZrH0ER1z7CKpF9JPezKlk8qxq3j2Q8q8KIhREbIw5GXIx4GPExEmAkxEiEkViIDNPd32+SjUOdGnnsntNeviFiYcTGiIMRFyMeRnyMBBgJMRJhJBYiw3z3N/Bk83CfRR67g7eXcYhYGLEx4mDExYiHER8jAUZCjEQYiYXIMOP9akQ+PdgXkUULki7hELEwYmPEwYiLEQ8jPkYCjIQYiTASC5HhLpF+RaicHOiLKKLlYJtujFgYsTHiYMTFiIcRHyMBRkKMRBiJhcgw3TL2RRR5ki+i/FhfROmX1op4aT3qiyiT19ZKf0NBUQ/3RZTJ/rPS+8+KeKE46osok71PpZ+lK+JNS2JfRJk8UVT6iaIi3pk05osokycpiol9EcX85Yv8BF9EOcW+iCI2OUd8kU71Bl8ElMD3RYBosi8CyuH6IkjD9UWgiOuLABXyRVClXF8EiLi+CNJwfREo4voiWCXyRdR+VqWKZ1XjvoiKZ1UYsTBiY8TBiIsRDyM+RgKMhBiJMBILkWG693ZKS4f6IqroPkeXb4hYGLEx4mDExYiHER8jAUZCjEQYiYXIMN9yn2/xrjmhL6LCXVS3GLEwYmPEwYiLEQ8jPkYCjIQYiTASC5FhxvvViAr2qAl8ERVvUsOIhREbIw5GXIx4GPExEmAkxEiEkViIDBPerwhV8RazcV9EhTuWbjFiYcTGiIMRFyMeRnyMBBgJMRJhJBYiw3TrE/4ISp/ki6g/1hdR+6W1Kl5aj/oi6uS1tdrfAFDFf8Ij9EXUyf6z2vvPqnihOOqLqJO9T62fpWvi3TBiX0SbPFHU+t6kibfDjPki2uRJijbhbyw1+Zcv8hN8EU3BvogmNjlHfJFO9QZfBJTA90WAaLIvAsrh+iJIw/VFoIjriwAV8kVQpVxfBIi4vgjScH0RKOL6Ilgl8kW0flaliWdV476IhmdVGLEwYmPEwYiLEQ8jPkYCjIQYiTASC5Fhuvf+UFs71BfRRPc5unxDxMKIjREHIy5GPIz4GAkwEmIkwkgsRIb57m80aeLtYEJfRMM7wjBiYcTGiIMRFyMeRnyMBBgJMRJhJBYiw4z3qxEN7AgT+CIa3hKGEQsjNkYcjLgY8TDiYyTASIiRCCOxEBkmvF8RauItYeO+iIb3g2HEwoiNEQcjLkY8jPgYCTASYiTCSCxEhk87OcG+iH4yyRfRfqwvou8FJF5aj/oi+uS1tS73lYn/0kT8GJjJ/rPe+8+6eKE46ovok71PvZ+l6+LdMGJfRJ88UdT7iaKuHeSL6JMnKbqOfRFd/+WL/ARfRDewL6KLTc4RX6RTvcEXASXwfREgmuyLgHK4vgjScH0RKOL6IkCFfBFUKdcXASKuL4I0XF8Eiri+CFaJfBG9n1Xp4lnVuC+i41kVRiyM2BhxMOJixMOIj5EAIyFGIozEQmSY7v4uhw522Y/7IjreZI8RCyM2RhyMuBjxMOJjJMBIiJEII7EQGT6mr7/RZIi3gwl9EQPvCMOIhREbIw5GXIx4GPExEmAkxEiEkViIDDPeT2AMsCNM4IsYeEsYRiyM2BhxMOJixMOIj5EAIyFGIozEQmSY8H5FaIi3hI37IgbeD4YRCyM2RhyMuBjxMOJjJMBIiJEII7EQGaZ7wkNzDXWSL6L/WF/E6JfWhnhpPeqLGJPX1kZ/A8B4w+Nxjcn+s7H3BNxDH4E72fs0+lm68ZYH2hqTJ4pGP1E0DntorTF5kmJOeDyt+evxtD/DFzEnPJ7WPOjxtOabH08LSuD7IkA02RcB5XB9EaTh+iJQxPVFgAr5IqhSri8CRFxfBGm4vggUcX0RrBL5ImY/qzIPfTytiWdVGLEwYmPEwYiLEQ8jPkYCjIQYiTASC5Fhuvu7HObBT4I18SZ7jFgYsTHiYMTFiIcRHyMBRkKMRBiJhcgw3/2NJvMNz3E18Y4wjFgYsTHiYMTFiIcRHyMBRkKMRBiJhcgw4/1qxNQO9kVM0YKkSzhELIzYGHEw4mLEw4iPkQAjIUYijMRCZJjwfkVoHvrcVRPvB8OIhREbIw5GXIx4GPExEmAkxEiEkViItOme772CakWLh+ZVbCVZ1G+M6R7YvTvcvZJO1c9itXlJ2Pdn9JOzWD/hnVHMs1gxuRpWms4tTTqLJd5xk9Vi8muRWS0y74yhnsWGyq2FRSZxI2MSrkJmJ2T+GXaCd1xjJzTuGYldS/uqsnnf+lcXS5aPL0nGPljtsrhLRz2rHp56fV/ejUZupFNyoyjkRjXIjS6R1v55zJ+sIt9Y+dO6fjtgc8Bfb7ZVTMsyeaC7g3ZR5MX+wSTL8qebejXcvmyMrfovZ1laViyI+tWI2yyRrmZxcRQX5VFcHlnF7GK+O3ExHwY6GjgLWmZBKyxojQWtswtpvI8fHXj33p8j79/WUUSTJfuxeceY+CK+O1C2L3KMk+IhZWnK6D3L0slx3fJFu/Bvf6nyTRNL++rD9i1vTZ01wM7f53n1+kvdF3ZvqLz6P1BLAwQUAAAACACgkOtc0WvLRsMEAAA8DQAAGAAAAHhsL3dvcmtzaGVldHMvc2hlZXQyLnhtbK1XbU/jOBD+K6OcdAcS2zahvJW2Eq/HnlgtAu72vrrJtPXWibO2Q+m/v8dOWtDukfIBpNLGHs/MMzN+ZjJcarOwc2ZHz7kq7CiaO1cOul2bzjkXtqNLLrAz1SYXDo9m1rWlYZGFQ7nqJr3eYTcXsojGw7B2Z8ZDXTklC74zZKs8F2Z1zkovR1EcrRfu5Wzu/EJ3PCzFjB/Y/V3eGTx1N1oymXNhpS7I8HQUncWDs/jAHwgS/0he2le/yUOZaL3wD5+zUdTzHrHi1HkVAl9PfMFKeU3w40ejNNrY9Adf/15rvw7gAWYiLF9o9U1mbj6KjiPKeCoq5e718oYbQMHBVCsb/tOylo17/YjSyjqdN6fhQi6L+ls8N5Ho1geD1UvhxHho9JJMkPLak8O1lo09gEy9RMDkDUWEZVn4+D84g20JjW58A0VO01QqRW4uLTnOSyUcD7sOhr1QN8UHBjdWk9pqi9GkNhr/YvQXXfu1rv3e28r2a2XJGwjiDtHXgikVJqOSDRAIVKnB8jVSS/zsjKCJEsUiyFgShqk0+klmnNHvvx0ncXLqgyCyjHJteI9SXa5I0HKuVaN4RzpL8NnukihgR1jHJB1NfAV3WoLVb1LUArDfDjABkkfp4EmX7r1D3v/M6DLTy8JiMywidRpR0FN6rPHv0c3Xyz26xaX0D2cZ6op26jiM1kK7ba4fbM/NQbvr+/DuCiygvHtzaC1Zlw0C3B14kEHi8xSlh0QFQaE8jayQNmmd3cOOcOuU/oHyxOV3YlIDNoxSTTk7Ra4KXPVaQwoFjm2ztq6GFpyHTYqSt3Ee1jj338DZB4pvzAu1opmRL0XlbfualDqjFBxDOx7oCr9g2S/Y3UGLY0fba+eoNQGevQe2RIxGEejZsnniaEzNn/cyOTwl+gvKEa5UCWsHRMdnYTuUvK0m30GVPtpOLLigqdF5SNdLTjIuhXEgZSip4KVwMhVKrXZboB1vh3b8EdAuPCbQrZsDYAMGEE8u6BPdyolBz6nBlpULsNaAxdSBSwRlws49OegnNkgtB6EXxG0YT7ZjPPkIjGcoOl2VoIdU5xOoyMjW7c1nM07OTymOL2qYlnOJboItUJdbMjK6ln2hQiAUZUkWN9bWXUHU7PJweVfbaoPte8023F7m44D/kt4N5k/e5TZf43f4Gn+Irxahn4AgQv+gc5DUImwfnPSxLXy0jaOscisqtEMT4s4MtPInuCysdry6q2fHhW9bD0q7V8d9ylJVTVADYaKRXovIORy6eHwlqVigKYY20MaJcfKOwCQfEZhrw7zmyJ/dDLA8b2IoQQTa/H3HIBFvmSQOEK1LTIauNnz179mXu9urpv83DZPiXVwczL1MVam0yGQx21wcbei7p1LPFUsjw4QAnec/zR5yVuB81gqnv3XGivvvHrLid3TyuGnl/TeC8yjLQQiLVpgn/LUaxMn1Hm4aPpdk3Qo92To/R4aXB3Cm7mA00bn1tMQvjQPUgqZR7yg0edoJjWeTe4OdXbT0gqpiUWDGqRtTo9yiLmy4Q0thQForXa1nNxGO/m9Yu69mZ/9e8UWYmcRpxVOg7XWOgN7UIakfnC7DeD3RDuGqJ+0wSXkB7E817mjz4Cf0zQvT+D9QSwMEFAAAAAgAoJDrXFtqCpekAwAARxoAAA0AAAB4bC9zdHlsZXMueG1s3Vltb9owEP4rUX5AQwikZAKkNiPSpG2q1H7YV0McsOS8zDEd9NfPFwfCiw+FFlXLgqrYPj/PPXc+44SOS7nl9HlFqbQ2Kc/Kib2SsvjiOOViRVNS3uUFzZQlyUVKpOqKpVMWgpK4BFDKnX6v5zspYZk9HWfrNEplaS3ydSYnds92puMkz5oRt2/rETWXpNR6JXxih4SzuWDVZJIyvtXDfRhY5DwXllRaqELDSPmmza7ugcyaJ2VZLmDQ0R5O/TwIRjjY5zVD40As50puL6quIy+DNoRHJP2HwWw0PCLp3VqV+yFCk8K74fWBVtcNA7155s4Jg3ZxXiPxHRViSNztdbWqkSOSYXWh+a9upSJjnO939MjWA9NxQaSkIotUp8JUg2cmq26/bAu1o5eCbN1+HXobQJlzFoPLZWgO3zmAfpB0Nov60f2NSaNh4LqzWyu9n4WRd2ulURTM/BuTeiPff+yhpNVNldg8FzEV+yKDU0MPTcecJlLBBVuu4C7zAvZFLmWeqkbMyDLPSFWBO8Qh0qoOvIktV9WBdVT+YfDVm2ltMLX20RJRza3ktASomTvdLRF68kFgdUPla0E5fwaSX0lz1iqqTWLpM/lbDMexBTt411SZrpuaRnfA0SGb5j6kHb6L1yrYay4f1yqErOr/XueSPgmasE3V3yR7ARi727D3T9hJUfDtA2fLLKU6+NYOp2Oyw1mrXLA35Q2++6AGbOuVCskW0F+oCVTY1h9Bihe60U5YFtf+IHGbBBffb8R7nRPvNeIHnRM/aMQPD8W7nyq+vd5ho9fvgl6/y5V9/6nFsRN7Wf4VBe11oUAOvj3uO1cgoy5X9xA/j/998UGXxbsXHoU6oN7tgnqnfjQ9eP49evrdj1rw5juxf8KPWLyRY83XjEuW1b0Vi5WHs4dgRS/JnNNjfjU/pglZc/myN07spv2DxmydBvtZT5CielbT/g5vDa6/fxNXviDMDY3DuqteA45eoPQFgFNL8zPRuQXDaJvZAjbMD6YAw2gU5ud/imeExqNtmLaR0TJCMSMUo1EmS1h9MD9mTKAuc6RB4Hm+j2U0DI0KQixvvg9/ZjZMGyAwP+Dpulzjq41XyOU6wNb0UoVgkeKViEWK5xos5rwBIgjMq435AQS2CljtgH+zH6gpM8bzYFUxbdgOxi1BgFmgFs016vtIdnz4mNcH2yWeFwRmC9jMCjwPs8BuxC2YAtCAWTz9g+LJeeTszimn+dfR9C9QSwMEFAAAAAgAoJDrXJeKuxzAAAAAEwIAAAsAAABfcmVscy8ucmVsc52SuW7DMAxAf8XQnjAH0CGIM2XxFgT5AVaiD9gSBYpFnb+v2qVxkAsZeT08EtweaUDtOKS2i6kY/RBSaVrVuAFItiWPac6RQq7ULB41h9JARNtjQ7BaLD5ALhlmt71kFqdzpFeIXNedpT3bL09Bb4CvOkxxQmlISzMO8M3SfzL38ww1ReVKI5VbGnjT5f524EnRoSJYFppFydOiHaV/Hcf2kNPpr2MitHpb6PlxaFQKjtxjJYxxYrT+NYLJD+x+AFBLAwQUAAAACACgkOtcLkcsoUcBAACwAgAADwAAAHhsL3dvcmtib29rLnhtbLVSXUvDQBD8K+F+gEmDFiyNLxZrQbTY0vdLbtMsvY+wd2m1v97NhWBAEF982tvZZW5m7pYXR6fSuVPyYbT1hWhCaBdp6qsGjPQ3rgXLk9qRkYFbOqa+JZDKNwDB6DTPsnlqJFrxsBy5tpROGxegCugsgz1wQLj473nfJmf0WKLG8FmIeNYgEoMWDV5BFSITiW/c5dkRXp0NUu8qcloXYjYMDkABqx/wrhe5l6WPSJDlu2QhhZhnTFgj+RA3Ir9kjWfg5aHrgntCHYBWMsCaXNeiPfY07CKd2Ig5jHUIcUF/idHVNVawclVnwIYhRwLdC7S+wdaLxEoDhdiDZBbyvSW+Y6MGe4F1TcKiBfKANioq/D816w4VTKTkv0jJY1hjQgpqtKBemcYzzq9VbSnpS7SU397N7vlVOq0fGXuzL06qMfDxszx8AVBLAwQUAAAACACgkOtcjfcsWrQAAACJAgAAGgAAAHhsL19yZWxzL3dvcmtib29rLnhtbC5yZWxzxZJNCoMwEEavEnKAjtrSRVFX3bgtXiDo+IPRhMyU6u1rdaGBLrqRrsI3Ie97MIkfqBW3ZqCmtSTGXg+UyIbZ3gCoaLBXdDIWh/mmMq5XPEdXg1VFp2qEKAiu4PYMmcZ7psgni78QTVW1Bd5N8exx4C9geBnXUYPIUuTK1ciJhFFvY4LlCE8zWYqsTKTLylDCv4UiTyg6UIh40kibzZq9+vOB9Ty/xa19ievQ38nl4wDez0vfUEsDBBQAAAAIAKCQ61xupyS8HgEAAFcEAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbMWUz07DMAzGX6XKdWoyduCA1l2AK+zAC4TWXaPmn2JvdG+P226TQKNiKhKXRo3t7+f4i7J+O0bArHPWYyEaovigFJYNOI0yRPAcqUNymvg37VTUZat3oFbL5b0qgyfwlFOvITbrJ6j13lL23PE2muALkcCiyB7HxJ5VCB2jNaUmjquDr75R8hNBcuWQg42JuOAEoa4S+sjPgFPd6wFSMhVkW53oRTvOUp1VSEcLKKclrvQY6tqUUIVy77hEYkygK2wAyFk5ii6mycQThvF7N5s/yEwBOXObQkR2LMHtuLMlfXUeWQgSmekjXogsPft80LtdQfVLNo/3I6R28APVsMyf8VePL/o39rH6xz7eQ2j/+qr3q3Ta+DNfDe/J5hNQSwECFAMUAAAACACgkOtcRsdNSJUAAADNAAAAEAAAAAAAAAAAAAAAgAEAAAAAZG9jUHJvcHMvYXBwLnhtbFBLAQIUAxQAAAAIAKCQ61wRjTan8AAAACsCAAARAAAAAAAAAAAAAACAAcMAAABkb2NQcm9wcy9jb3JlLnhtbFBLAQIUAxQAAAAIAKCQ61yZXJwjEAYAAJwnAAATAAAAAAAAAAAAAACAAeIBAAB4bC90aGVtZS90aGVtZTEueG1sUEsBAhQDFAAAAAgAoJDrXEMPf4cfDgAArXIAABgAAAAAAAAAAAAAAICBIwgAAHhsL3dvcmtzaGVldHMvc2hlZXQxLnhtbFBLAQIUAxQAAAAIAKCQ61zRa8tGwwQAADwNAAAYAAAAAAAAAAAAAACAgXgWAAB4bC93b3Jrc2hlZXRzL3NoZWV0Mi54bWxQSwECFAMUAAAACACgkOtcW2oKl6QDAABHGgAADQAAAAAAAAAAAAAAgAFxGwAAeGwvc3R5bGVzLnhtbFBLAQIUAxQAAAAIAKCQ61yXirscwAAAABMCAAALAAAAAAAAAAAAAACAAUAfAABfcmVscy8ucmVsc1BLAQIUAxQAAAAIAKCQ61wuRyyhRwEAALACAAAPAAAAAAAAAAAAAACAASkgAAB4bC93b3JrYm9vay54bWxQSwECFAMUAAAACACgkOtcjfcsWrQAAACJAgAAGgAAAAAAAAAAAAAAgAGdIQAAeGwvX3JlbHMvd29ya2Jvb2sueG1sLnJlbHNQSwECFAMUAAAACACgkOtcbqckvB4BAABXBAAAEwAAAAAAAAAAAAAAgAGJIgAAW0NvbnRlbnRfVHlwZXNdLnhtbFBLBQYAAAAACgAKAIQCAADYIwAAAAA=";
+function stripBOM(s){ return String(s||"").replace(/^\uFEFF/,""); }
+function blow(s){ return String(s==null?"":s).trim().toLowerCase(); }
+const _titleMap={mr:"Mr.",mrs:"Mrs.",ms:"Ms.",miss:"Miss","mr.":"Mr.","mrs.":"Mrs.","ms.":"Ms.","dr":"Dr.","dr.":"Dr."};
+function titleCase(t){ return _titleMap[blow(t)]||""; }
+function normRole(v){ const r=blow(v); return (r==="hod"||r==="leader"||r==="admin"||r==="teacher")?r:""; }
+const _roman={i:1,ii:2,iii:3,iv:4,v:5,vi:6,vii:7,viii:8};
+function periodOfHeader(t){ const s=blow(t).replace(/[^a-z0-9]/g,""); if(_roman[s]) return _roman[s]; const m=/^([1-8])$/.exec(s); return m?parseInt(m[1],10):0; }
+function classifyHeader(t){ const s=blow(t); if(s.indexOf("assembly")>=0) return {k:"assembly"}; if(s.indexOf("extended")>=0) return {k:"ext"}; if(s.indexOf("break")>=0) return {k:"brk"}; if(s==="ct") return {k:"ct"}; const isSub=/subj/.test(s); const core=s.replace(/subject|subj|class/g,""); const n=periodOfHeader(core); return n?{k:(isSub?"sub":"per"),n}:null; }
+const _classRe=/^\d{1,2}[A-Za-z]{1,2}$/;
+function isClassCode(t){ return _classRe.test(String(t||"").replace(/\s+/g,"")); }
+function normClass(t){ return String(t||"").replace(/\s+/g,"").toUpperCase(); }
+function toClassStr(list){ const cs=list.map(normClass).filter(Boolean); if(!cs.length) return ""; return cs.length===1?cs[0]:("SDP:"+cs.join(",")); }
+/* period cell text -> "" | classString | {c,s}.  dash separates class & subject (either order); ";" separates group sections */
+function parseCellText(raw){
+  const s0=String(raw==null?"":raw).trim(); if(!s0) return "";
+  let classPart=s0, subject=""; const di=s0.indexOf("-");
+  if(di>=0){ const a=s0.slice(0,di).trim(), b=s0.slice(di+1).trim();
+    const aTok=a.split(";").map(x=>x.trim()).filter(Boolean), bTok=b.split(";").map(x=>x.trim()).filter(Boolean);
+    const aCls=aTok.length>0 && aTok.every(isClassCode), bCls=bTok.length>0 && bTok.every(isClassCode);
+    if(bCls && !aCls){ classPart=b; subject=a; } else { classPart=a; subject=b; } }
+  let cc;
+  if(/^(SDP:|Lib:|libJ:)/i.test(classPart)){ cc=cellIn(classPart); }
+  else { const list=classPart.split(";").map(x=>x.trim()).filter(Boolean); cc=toClassStr(list)||cellIn(classPart); }
+  if(!cc) return "";
+  return subject ? {c:cc, s:subject} : cc;
 }
-function applyBulkCSV(text){
-  const rows=parseCSV(text).filter(r=>r.some(c=>String(c).trim()!==""));
-  if(!rows.length) return {people:0,unknown:[],deptsAdded:false};
-  let start=0; const h0=(rows[0]||[]).map(c=>String(c).trim().toLowerCase());
-  if(h0.indexOf("name")>=0 || h0[0]==="name") start=1;
+function parseBulkGrid(rows){
+  const unknown=new Set(); const groups={}; const n=rows.length; let i=0;
+  while(i<n){
+    const a0=blow(rows[i][0]);
+    if(a0.indexOf("teacher")===0 && a0.indexOf("timetable")<0){
+      const isExample=a0.indexOf("example")>=0;
+      const meta={title:"",name:"",email:"",dept:"",role:""}; let headerRow=-1; let j=i+1;
+      while(j<n){
+        const aj=blow(rows[j][0]);
+        if(aj.indexOf("teacher")===0 && aj.indexOf("timetable")<0) break;
+        if(aj==="day"||matchDay(rows[j][0])){ headerRow=(aj==="day")?j:j-1; break; }
+        const b=rows[j][1];
+        if(aj.indexOf("title")===0) meta.title=b;
+        else if(aj.indexOf("full name")===0||aj==="name") meta.name=b;
+        else if(aj.indexOf("mail")>=0) meta.email=b;
+        else if(aj.indexOf("department")===0||aj.indexOf("dept")===0) meta.dept=b;
+        else if(aj.indexOf("role")===0||aj.indexOf("level")===0) meta.role=b;
+        j++;
+      }
+      const daysData={};
+      if(headerRow>=0){
+        const hmap={}; const hrow=rows[headerRow]||[];
+        for(let c=1;c<hrow.length;c++){ const cl=classifyHeader(hrow[c]); if(cl) hmap[c]=cl; }
+        let k=headerRow+1;
+        while(k<n){ const dk=matchDay(rows[k][0]); if(!dk) break;
+          const cls=new Array(PERIODS).fill(""); const sbj=new Array(PERIODS).fill(""); const x={}; const rowk=rows[k]||[];
+          for(const c in hmap){ const cl=hmap[c]; const val=String(rowk[c]==null?"":rowk[c]).trim(); if(!val) continue;
+            if(cl.k==="per"){ const pv=parseCellText(val); cls[cl.n-1]=pv; const code=(pv&&typeof pv==="object")?pv.c:pv; if(code){ const e=ent(code); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); } }
+            else if(cl.k==="sub"){ sbj[cl.n-1]=val; }
+            else if(cl.k==="assembly"||cl.k==="ext"||cl.k==="brk"){ x[cl.k]=val; } }
+          const per=new Array(PERIODS).fill("");
+          for(let p=0;p<PERIODS;p++){ const cv=cls[p]; if(!cv){ per[p]=""; continue; } if(typeof cv==="object"){ per[p]=cv; } else { per[p]= sbj[p] ? {c:cv,s:sbj[p]} : cv; } }
+          daysData[dk]={p:per,x:x,hasX:true}; k++;
+        }
+        i=k;
+      } else { i=j; }
+      if(!isExample){
+        const fullName=String(meta.name||"").trim(), fnl=blow(fullName);
+        const ph=(fnl===""||fnl==="example name"||fnl==="example teacher"||fnl==="full name of the teacher"||fnl==="name");
+        if(!ph){
+          const email=(blow(meta.email)==="examplename@test.com")?"":String(meta.email||"").trim();
+          const dept=(blow(meta.dept)==="example department"||blow(meta.dept)==="")?"":String(meta.dept||"").trim();
+          const disp=[titleCase(meta.title),fullName].filter(Boolean).join(" ").trim();
+          const key=(email||disp).toLowerCase();
+          if(!groups[key]) groups[key]={name:disp,email,dept,role:normRole(meta.role),days:{}};
+          const g=groups[key]; if(disp)g.name=disp; if(email)g.email=email; if(dept)g.dept=dept; const nr=normRole(meta.role); if(nr)g.role=nr;
+          Object.keys(daysData).forEach(d=>{ g.days[d]=daysData[d]; });
+        }
+      }
+      continue;
+    }
+    i++;
+  }
+  return {groups, unknown};
+}
+function parseBulkFlat(rows){
   const unknown=new Set(); const groups={};
+  let start=0; const h0=(rows[0]||[]).map(c=>blow(c));
+  if(h0.indexOf("name")>=0) start=1;
   for(let i=start;i<rows.length;i++){
-    const r=rows[i];
-    const name=(r[0]||"").trim(), email=(r[1]||"").trim().toLowerCase(), dept=(r[2]||"").trim(), day=matchDay(r[3]);
+    const r=rows[i]||[];
+    const name=String(r[0]||"").trim(), email=String(r[1]||"").trim().toLowerCase(), dept=String(r[2]||"").trim(), day=matchDay(r[3]);
     if(!name && !email) continue;
     const key=email||name.toLowerCase();
-    if(!groups[key]) groups[key]={name,email,dept,days:{}};
+    if(!groups[key]) groups[key]={name,email,dept,role:"",days:{}};
     if(name) groups[key].name=name; if(email) groups[key].email=email; if(dept) groups[key].dept=dept;
-    if(day){ const cells=r.slice(4,4+PERIODS).map(cellIn); while(cells.length && !cells[cells.length-1]) cells.pop(); cells.forEach(c=>{ if(!c) return; const e=ent(c); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); }); groups[key].days[day]=cells; }
+    if(day){ const cells=r.slice(4,4+PERIODS).map(parseCellText); while(cells.length && !cells[cells.length-1]) cells.pop(); cells.forEach(c=>{ if(!c) return; const code=(typeof c==="object")?c.c:c; const e=ent(code); if((e.act==="V.Ed."||e.act==="Lib"||e.act==="libJ") && ROOMS[e.code]===undefined) unknown.add(e.code); }); groups[key].days[day]={p:cells}; }
   }
+  return {groups, unknown};
+}
+function commitBulkGroups(groups, unknownSet){
   let count=0, deptsAdded=false;
   Object.keys(groups).forEach(key=>{
-    const g=groups[key];
-    let t = g.email ? TEACHERS.find(x=>(x.email||"").toLowerCase()===g.email) : null;
-    if(!t && g.name) t = TEACHERS.find(x=>x.name.toLowerCase()===g.name.toLowerCase());
-    if(!t){ const nid=uniqueId(slugId(g.name||g.email||"teacher")); t={id:nid,name:g.name||g.email,email:g.email||"",dept:g.dept||(DEPARTMENTS[0]||""),role:"teacher"}; TEACHERS.push(t); }
-    else { if(g.email) t.email=g.email; if(g.dept) t.dept=g.dept; if(g.name) t.name=g.name; }
+    const g=groups[key]; if(!g.name) return;
+    let t = g.email ? TEACHERS.find(x=>(x.email||"").toLowerCase()===g.email.toLowerCase()) : null;
+    if(!t && g.name) t=TEACHERS.find(x=>x.name.toLowerCase()===g.name.toLowerCase());
+    if(!t){ const nid=uniqueId(slugId(g.name||g.email||"teacher")); t={id:nid,name:g.name||g.email,email:g.email||"",dept:g.dept||(DEPARTMENTS[0]||""),role:g.role||"teacher"}; TEACHERS.push(t); }
+    else { if(g.email) t.email=g.email; if(g.dept) t.dept=g.dept; if(g.name) t.name=g.name; if(g.role) t.role=g.role; }
     if(g.dept && !DEPTS.some(d=>d.toLowerCase()===g.dept.toLowerCase()) && !DEPARTMENTS.some(d=>d.toLowerCase()===g.dept.toLowerCase())){ DEPTS.push(g.dept); deptsAdded=true; }
-    if(!RAW[t.id]) RAW[t.id]={};
-    Object.keys(g.days).forEach(day=>{ RAW[t.id][day]=g.days[day]; });
+    if(!RAW[t.id]) RAW[t.id]={}; if(!RAWX[t.id]) RAWX[t.id]={};
+    Object.keys(g.days).forEach(day=>{
+      const dd=g.days[day]||{};
+      const cells=(dd.p||[]).slice(0,PERIODS); while(cells.length && !cells[cells.length-1]) cells.pop();
+      RAW[t.id][day]=cells;
+      if(dd.hasX){ const x={}; ["assembly","ext","brk"].forEach(sid=>{ const v=String((dd.x&&dd.x[sid])||"").trim(); if(v) x[sid]=v; }); if(Object.keys(x).length) RAWX[t.id][day]=x; else if(RAWX[t.id][day]) delete RAWX[t.id][day]; }
+    });
     count++;
   });
-  return {people:count, unknown:[...unknown], deptsAdded};
+  return {people:count, unknown:[...unknownSet], deptsAdded};
+}
+function applyBulkRows(rows){
+  rows=(rows||[]).map(r=>Array.isArray(r)?r:[r]);
+  const gridish = rows.some(r=>blow(r[0]).indexOf("teacher")===0) || (rows.some(r=>matchDay(r[0])) && rows.some(r=>r.some(c=>/assembly|extended slot/i.test(String(c)))));
+  const parsed = gridish ? parseBulkGrid(rows) : parseBulkFlat(rows);
+  return commitBulkGroups(parsed.groups||{}, parsed.unknown||new Set());
+}
+function mgDownloadBulkTemplate(){
+  try{
+    const bin=atob(BULK_TEMPLATE_B64), len=bin.length, bytes=new Uint8Array(len);
+    for(let i=0;i<len;i++) bytes[i]=bin.charCodeAt(i);
+    const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="Bulk_upload_template.xlsx"; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},600);
+    toast("Template downloaded","↓");
+  }catch(e){ toast("Couldn't build the template","⚠"); }
+}
+let _xlsxP=null;
+function loadXLSX(){ if(window.XLSX) return Promise.resolve(window.XLSX); if(_xlsxP) return _xlsxP; _xlsxP=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; s.onload=()=>res(window.XLSX); s.onerror=()=>{ _xlsxP=null; rej(new Error("xlsx load failed")); }; document.head.appendChild(s); }); return _xlsxP; }
+function pickBulkSheet(wb){ const names=wb.SheetNames||[]; return names.find(n=>/teacher/i.test(n)) || names[0]; }
+async function commitBulkAndSave(rows){
+  let res; try{ res=applyBulkRows(rows); }catch(e){ toast("Couldn't read that file","⚠"); return; }
+  if(!res.people){ toast("No filled teacher cards found in that file","⚠"); return; }
+  rebuildDerived();
+  const ok1=await apiSet("cfg:teachers",JSON.stringify(TEACHERS));
+  const ok2=await apiSet("cfg:schedule",JSON.stringify(RAW));
+  const ok3=await apiSet("cfg:schedulex",JSON.stringify(RAWX));
+  const ok4=res.deptsAdded ? await apiSet("cfg:depts",JSON.stringify(DEPTS)) : true;
+  mountManage();
+  if(ok1&&ok2&&ok3&&ok4) toast("Added/updated "+res.people+" teacher(s)"+(res.unknown.length?" · unknown class(es): "+res.unknown.join(", "):""), "✓");
+  else toast("Couldn't save — admins only / check connection","⚠");
 }
 function mgBulkUpload(files){
   const f=files&&files[0]; if(!f) return;
-  const reader=new FileReader();
-  reader.onload=async()=>{
-    let res; try{ res=applyBulkCSV(String(reader.result||"")); }catch(e){ toast("Couldn't parse that CSV","⚠"); return; }
-    if(!res.people){ toast("No valid rows found in that CSV","⚠"); return; }
-    rebuildDerived();
-    const ok1=await apiSet("cfg:teachers",JSON.stringify(TEACHERS));
-    const ok2=await apiSet("cfg:schedule",JSON.stringify(RAW));
-    const ok3=res.deptsAdded ? await apiSet("cfg:depts",JSON.stringify(DEPTS)) : true;
-    mountManage();
-    if(ok1&&ok2&&ok3) toast("Added/updated "+res.people+" people"+(res.unknown.length?" · unknown class(es): "+res.unknown.join(", "):""), "✓");
-    else toast("Couldn't save — admins only / check connection","⚠");
-  };
-  reader.onerror=()=>toast("Couldn't read that file","⚠");
-  reader.readAsText(f);
+  const name=(f.name||"").toLowerCase();
+  if(name.endsWith(".xlsx")||name.endsWith(".xls")){
+    loadXLSX().then(XLSX=>{
+      const reader=new FileReader();
+      reader.onload=async()=>{ try{ const wb=XLSX.read(new Uint8Array(reader.result),{type:"array"}); const rows=XLSX.utils.sheet_to_json(wb.Sheets[pickBulkSheet(wb)],{header:1,defval:"",blankrows:true}); await commitBulkAndSave(rows); }catch(e){ toast("Couldn't read that Excel file","⚠"); } };
+      reader.onerror=()=>toast("Couldn't read that file","⚠");
+      reader.readAsArrayBuffer(f);
+    }).catch(()=>toast("Couldn't load the Excel reader — check your connection","⚠"));
+  } else {
+    const reader=new FileReader();
+    reader.onload=async()=>{ const rows=parseCSV(stripBOM(String(reader.result||""))); await commitBulkAndSave(rows); };
+    reader.onerror=()=>toast("Couldn't read that file","⚠");
+    reader.readAsText(f);
+  }
 }
 
 /* ---------- Boot ---------- */
