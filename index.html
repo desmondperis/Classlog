@@ -233,6 +233,7 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .bulkplan-btn:hover{border-color:var(--blue)}
 .brk-duty-row{margin:2px 0 8px; padding:0 2px}
 .brk-duty-box{width:100%}
+.brk-add{margin-left:10px; padding:1px 10px; font-weight:800; font-size:15px; line-height:1.5; border-radius:999px}
 .bp-modal{max-width:520px; max-height:82vh; display:flex; flex-direction:column}
 .bp-list{overflow-y:auto; margin:2px -4px 14px; padding:0 4px}
 .bp-day{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--blue); margin:12px 0 6px}
@@ -918,7 +919,18 @@ function renderDay(){
   let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span>${planBtn}</div><div class="rows">`;
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
-      if(s.type==="break"){ const bd=s.note||""; html+=`<div class="brk"><span>Break${(!state.isAdmin && bd)?` <span class="brk-duty">${esc(bd)}</span>`:""}</span><span class="brk-t">${BREAK_TIME}</span></div>`; if(state.isAdmin){ html+=`<div class="brk-duty-row"><input class="brk-duty-box" type="text" placeholder="Break duty (e.g. 2nd floor West block)" value="${esc(bd)}" oninput="editBreakDuty('${esc(dName)}',this.value)"></div>`; } return; }
+      if(s.type==="break"){
+        const bd=s.note||"";
+        if(state.isAdmin){
+          html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div><div class="brk-duty-row"><input class="brk-duty-box" type="text" placeholder="Break duty (e.g. 2nd floor West block)" value="${esc(bd)}" oninput="editBreakDuty('${esc(dName)}',this.value)"></div>`;
+        } else {
+          const bitems=xFor("brk");
+          if(bd){ html+=`<div class="brk"><span>Break <span class="brk-duty">${esc(bd)}</span></span><span class="brk-t">${BREAK_TIME}</span></div>`; }
+          else { html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span><button class="addlink brk-add" title="Add break duty" onclick="addX('${esc(dName)}','brk')">+</button></div>`; }
+          bitems.forEach(o=> html+=xRow(dName,o.xi,o.x));
+        }
+        return;
+      }
       if(s.type==="duty"){
         const items=xFor(s.sid);
         html+=`<div class="frow"><div class="frow-h"><span class="frow-lab">${esc(s.label)}${s.note?`<span class="duty-note">${esc(s.note)}</span>`:""}</span><span class="frow-time">${esc(s.time)}</span><button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
