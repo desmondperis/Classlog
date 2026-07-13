@@ -229,6 +229,18 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .tt-modal-btns .btn small{font-weight:600; font-size:11px; opacity:.82}
 .tt-modal-x{position:absolute; top:9px; right:12px; border:0; background:transparent; font-size:22px; line-height:1; color:var(--muted); cursor:pointer; padding:2px 6px}
 .tt-modal-x:hover{color:var(--ink)}
+.bulkplan-btn{margin-left:auto; border:1px solid var(--line); background:var(--surface); color:var(--blue-d); font-weight:700; font-size:11px; border-radius:999px; padding:5px 12px; cursor:pointer; box-shadow:var(--shs)}
+.bulkplan-btn:hover{border-color:var(--blue)}
+.brk-add{margin-left:10px; font-weight:800; padding:2px 8px; border-radius:999px}
+.bp-modal{max-width:520px; max-height:82vh; display:flex; flex-direction:column}
+.bp-list{overflow-y:auto; margin:2px -4px 14px; padding:0 4px}
+.bp-day{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--blue); margin:12px 0 6px}
+.bp-row{display:flex; align-items:center; gap:10px; padding:5px 0}
+.bp-cls{flex:0 0 40%; font-size:13px; display:flex; align-items:baseline; gap:6px; min-width:0}
+.bp-cls b{color:var(--blue-d)}
+.bp-sub{color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bp-per{margin-left:auto; color:var(--muted); font-size:11px; font-weight:600}
+.bp-row input{flex:1; min-width:0}
 .mg-list{display:flex; flex-direction:column}
 .mg-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 2px; border-top:1px solid #eef2f6}
 .mg-row:first-child{border-top:none}
@@ -900,11 +912,12 @@ function renderDay(){
   const allX=(state.blob._x && state.blob._x[dName]) || [];
   const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
   const en = dayEnter; dayEnter=false;
-  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span></div><div class="rows">`;
   const canPlan = (state.role==="hod"||state.role==="admin");
+  const planBtn = canPlan ? `<button class="bulkplan-btn" onclick="openBulkPlan()">Bulk plan</button>` : "";
+  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span>${planBtn}</div><div class="rows">`;
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
-      if(s.type==="break"){ html+=`<div class="brk"><span>Break${s.note?` <span class="brk-duty">${esc(s.note)}</span>`:""}</span><span class="brk-t">${BREAK_TIME}</span></div>`; return; }
+      if(s.type==="break"){ const bitems=xFor("brk"); html+=`<div class="brk"><span>Break${s.note?` <span class="brk-duty">${esc(s.note)}</span>`:""}</span><span class="brk-t">${BREAK_TIME}</span><button class="addlink brk-add" title="Add break duty / work" onclick="addX('${esc(dName)}','brk')">+</button></div>`; bitems.forEach(o=> html+=xRow(dName,o.xi,o.x)); return; }
       if(s.type==="duty"){
         const items=xFor(s.sid);
         html+=`<div class="frow"><div class="frow-h"><span class="frow-lab">${esc(s.label)}${s.note?`<span class="duty-note">${esc(s.note)}</span>`:""}</span><span class="frow-time">${esc(s.time)}</span><button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
@@ -928,7 +941,7 @@ function renderDay(){
         return;
       }
       const items=xFor(s.sid);
-      html+=`<div class="frow${s.free?" free":""}"><div class="frow-h"><span class="frow-lab">${esc(s.label)}</span><span class="frow-time">${esc(s.time)}${s.free?" · free":""}</span><button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
+      html+=`<div class="frow${s.free?" free":""}"><div class="frow-h"><span class="frow-lab">${esc(s.label)}</span><span class="frow-time">${esc(s.time)}${s.free?" · non-teaching":""}</span><button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
       items.forEach(o=> html+=xRow(dName,o.xi,o.x));
       html+=`</div>`;
     });
@@ -941,6 +954,42 @@ function renderDay(){
   html+=`</div>`;
   html+=`</div></section>`;
   host.innerHTML=html; updateProg();
+}
+function openBulkPlan(){
+  const id=state.teacherId; if(!id){ toast("Pick a teacher first","⚠"); return; }
+  let rowsHtml=""; let any=false;
+  DAYS.forEach(day=>{
+    const list=(SCHEDULE[id]&&SCHEDULE[id][day])||[];
+    if(!list.length) return;
+    rowsHtml+=`<div class="bp-day">${esc(day)}</div>`;
+    list.forEach(e=>{
+      any=true; const dk=dkeyOf(day,e.slug); const p=(state.blob[dk]||{}).p||"";
+      const code = e.act==="SDP" ? "SDP" : e.code;
+      const sub = e.act==="SDP" ? e.group.join(", ") : e.subject;
+      rowsHtml+=`<div class="bp-row"><span class="bp-cls"><b>${esc(code)}</b> <span class="bp-sub">${esc(sub)}</span> <span class="bp-per">${esc(periodLabel(e.period))}</span></span><input type="text" placeholder="Planned topic" value="${esc(p)}" data-dk="${esc(dk)}"></div>`;
+    });
+  });
+  if(!any){ toast("No scheduled classes this week","⚠"); return; }
+  const back=document.createElement("div"); back.className="tt-modal-back";
+  back.innerHTML=`<div class="tt-modal bp-modal">
+    <button class="tt-modal-x" type="button" title="Close">&times;</button>
+    <h4>Bulk plan — ${esc(NAME(id))}</h4>
+    <p>Week of ${esc(niceDate(dateOf(curWeek(),"Monday")))}. Set planned topics for the week, then save.</p>
+    <div class="bp-list">${rowsHtml}</div>
+    <div class="tt-modal-btns"><button class="btn primary" type="button" id="bpSave">Save all</button></div>
+  </div>`;
+  document.body.appendChild(back);
+  const close=()=>{ try{back.remove();}catch(e){} };
+  back.querySelector(".tt-modal-x").onclick=close;
+  back.addEventListener("click",e=>{ if(e.target===back) close(); });
+  back.querySelector("#bpSave").onclick=async()=>{
+    back.querySelectorAll("input[data-dk]").forEach(inp=>{
+      const dk=inp.getAttribute("data-dk"), val=inp.value; const rec=state.blob[dk]||{};
+      if(val.trim()){ rec.p=val; rec.u=new Date().toISOString(); state.blob[dk]=rec; }
+      else if(rec.p!==undefined){ delete rec.p; rec.u=new Date().toISOString(); if(!(rec.t||"").trim() && !(rec.r||"").trim()) delete state.blob[dk]; else state.blob[dk]=rec; }
+    });
+    close(); renderDay(); await saveTeacher();
+  };
 }
 function editX(day,idx,field,val){
   if(!state.blob._x) state.blob._x={};
