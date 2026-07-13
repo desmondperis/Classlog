@@ -220,6 +220,15 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .mg-check input{width:18px; height:18px}
 .mg-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
 .mg-actions-right{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
+.tt-modal-back{position:fixed; inset:0; background:rgba(23,35,59,.45); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px}
+.tt-modal{position:relative; background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:0 12px 48px rgba(23,35,59,.28); padding:22px 22px 20px; max-width:380px; width:100%}
+.tt-modal h4{margin:0 26px 8px 0; font-size:15px; font-weight:800; color:var(--blue-d)}
+.tt-modal p{margin:0 0 16px; font-size:13px; color:var(--muted); line-height:1.5}
+.tt-modal-btns{display:flex; flex-direction:column; gap:10px}
+.tt-modal-btns .btn{width:100%; display:flex; flex-direction:column; align-items:center; gap:2px; padding:11px 14px}
+.tt-modal-btns .btn small{font-weight:600; font-size:11px; opacity:.82}
+.tt-modal-x{position:absolute; top:9px; right:12px; border:0; background:transparent; font-size:22px; line-height:1; color:var(--muted); cursor:pointer; padding:2px 6px}
+.tt-modal-x:hover{color:var(--ink)}
 .mg-list{display:flex; flex-direction:column}
 .mg-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 2px; border-top:1px solid #eef2f6}
 .mg-row:first-child{border-top:none}
@@ -1398,7 +1407,50 @@ function ttClassOptions(current){
   if(cur && !CLASSES.includes(cur) && groups.indexOf(cur)<0) o+=`<option value="${esc(cur)}" selected>${esc(ent(cur).label||cur)}</option>`;
   return o;
 }
-function classSelHTML(day,key,v){ return `<select class="ttc-c" id="ttc-${day}-${key}" onchange="ttSyncSubj(this)">${ttClassOptions(v)}</select>`; }
+function classSelHTML(day,key,v){ return `<select class="ttc-c" id="ttc-${day}-${key}" data-prev="${esc(String(v||""))}" onchange="ttClassChanged(this)">${ttClassOptions(v)}</select>`; }
+function revertTTCell(sel){ sel.value=""; sel.setAttribute("data-prev",""); ttSyncSubj(sel); }
+function nextWeekdayDate(day){ const idx=DAYS.indexOf(day); const t=new Date(); t.setHours(0,0,0,0); if(idx<0) return t; const cur=(t.getDay()+6)%7; let diff=idx-cur; if(diff<0) diff+=7; t.setDate(t.getDate()+diff); return t; }
+function ttClassChanged(sel){
+  ttSyncSubj(sel);
+  const prev=sel.getAttribute("data-prev")||"", val=sel.value||"";
+  if(prev==="" && val!==""){ const m=/^ttc-(.+)-(\d+)$/.exec(sel.id||""); if(m){ ttScopeModal(sel, m[1], parseInt(m[2],10), val); return; } }
+  sel.setAttribute("data-prev",val);
+}
+function ttScopeModal(sel, day, period, cls){
+  const label = /^SDP:/i.test(cls) ? (ent(cls).label||cls) : cls;
+  const nice=niceDate(ymd(nextWeekdayDate(day)));
+  const back=document.createElement("div"); back.className="tt-modal-back";
+  back.innerHTML=`<div class="tt-modal">
+    <button class="tt-modal-x" type="button" title="Cancel">&times;</button>
+    <h4>Add ${esc(label)} — ${esc(day)}, Period ${esc(periodLabel(period))}</h4>
+    <p>Should this class be part of the weekly timetable, or added just for one day?</p>
+    <div class="tt-modal-btns">
+      <button class="btn primary" type="button" data-act="always">Make change for always</button>
+      <button class="btn" type="button" data-act="one">Make change only for one day<small>${esc(nice)}</small></button>
+    </div>
+  </div>`;
+  document.body.appendChild(back);
+  const close=()=>{ try{back.remove();}catch(e){} };
+  const cancel=()=>{ revertTTCell(sel); close(); };
+  back.querySelector(".tt-modal-x").onclick=cancel;
+  back.addEventListener("click",e=>{ if(e.target===back) cancel(); });
+  back.querySelector('[data-act="always"]').onclick=()=>{ sel.setAttribute("data-prev",cls); close(); };
+  back.querySelector('[data-act="one"]').onclick=async()=>{ close(); await ttApplyOneDay(MG_TT, day, period, cls, sel); };
+}
+async function ttApplyOneDay(teacherId, day, period, cls, sel){
+  if(!teacherId){ revertTTCell(sel); return; }
+  const nice=niceDate(ymd(nextWeekdayDate(day))), wk=ymd(mondayOf(nextWeekdayDate(day)));
+  const e=ent(cls), subj=subjectOf(e.act, deptOf(teacherId));
+  const room=(e.act==="SDP")?"":(ROOMS[e.code]!==undefined?String(ROOMS[e.code]):"");
+  const labelTxt=(e.act==="SDP")?("SDP — "+(e.group?e.group.join(", "):cls)):(e.code+(subj?(" · "+subj):""));
+  const key=wkey(wk, teacherId);
+  let blob={}; try{ const v=await apiGet(key); if(v){ const b=JSON.parse(v); if(b&&typeof b==="object") blob=b; } }catch(err){}
+  if(!blob._x) blob._x={}; if(!Array.isArray(blob._x[day])) blob._x[day]=[];
+  blob._x[day].push({c:labelTxt, r:"", rm:room, slot:"p"+period, u:new Date().toISOString()});
+  const ok=await apiSet(key, JSON.stringify(blob));
+  revertTTCell(sel);
+  toast(ok?("Added "+(e.code||labelTxt)+" for "+nice+" only — weekly timetable unchanged"):"Couldn't save — check connection", ok?"✓":"⚠");
+}
 function subjSelHTML(day,key,v){ return `<select class="ttc-s" id="tts-${day}-${key}"><option value=""${v?"":" selected"}>subject…</option>${(SUBJECTS||[]).map(s=>`<option${v===s?" selected":""}>${esc(s)}</option>`).join("")}${(v&&(SUBJECTS||[]).indexOf(v)<0)?`<option selected>${esc(v)}</option>`:""}</select>`; }
 function ttSyncSubj(sel){ const td=sel.closest("td"); if(!td) return; const sub=td.querySelector(".ttc-s"); if(!sub) return; const c=sel.value; if(!c){ sub.value=""; return; } const want=subjectOf(ent(c).act, deptOf(MG_TT)); if(!want) return; let opt=Array.from(sub.options).find(o=>o.value===want); if(!opt){ opt=document.createElement("option"); opt.value=want; opt.textContent=want; sub.appendChild(opt); } sub.value=want; }
 function dutyText(v){ return (v&&typeof v==="object") ? String(v.c||"") : String(v||""); }
