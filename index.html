@@ -74,7 +74,7 @@ a{color:var(--blue)}
 .ctl{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-top:18px}
 .field{display:flex; flex-direction:column; gap:5px}
 .field label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
-select, input[type=text], input[type=date]{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:500; min-height:42px; box-shadow:var(--shs)}
+select, input[type=text], input[type=email], input[type=date]{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:500; min-height:42px; box-shadow:var(--shs)}
 select{cursor:pointer; padding-right:30px}
 input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; border-color:var(--blue)}
 .wknav{display:flex; align-items:stretch; background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); box-shadow:var(--shs); overflow:hidden}
@@ -219,6 +219,7 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .mg-check{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer; padding-top:4px}
 .mg-check input{width:18px; height:18px}
 .mg-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:12px}
+.mg-actions-right{margin-left:auto; display:flex; gap:10px; flex-wrap:wrap}
 .mg-list{display:flex; flex-direction:column}
 .mg-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 2px; border-top:1px solid #eef2f6}
 .mg-row:first-child{border-top:none}
@@ -1143,7 +1144,7 @@ function mountManage(){
   const email=state.email||"";
   let html="";
   if(state.bootstrapAdmin){
-    html+=`<div class="banner warn"><span>⚠</span><span>No admin is set yet, so <b>anyone who signs in currently has admin access</b>. To lock it down, add yourself below as an admin with your Google email — or set <b>ADMIN_EMAILS</b> on the server.</span></div>`;
+    html+=`<div class="banner warn"><span>⚠</span><span>No admin is set yet, so <b>anyone who signs in currently has admin access</b>. To lock it down, add yourself below as an admin with your school email — or set <b>ADMIN_EMAILS</b> on the server.</span></div>`;
   }
   html+=`<div class="mg-wrap">`;
   const dopts=DEPARTMENTS.map(d=>`<option value="${esc(d)}"${TF.dept===d?" selected":""}>${esc(d)}</option>`).join("");
@@ -1156,13 +1157,13 @@ function mountManage(){
     <div class="mg-form">
       <div class="mg-grid">
         <div class="field"><label>Name (with title)</label><input id="tf-name" type="text" placeholder="e.g. Mr. John Doe" value="${esc(TF.name)}"></div>
-        <div class="field"><label>Google email</label><input id="tf-email" type="email" placeholder="name@gmail.com" value="${esc(TF.email)}"></div>
+        <div class="field"><label>School email</label><input id="tf-email" type="email" placeholder="name@mountcarmelschool.com" value="${esc(TF.email)}"></div>
         <div class="field"><label>Department</label><select id="tf-dept">${dopts||`<option>Value Education</option>`}</select></div>
         <div class="field"><label>Role</label><select id="tf-role">${ROLES.map(r=>`<option value="${r}"${TF.role===r?" selected":""}>${esc(ROLE_LABEL[r])}</option>`).join("")}</select></div>
       </div>
       <div class="mg-actions">
         <button class="btn primary" onclick="mgSaveTeacher()">${TF.id?"Save changes":"Add teacher"}</button>
-        ${TF.id?`<button class="btn" onclick="mgNewTeacher()">Cancel</button>`:(email?`<button class="btn" onclick="mgPrefillMe()">Use my details</button>`:``)}
+        <button class="btn" onclick="mgNewTeacher()">${TF.id?"Cancel":"Clear"}</button>
       </div>
     </div>
     <div class="mg-list">`;
@@ -1187,8 +1188,10 @@ function mountManage(){
     html+=`<div class="mg-actions"><button class="btn primary" onclick="mgSaveGrid('${esc(cur.id)}')">Save timetable</button>
       <button class="btn danger-btn" onclick="mgClearGrid('${esc(cur.id)}')">Reset (clear all)</button>
       <button class="btn" onclick="mgDownloadTeacher()">Download CSV</button>
-      <label class="btn mg-upload">Upload CSV<input type="file" accept=".csv,text/csv" onchange="mgUploadTeacher(this.files)"></label>
-      <button class="btn" onclick="mgDownloadBlank()">Blank template</button></div>`;
+      <span class="mg-actions-right">
+        <label class="btn mg-upload">Upload CSV<input type="file" accept=".csv,text/csv" onchange="mgUploadTeacher(this.files)"></label>
+        <button class="btn" onclick="mgDownloadBlank()">Blank template</button>
+      </span></div>`;
     html+=`<div class="tt-sub" style="margin-top:16px">Preview — ${esc(cur.name)} <span class="muted" style="font-weight:600">(class · subject · room)</span></div>`;
     html+=mgPreviewHTML(cur.id);
   } else {
@@ -1263,7 +1266,7 @@ async function mgSaveTeacher(){
   const role=(document.getElementById("tf-role").value||"teacher");
   if(!name){ toast("Enter a name","⚠"); return; }
   if(emailV && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailV)){ toast("That email looks off","⚠"); return; }
-  if(role!=="teacher" && !emailV){ toast("Add their Google email so they're recognised as "+ROLE_SHORT[role],"⚠"); return; }
+  if(role!=="teacher" && !emailV){ toast("Add their school email so they're recognised as "+ROLE_SHORT[role],"⚠"); return; }
   if(TF.id){
     const t=TEACHERS.find(x=>x.id===TF.id); if(!t){ mgNewTeacher(); return; }
     if(t.email && t.email===state.email && roleOf(t)==="admin" && role!=="admin" && !confirm("This removes your own admin rights — you may lose access to this Admin tab after reloading. Continue?")) return;
