@@ -129,6 +129,7 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .addx:hover{border-color:var(--blue); background:var(--blue-l)}
 .addx.small{margin-top:6px; padding:8px 12px; font-size:12.5px}
 .row.extra select{width:100%}
+.row.extra.brk-extra{grid-template-columns:1fr auto}
 .frow{border-top:1px solid #eef2f6; padding:8px 6px}
 .frow-h{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
 .frow-lab{font-weight:800; font-size:13.5px}
@@ -897,6 +898,9 @@ function daySlots(id,dName){
   }
   return out;
 }
+function brkRow(dName,xi,x){
+  return `<div class="row extra brk-extra"><input type="text" placeholder="Break duty (e.g. 2nd floor West block)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)"><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">&times;</button></div>`;
+}
 function xRow(dName,xi,x){
   return `<div class="row extra">
     <input type="text" placeholder="What you did (e.g. Substituted 9A – Science)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)">
@@ -927,7 +931,7 @@ function renderDay(){
           const bitems=xFor("brk");
           if(bd){ html+=`<div class="brk"><span>Break <span class="brk-duty">${esc(bd)}</span></span><span class="brk-t">${BREAK_TIME}</span></div>`; }
           else { html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span><button class="addlink brk-add" title="Add break duty" onclick="addX('${esc(dName)}','brk')">+</button></div>`; }
-          bitems.forEach(o=> html+=xRow(dName,o.xi,o.x));
+          bitems.forEach(o=> html+=brkRow(dName,o.xi,o.x));
         }
         return;
       }
