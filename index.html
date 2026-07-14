@@ -751,7 +751,7 @@ async function signIn(user){
 async function signOut(){
   try{ await fetch(API_BASE+"/api/logout",{method:"POST",headers:authHeaders()}); }catch(e){}
   SID=""; prefSet("sid",""); prefSet("session:user","");
-  state.user=null;
+  state.user=null; clearCalToken();
   try{ if(window.google&&window.google.accounts&&window.google.accounts.id) window.google.accounts.id.disableAutoSelect(); }catch(e){}
   showGate();
 }
@@ -972,21 +972,26 @@ function openBulkPlan(){
 }
 /* ---------- Google Calendar sync (client-side token, primary calendar, idempotent) ---------- */
 let CAL_TC=null, CAL_TOKEN="", CAL_EXP=0, _calResolve=null, _calReject=null;
+const CAL_TOKEN_KEY="pref:caltoken";
+function loadCalToken(){ if(CAL_TOKEN) return; try{ const o=JSON.parse(prefGet(CAL_TOKEN_KEY)||"null"); if(o&&o.t&&o.exp&&o.email===(state.email||"")){ CAL_TOKEN=o.t; CAL_EXP=o.exp; } }catch(e){} }
+function saveCalToken(){ try{ prefSet(CAL_TOKEN_KEY, CAL_TOKEN?JSON.stringify({t:CAL_TOKEN,exp:CAL_EXP,email:(state.email||"")}):""); }catch(e){} }
+function clearCalToken(){ CAL_TOKEN=""; CAL_EXP=0; try{ prefSet(CAL_TOKEN_KEY,""); }catch(e){} }
 function getCalToken(){
   return new Promise((resolve,reject)=>{
-    if(CAL_TOKEN && Date.now() < CAL_EXP-60000){ resolve(CAL_TOKEN); return; }
+    loadCalToken();
+    if(CAL_TOKEN && Date.now() < CAL_EXP-120000){ resolve(CAL_TOKEN); return; }
     if(!GOOGLE_CLIENT_ID){ reject(new Error("no-client-id")); return; }
     if(!(window.google&&google.accounts&&google.accounts.oauth2)){ reject(new Error("gis-not-loaded")); return; }
     if(!CAL_TC){
       CAL_TC=google.accounts.oauth2.initTokenClient({
         client_id:GOOGLE_CLIENT_ID,
         scope:"https://www.googleapis.com/auth/calendar.events",
-        callback:(resp)=>{ if(resp&&resp.access_token){ CAL_TOKEN=resp.access_token; CAL_EXP=Date.now()+((resp.expires_in||3600)*1000); if(_calResolve)_calResolve(CAL_TOKEN); } else if(_calReject){ _calReject(new Error("no-token")); } _calResolve=_calReject=null; },
+        callback:(resp)=>{ if(resp&&resp.access_token){ CAL_TOKEN=resp.access_token; CAL_EXP=Date.now()+((resp.expires_in||3600)*1000); saveCalToken(); if(_calResolve)_calResolve(CAL_TOKEN); } else if(_calReject){ _calReject(new Error("no-token")); } _calResolve=_calReject=null; },
         error_callback:(err)=>{ if(_calReject)_calReject(err||new Error("token-error")); _calResolve=_calReject=null; }
       });
     }
     _calResolve=resolve; _calReject=reject;
-    try{ CAL_TC.requestAccessToken({prompt:""}); }catch(e){ _calResolve=_calReject=null; reject(e); }
+    try{ CAL_TC.requestAccessToken(state.email?{prompt:"",hint:state.email}:{prompt:""}); }catch(e){ _calResolve=_calReject=null; reject(e); }
   });
 }
 function calEvId(key){ let h="cl"; for(let i=0;i<key.length;i++) h+=key.charCodeAt(i).toString(16).padStart(2,"0"); return h.slice(0,1000); }
@@ -995,6 +1000,7 @@ async function calFetch(url, opts){
   let r=null;
   for(let i=0;i<4;i++){
     try{ r=await fetch(url, opts); }catch(e){ await calSleep(500*(i+1)); continue; }
+    if(r.status===401){ clearCalToken(); return r; }
     if(r.status===429||r.status===403||r.status===500||r.status===503){ await calSleep(Math.round(500*Math.pow(1.8,i))); continue; }
     return r;
   }
