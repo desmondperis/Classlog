@@ -244,8 +244,6 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 @keyframes calspin{to{transform:rotate(360deg)}}
 .cal-done{width:16px; height:16px; border-radius:50%; background:#37b26b; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex:0 0 auto}
 .cal-done.warn{background:#e0912f}
-.brk-duty-row{margin:2px 0 8px; padding:0 2px}
-.brk-duty-box{width:100%}
 .brk-add{margin-left:10px; padding:1px 10px; font-weight:800; font-size:15px; line-height:1.5; border-radius:999px}
 .bp-modal{max-width:520px; max-height:82vh; display:flex; flex-direction:column}
 .bp-list{overflow-y:auto; margin:2px -4px 14px; padding:0 4px}
@@ -947,15 +945,11 @@ function renderDay(){
     daySlots(id,dName).forEach(s=>{
       if(s.type==="break"){
         const bd=s.note||"";
-        if(state.isAdmin){
-          html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div><div class="brk-duty-row"><input class="brk-duty-box" type="text" placeholder="Break duty (e.g. 2nd floor West block)" value="${esc(bd)}" oninput="editBreakDuty('${esc(dName)}',this.value)"></div>`;
-        } else {
-          const bitems=xFor("brk");
-          if(bd){ html+=`<div class="brk"><span>Break <span class="brk-duty">${esc(bd)}</span></span><span class="brk-t">${BREAK_TIME}</span></div>`; }
-          else if(bitems.length===0){ html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span><button class="addlink brk-add" title="Add break duty" onclick="addX('${esc(dName)}','brk')">+</button></div>`; }
-          else { html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div>`; }
-          bitems.forEach(o=> html+=brkRow(dName,o.xi,o.x));
-        }
+        const bitems=xFor("brk");
+        if(bd){ html+=`<div class="brk"><span>Break <span class="brk-duty">${esc(bd)}</span></span><span class="brk-t">${BREAK_TIME}</span></div>`; }
+        else if(bitems.length===0){ html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span><button class="addlink brk-add" title="Add break duty" onclick="addX('${esc(dName)}','brk')">+</button></div>`; }
+        else { html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div>`; }
+        bitems.forEach(o=> html+=brkRow(dName,o.xi,o.x));
         return;
       }
       if(s.type==="duty"){
@@ -1032,15 +1026,6 @@ function openBulkPlan(){
     });
     close(); renderDay(); await saveTeacher();
   };
-}
-let brkSaveTimer=null;
-function editBreakDuty(day,val){
-  const id=state.teacherId; if(!id) return;
-  if(!RAWX[id]) RAWX[id]={};
-  if(!RAWX[id][day]) RAWX[id][day]={};
-  if(val.trim()) RAWX[id][day].brk=val; else { delete RAWX[id][day].brk; if(!Object.keys(RAWX[id][day]).length) delete RAWX[id][day]; }
-  clearTimeout(brkSaveTimer);
-  brkSaveTimer=setTimeout(async()=>{ const ok=await apiSet("cfg:schedulex", JSON.stringify(RAWX)); if(!ok) toast("Couldn't save break duty — check connection","⚠"); }, 700);
 }
 /* ---------- Google Calendar sync (client-side token, primary calendar, idempotent) ---------- */
 let CAL_TC=null, CAL_TOKEN="", CAL_EXP=0, _calResolve=null, _calReject=null;
