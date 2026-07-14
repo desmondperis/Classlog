@@ -233,6 +233,12 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .day-tools{margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; align-items:center}
 .daytool-btn{border:1px solid var(--line); background:var(--surface); color:var(--blue-d); font-weight:700; font-size:11px; border-radius:999px; padding:5px 12px; cursor:pointer; box-shadow:var(--shs)}
 .daytool-btn:hover{border-color:var(--blue)}
+.cal-bar{position:fixed; left:50%; bottom:24px; transform:translate(-50%,12px); z-index:1200; display:flex; align-items:center; gap:10px; background:#17233b; color:#fff; padding:11px 16px; border-radius:999px; font-size:13px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.28); opacity:0; transition:opacity .2s ease, transform .2s ease; max-width:88vw}
+.cal-bar.show{opacity:1; transform:translate(-50%,0)}
+.cal-spin{width:15px; height:15px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; animation:calspin .7s linear infinite; flex:0 0 auto}
+@keyframes calspin{to{transform:rotate(360deg)}}
+.cal-done{width:16px; height:16px; border-radius:50%; background:#37b26b; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex:0 0 auto}
+.cal-done.warn{background:#e0912f}
 .brk-duty-row{margin:2px 0 8px; padding:0 2px}
 .brk-duty-box{width:100%}
 .brk-add{margin-left:10px; padding:1px 10px; font-weight:800; font-size:15px; line-height:1.5; border-radius:999px}
@@ -921,8 +927,9 @@ function renderDay(){
   const en = dayEnter; dayEnter=false;
   const canPlan = (state.role==="hod"||state.role==="admin");
   const planBtn = canPlan ? `<button class="daytool-btn" onclick="openBulkPlan()">Bulk plan</button>` : "";
-  const syncBtn = `<button class="daytool-btn" onclick="syncWeekToCalendar()">Sync to Calendar</button>`;
-  const unsyncBtn = `<button class="daytool-btn" onclick="removeWeekFromCalendar()">Remove from Calendar</button>`;
+  const isSelf = !!state.myTeacherId && state.teacherId===state.myTeacherId;
+  const syncBtn = isSelf ? `<button class="daytool-btn" onclick="syncWeekToCalendar()">Sync to Calendar</button>` : "";
+  const unsyncBtn = isSelf ? `<button class="daytool-btn" onclick="removeWeekFromCalendar()">Remove from Calendar</button>` : "";
   let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span><span class="day-tools">${syncBtn}${unsyncBtn}${planBtn}</span></div><div class="rows">`;
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
@@ -933,14 +940,16 @@ function renderDay(){
         } else {
           const bitems=xFor("brk");
           if(bd){ html+=`<div class="brk"><span>Break <span class="brk-duty">${esc(bd)}</span></span><span class="brk-t">${BREAK_TIME}</span></div>`; }
-          else { html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span><button class="addlink brk-add" title="Add break duty" onclick="addX('${esc(dName)}','brk')">+</button></div>`; }
+          else if(bitems.length===0){ html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span><button class="addlink brk-add" title="Add break duty" onclick="addX('${esc(dName)}','brk')">+</button></div>`; }
+          else { html+=`<div class="brk"><span>Break</span><span class="brk-t">${BREAK_TIME}</span></div>`; }
           bitems.forEach(o=> html+=brkRow(dName,o.xi,o.x));
         }
         return;
       }
       if(s.type==="duty"){
         const items=xFor(s.sid);
-        html+=`<div class="frow"><div class="frow-h"><span class="frow-lab">${esc(s.label)}${s.note?`<span class="duty-note">${esc(s.note)}</span>`:""}</span><span class="frow-time">${esc(s.time)}</span><button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
+        const addBtn = items.length===0 ? `<button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button>` : "";
+        html+=`<div class="frow"><div class="frow-h"><span class="frow-lab">${esc(s.label)}${s.note?`<span class="duty-note">${esc(s.note)}</span>`:""}</span><span class="frow-time">${esc(s.time)}</span>${addBtn}</div>`;
         items.forEach(o=> html+=xRow(dName,o.xi,o.x));
         html+=`</div>`;
         return;
@@ -961,7 +970,8 @@ function renderDay(){
         return;
       }
       const items=xFor(s.sid);
-      html+=`<div class="frow${s.free?" free":""}"><div class="frow-h"><span class="frow-lab">${esc(s.label)}</span><span class="frow-time">${esc(s.time)}${s.free?" · non-teaching":""}</span><button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button></div>`;
+      const addBtn = items.length===0 ? `<button class="addlink" onclick="addX('${esc(dName)}','${esc(s.sid)}')">+ Add substitution / work</button>` : "";
+      html+=`<div class="frow${s.free?" free":""}"><div class="frow-h"><span class="frow-lab">${esc(s.label)}</span><span class="frow-time">${esc(s.time)}${s.free?" · non-teaching":""}</span>${addBtn}</div>`;
       items.forEach(o=> html+=xRow(dName,o.xi,o.x));
       html+=`</div>`;
     });
@@ -1040,6 +1050,26 @@ function getCalToken(){
   });
 }
 function calEvId(key){ let h="cl"; for(let i=0;i<key.length;i++) h+=key.charCodeAt(i).toString(16).padStart(2,"0"); return h.slice(0,1000); }
+const calSleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function calFetch(url, opts){
+  let r=null;
+  for(let i=0;i<4;i++){
+    try{ r=await fetch(url, opts); }catch(e){ await calSleep(500*(i+1)); continue; }
+    if(r.status===429||r.status===403||r.status===500||r.status===503){ await calSleep(Math.round(500*Math.pow(1.8,i))); continue; }
+    return r;
+  }
+  return r;
+}
+let _calBar=null, _calBarTimer=null;
+function calBar(text, mode){
+  if(_calBarTimer){ clearTimeout(_calBarTimer); _calBarTimer=null; }
+  if(!_calBar){ _calBar=document.createElement("div"); _calBar.className="cal-bar"; document.body.appendChild(_calBar); }
+  const icon = mode==="run" ? `<span class="cal-spin"></span>` : `<span class="cal-done${mode==="warn"?" warn":""}">${mode==="warn"?"!":"✓"}</span>`;
+  _calBar.innerHTML = icon + `<span class="cal-bar-txt"></span>`;
+  _calBar.querySelector(".cal-bar-txt").textContent = text;
+  requestAnimationFrame(()=>{ if(_calBar) _calBar.classList.add("show"); });
+  if(mode!=="run"){ _calBarTimer=setTimeout(()=>{ if(_calBar) _calBar.classList.remove("show"); }, 3000); }
+}
 async function calUpsert(token, it){
   const id=calEvId(it.key);
   const owner=(it.key||"").split("|")[0]||"1";
@@ -1047,9 +1077,10 @@ async function calUpsert(token, it){
   if(it.loc) body.location=it.loc; if(it.desc) body.description=it.desc;
   const base="https://www.googleapis.com/calendar/v3/calendars/primary/events";
   const H={Authorization:"Bearer "+token, "Content-Type":"application/json"};
-  let r=await fetch(base, {method:"POST", headers:H, body:JSON.stringify(body)});
-  if(r.status===409){ const b2=Object.assign({},body); delete b2.id; r=await fetch(base+"/"+encodeURIComponent(id), {method:"PUT", headers:H, body:JSON.stringify(b2)}); }
-  return r.ok;
+  const b2=Object.assign({},body); delete b2.id;
+  let r=await calFetch(base+"/"+encodeURIComponent(id), {method:"PUT", headers:H, body:JSON.stringify(b2)});
+  if(r && (r.status===404||r.status===410)){ r=await calFetch(base, {method:"POST", headers:H, body:JSON.stringify(body)}); }
+  return !!(r && r.ok);
 }
 function calWeekItems(id){
   const wkMon=curWeek(); const items=[];
@@ -1080,14 +1111,19 @@ async function syncWeekToCalendar(){
   try{ token=await getCalToken(); }
   catch(err){ const m=(err&&err.message)||""; toast(m==="no-client-id"?"Google sign-in isn't set up yet":(m==="gis-not-loaded"?"Google is still loading — try again in a moment":"Calendar access was declined"),"⚠"); return; }
   if(!token){ toast("Couldn't get Calendar access","⚠"); return; }
-  toast("Syncing "+items.length+" events to your Google Calendar…");
+  const total=items.length;
+  calBar("Adding to Calendar… 0/"+total, "run");
   let ok=0, fail=0;
-  for(const it of items){ try{ (await calUpsert(token,it))?ok++:fail++; }catch(e){ fail++; } }
-  toast(fail?(ok+" synced · "+fail+" failed — check Calendar access"):(ok+" events synced to your Google Calendar"), fail?"⚠":"✓");
+  for(let i=0;i<items.length;i++){
+    try{ (await calUpsert(token,items[i]))?ok++:fail++; }catch(e){ fail++; }
+    calBar("Adding to Calendar… "+(ok+fail)+"/"+total, "run");
+    await calSleep(60);
+  }
+  calBar(fail?(ok+" added · "+fail+" couldn't be added — try again"):("Done — "+ok+" event"+(ok===1?"":"s")+" added to your Calendar"), fail?"warn":"ok");
 }
 async function calDelete(token, id){
-  const r=await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events/"+encodeURIComponent(id), {method:"DELETE", headers:{Authorization:"Bearer "+token}});
-  return r.ok || r.status===404 || r.status===410;
+  const r=await calFetch("https://www.googleapis.com/calendar/v3/calendars/primary/events/"+encodeURIComponent(id), {method:"DELETE", headers:{Authorization:"Bearer "+token}});
+  return !!(r && (r.ok || r.status===404 || r.status===410));
 }
 async function calListTagged(token, owner, timeMin, timeMax){
   const ids=[]; let pageToken="";
@@ -1097,7 +1133,7 @@ async function calListTagged(token, owner, timeMin, timeMax){
     u.searchParams.set("timeMin",timeMin); u.searchParams.set("timeMax",timeMax);
     u.searchParams.set("singleEvents","true"); u.searchParams.set("maxResults","250");
     if(pageToken) u.searchParams.set("pageToken",pageToken);
-    const r=await fetch(u.toString(), {headers:{Authorization:"Bearer "+token}});
+    const r=await calFetch(u.toString(), {headers:{Authorization:"Bearer "+token}});
     if(!r.ok) break;
     const d=await r.json(); (d.items||[]).forEach(e=>{ if(e.id) ids.push(e.id); });
     if(d.nextPageToken) pageToken=d.nextPageToken; else break;
@@ -1115,10 +1151,15 @@ async function removeWeekFromCalendar(){
   const wkMon=curWeek(), timeMin=wkMon+"T00:00:00+05:30", timeMax=ymd(addDays(parseYmd(wkMon),5))+"T00:00:00+05:30";
   try{ (await calListTagged(token, id, timeMin, timeMax)).forEach(x=>set.add(x)); }catch(e){}
   if(!set.size){ toast("No synced events found for this week","⚠"); return; }
-  toast("Removing "+set.size+" events…");
+  const total=set.size;
+  calBar("Removing from Calendar… 0/"+total, "run");
   let ok=0, fail=0;
-  for(const eid of set){ try{ (await calDelete(token,eid))?ok++:fail++; }catch(e){ fail++; } }
-  toast(fail?(ok+" removed · "+fail+" failed"):(ok+" events removed from your Google Calendar"), fail?"⚠":"✓");
+  for(const eid of set){
+    try{ (await calDelete(token,eid))?ok++:fail++; }catch(e){ fail++; }
+    calBar("Removing from Calendar… "+(ok+fail)+"/"+total, "run");
+    await calSleep(60);
+  }
+  calBar(fail?(ok+" removed · "+fail+" couldn't be removed — try again"):("Done — "+ok+" event"+(ok===1?"":"s")+" removed"), fail?"warn":"ok");
 }
 function editX(day,idx,field,val){
   if(!state.blob._x) state.blob._x={};
