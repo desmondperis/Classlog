@@ -230,8 +230,9 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .tt-modal-btns .btn small{font-weight:600; font-size:11px; opacity:.82}
 .tt-modal-x{position:absolute; top:9px; right:12px; border:0; background:transparent; font-size:22px; line-height:1; color:var(--muted); cursor:pointer; padding:2px 6px}
 .tt-modal-x:hover{color:var(--ink)}
-.bulkplan-btn{margin-left:auto; border:1px solid var(--line); background:var(--surface); color:var(--blue-d); font-weight:700; font-size:11px; border-radius:999px; padding:5px 12px; cursor:pointer; box-shadow:var(--shs)}
-.bulkplan-btn:hover{border-color:var(--blue)}
+.day-tools{margin-left:auto; display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.daytool-btn{border:1px solid var(--line); background:var(--surface); color:var(--blue-d); font-weight:700; font-size:11px; border-radius:999px; padding:5px 12px; cursor:pointer; box-shadow:var(--shs)}
+.daytool-btn:hover{border-color:var(--blue)}
 .brk-duty-row{margin:2px 0 8px; padding:0 2px}
 .brk-duty-box{width:100%}
 .brk-add{margin-left:10px; padding:1px 10px; font-weight:800; font-size:15px; line-height:1.5; border-radius:999px}
@@ -919,8 +920,9 @@ function renderDay(){
   const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
   const en = dayEnter; dayEnter=false;
   const canPlan = (state.role==="hod"||state.role==="admin");
-  const planBtn = canPlan ? `<button class="bulkplan-btn" onclick="openBulkPlan()">Bulk plan</button>` : "";
-  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span>${planBtn}</div><div class="rows">`;
+  const planBtn = canPlan ? `<button class="daytool-btn" onclick="openBulkPlan()">Bulk plan</button>` : "";
+  const syncBtn = `<button class="daytool-btn" onclick="syncWeekToCalendar()">Sync to Calendar</button>`;
+  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span><span class="day-tools">${syncBtn}${planBtn}</span></div><div class="rows">`;
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
       if(s.type==="break"){
@@ -1016,6 +1018,70 @@ function editBreakDuty(day,val){
   if(val.trim()) RAWX[id][day].brk=val; else { delete RAWX[id][day].brk; if(!Object.keys(RAWX[id][day]).length) delete RAWX[id][day]; }
   clearTimeout(brkSaveTimer);
   brkSaveTimer=setTimeout(async()=>{ const ok=await apiSet("cfg:schedulex", JSON.stringify(RAWX)); if(!ok) toast("Couldn't save break duty — check connection","⚠"); }, 700);
+}
+/* ---------- Google Calendar sync (client-side token, primary calendar, idempotent) ---------- */
+let CAL_TC=null, CAL_TOKEN="", CAL_EXP=0, _calResolve=null, _calReject=null;
+function getCalToken(){
+  return new Promise((resolve,reject)=>{
+    if(CAL_TOKEN && Date.now() < CAL_EXP-60000){ resolve(CAL_TOKEN); return; }
+    if(!GOOGLE_CLIENT_ID){ reject(new Error("no-client-id")); return; }
+    if(!(window.google&&google.accounts&&google.accounts.oauth2)){ reject(new Error("gis-not-loaded")); return; }
+    if(!CAL_TC){
+      CAL_TC=google.accounts.oauth2.initTokenClient({
+        client_id:GOOGLE_CLIENT_ID,
+        scope:"https://www.googleapis.com/auth/calendar.events",
+        callback:(resp)=>{ if(resp&&resp.access_token){ CAL_TOKEN=resp.access_token; CAL_EXP=Date.now()+((resp.expires_in||3600)*1000); if(_calResolve)_calResolve(CAL_TOKEN); } else if(_calReject){ _calReject(new Error("no-token")); } _calResolve=_calReject=null; },
+        error_callback:(err)=>{ if(_calReject)_calReject(err||new Error("token-error")); _calResolve=_calReject=null; }
+      });
+    }
+    _calResolve=resolve; _calReject=reject;
+    try{ CAL_TC.requestAccessToken({prompt:""}); }catch(e){ _calResolve=_calReject=null; reject(e); }
+  });
+}
+function calEvId(key){ let h="cl"; for(let i=0;i<key.length;i++) h+=key.charCodeAt(i).toString(16).padStart(2,"0"); return h.slice(0,1000); }
+async function calUpsert(token, it){
+  const id=calEvId(it.key);
+  const body={ id, summary:it.title, start:{dateTime:it.date+"T"+it.s+":00", timeZone:"Asia/Kolkata"}, end:{dateTime:it.date+"T"+it.e+":00", timeZone:"Asia/Kolkata"} };
+  if(it.loc) body.location=it.loc; if(it.desc) body.description=it.desc;
+  const base="https://www.googleapis.com/calendar/v3/calendars/primary/events";
+  const H={Authorization:"Bearer "+token, "Content-Type":"application/json"};
+  let r=await fetch(base, {method:"POST", headers:H, body:JSON.stringify(body)});
+  if(r.status===409){ const b2=Object.assign({},body); delete b2.id; r=await fetch(base+"/"+encodeURIComponent(id), {method:"PUT", headers:H, body:JSON.stringify(b2)}); }
+  return r.ok;
+}
+function calWeekItems(id){
+  const wkMon=curWeek(); const items=[];
+  DAYS.forEach(day=>{
+    const dateStr=dateOf(wkMon, day);
+    daySlots(id, day).forEach(s=>{
+      if(s.type==="class"){
+        const e=s.e, a=e.period, b=e.periodEnd||e.period;
+        if(!(BELL[a]&&BELL[b])) return;
+        const title=(e.act==="SDP")?("SDP — "+(e.group?e.group.join(", "):"")):(e.code+(e.subject?(" "+e.subject):""));
+        items.push({key:id+"|"+dateStr+"|p"+a, date:dateStr, s:BELL[a].s, e:BELL[b].e, title, loc:e.room?("Room "+e.room):"", desc:"Class Log"});
+      } else if(s.type==="duty" && (s.note||"").trim()){
+        const bp=BELL_PRE.find(x=>x.id===s.sid); if(!bp) return;
+        items.push({key:id+"|"+dateStr+"|"+s.sid, date:dateStr, s:bp.s, e:bp.e, title:(s.label||"Duty")+": "+s.note, loc:"", desc:"Class Log duty"});
+      } else if(s.type==="break" && (s.note||"").trim()){
+        const bk=BELLCFG.brk||{}; if(!(bk.s&&bk.e)) return;
+        items.push({key:id+"|"+dateStr+"|brk", date:dateStr, s:bk.s, e:bk.e, title:"Break duty: "+s.note, loc:"", desc:"Class Log duty"});
+      }
+    });
+  });
+  return items;
+}
+async function syncWeekToCalendar(){
+  const id=state.teacherId; if(!id){ toast("Pick a teacher first","⚠"); return; }
+  const items=calWeekItems(id);
+  if(!items.length){ toast("Nothing to sync for this week","⚠"); return; }
+  let token;
+  try{ token=await getCalToken(); }
+  catch(err){ const m=(err&&err.message)||""; toast(m==="no-client-id"?"Google sign-in isn't set up yet":(m==="gis-not-loaded"?"Google is still loading — try again in a moment":"Calendar access was declined"),"⚠"); return; }
+  if(!token){ toast("Couldn't get Calendar access","⚠"); return; }
+  toast("Syncing "+items.length+" events to your Google Calendar…");
+  let ok=0, fail=0;
+  for(const it of items){ try{ (await calUpsert(token,it))?ok++:fail++; }catch(e){ fail++; } }
+  toast(fail?(ok+" synced · "+fail+" failed — check Calendar access"):(ok+" events synced to your Google Calendar"), fail?"⚠":"✓");
 }
 function editX(day,idx,field,val){
   if(!state.blob._x) state.blob._x={};
