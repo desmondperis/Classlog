@@ -922,7 +922,8 @@ function renderDay(){
   const canPlan = (state.role==="hod"||state.role==="admin");
   const planBtn = canPlan ? `<button class="daytool-btn" onclick="openBulkPlan()">Bulk plan</button>` : "";
   const syncBtn = `<button class="daytool-btn" onclick="syncWeekToCalendar()">Sync to Calendar</button>`;
-  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span><span class="day-tools">${syncBtn}${planBtn}</span></div><div class="rows">`;
+  const unsyncBtn = `<button class="daytool-btn" onclick="removeWeekFromCalendar()">Remove from Calendar</button>`;
+  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span><span class="day-tools">${syncBtn}${unsyncBtn}${planBtn}</span></div><div class="rows">`;
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
       if(s.type==="break"){
@@ -1041,7 +1042,8 @@ function getCalToken(){
 function calEvId(key){ let h="cl"; for(let i=0;i<key.length;i++) h+=key.charCodeAt(i).toString(16).padStart(2,"0"); return h.slice(0,1000); }
 async function calUpsert(token, it){
   const id=calEvId(it.key);
-  const body={ id, summary:it.title, start:{dateTime:it.date+"T"+it.s+":00", timeZone:"Asia/Kolkata"}, end:{dateTime:it.date+"T"+it.e+":00", timeZone:"Asia/Kolkata"} };
+  const owner=(it.key||"").split("|")[0]||"1";
+  const body={ id, summary:it.title, start:{dateTime:it.date+"T"+it.s+":00", timeZone:"Asia/Kolkata"}, end:{dateTime:it.date+"T"+it.e+":00", timeZone:"Asia/Kolkata"}, reminders:{useDefault:false, overrides:[{method:"popup", minutes:5}]}, extendedProperties:{private:{classlog:owner}} };
   if(it.loc) body.location=it.loc; if(it.desc) body.description=it.desc;
   const base="https://www.googleapis.com/calendar/v3/calendars/primary/events";
   const H={Authorization:"Bearer "+token, "Content-Type":"application/json"};
@@ -1082,6 +1084,41 @@ async function syncWeekToCalendar(){
   let ok=0, fail=0;
   for(const it of items){ try{ (await calUpsert(token,it))?ok++:fail++; }catch(e){ fail++; } }
   toast(fail?(ok+" synced · "+fail+" failed — check Calendar access"):(ok+" events synced to your Google Calendar"), fail?"⚠":"✓");
+}
+async function calDelete(token, id){
+  const r=await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events/"+encodeURIComponent(id), {method:"DELETE", headers:{Authorization:"Bearer "+token}});
+  return r.ok || r.status===404 || r.status===410;
+}
+async function calListTagged(token, owner, timeMin, timeMax){
+  const ids=[]; let pageToken="";
+  for(let i=0;i<5;i++){
+    const u=new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
+    u.searchParams.set("privateExtendedProperty","classlog="+owner);
+    u.searchParams.set("timeMin",timeMin); u.searchParams.set("timeMax",timeMax);
+    u.searchParams.set("singleEvents","true"); u.searchParams.set("maxResults","250");
+    if(pageToken) u.searchParams.set("pageToken",pageToken);
+    const r=await fetch(u.toString(), {headers:{Authorization:"Bearer "+token}});
+    if(!r.ok) break;
+    const d=await r.json(); (d.items||[]).forEach(e=>{ if(e.id) ids.push(e.id); });
+    if(d.nextPageToken) pageToken=d.nextPageToken; else break;
+  }
+  return ids;
+}
+async function removeWeekFromCalendar(){
+  const id=state.teacherId; if(!id){ toast("Pick a teacher first","⚠"); return; }
+  if(!confirm("Remove this week's synced classes and duties for "+NAME(id)+" from your Google Calendar?")) return;
+  let token;
+  try{ token=await getCalToken(); }
+  catch(err){ const m=(err&&err.message)||""; toast(m==="no-client-id"?"Google sign-in isn't set up yet":(m==="gis-not-loaded"?"Google is still loading — try again in a moment":"Calendar access was declined"),"⚠"); return; }
+  if(!token){ toast("Couldn't get Calendar access","⚠"); return; }
+  const set=new Set(calWeekItems(id).map(it=>calEvId(it.key)));
+  const wkMon=curWeek(), timeMin=wkMon+"T00:00:00+05:30", timeMax=ymd(addDays(parseYmd(wkMon),5))+"T00:00:00+05:30";
+  try{ (await calListTagged(token, id, timeMin, timeMax)).forEach(x=>set.add(x)); }catch(e){}
+  if(!set.size){ toast("No synced events found for this week","⚠"); return; }
+  toast("Removing "+set.size+" events…");
+  let ok=0, fail=0;
+  for(const eid of set){ try{ (await calDelete(token,eid))?ok++:fail++; }catch(e){ fail++; } }
+  toast(fail?(ok+" removed · "+fail+" failed"):(ok+" events removed from your Google Calendar"), fail?"⚠":"✓");
 }
 function editX(day,idx,field,val){
   if(!state.blob._x) state.blob._x={};
