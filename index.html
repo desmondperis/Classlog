@@ -69,6 +69,11 @@ a{color:var(--blue)}
 .gate-branch{display:flex; flex-direction:column; gap:6px; text-align:left; max-width:280px; margin:0 auto 18px}
 .gate-branch label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
 .gate-branch select{width:100%}
+.gate-gear{position:absolute; top:11px; right:11px; z-index:2; width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0}
+.gate-gear:hover{color:var(--blue-d); border-color:var(--blue)}
+.gate-menu{position:absolute; top:48px; right:11px; z-index:5; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 30px rgba(23,35,59,.18); padding:6px; min-width:168px; text-align:left}
+.gate-menu a{display:block; width:100%; text-align:left; padding:9px 12px; font-size:13px; font-weight:600; color:var(--ink); border-radius:8px; text-decoration:none}
+.gate-menu a:hover{background:#f1f5fb; color:var(--blue-d)}
 
 /* Controls */
 .ctl{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-top:18px}
@@ -724,12 +729,18 @@ function dashSkeleton(){
 /* ---------- Auth / gate ---------- */
 const GOOGLE_G='<svg viewBox="0 0 48 48"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>';
 
+function toggleGateMenu(e){ if(e) e.stopPropagation(); const m=document.getElementById("gateMenu"); if(!m) return; const wasHidden=m.hidden; m.hidden=!wasHidden; if(wasHidden){ setTimeout(()=>document.addEventListener("click", closeGateMenu),0); } else { document.removeEventListener("click", closeGateMenu); } }
+function closeGateMenu(e){ const m=document.getElementById("gateMenu"), g=document.getElementById("gateGear"); if(m && !m.hidden && !m.contains(e.target) && !(g&&g.contains(e.target))){ m.hidden=true; document.removeEventListener("click", closeGateMenu); } }
+function hideGateMenu(){ const m=document.getElementById("gateMenu"); if(m) m.hidden=true; document.removeEventListener("click", closeGateMenu); }
 function showGate(){
+  const top=document.querySelector(".top"); if(top) top.style.display="none";
   document.getElementById("tabs").hidden=true;
   document.getElementById("userchip").hidden=true;
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
   view().innerHTML=`
     <div class="gate"><div class="gate-card">
+      <button class="gate-gear" id="gateGear" type="button" title="About & privacy" aria-label="About and privacy" onclick="toggleGateMenu(event)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+      <div class="gate-menu" id="gateMenu" hidden><a href="/about" target="_blank" rel="noopener" onclick="hideGateMenu()">About the tool</a><a href="/privacy" target="_blank" rel="noopener" onclick="hideGateMenu()">Privacy policy</a></div>
       <img class="gate-logo" src="logo.png" alt="Mount Carmel School">
       <div class="motto">“Overcome evil with good”</div>
       <div class="gate-div"></div>
@@ -810,6 +821,7 @@ function renderUser(){
   chip.innerHTML=`${av}<span class="uname">${esc(firstName(u.name))}</span><button class="signout" onclick="signOut()">Sign out</button>`;
 }
 function showApp(){
+  const top=document.querySelector(".top"); if(top) top.style.display="";
   document.getElementById("tabs").hidden=false;
   const dash=document.getElementById("tab-admin"); if(dash) dash.hidden=!canSeeDashboard();
   const mt=document.getElementById("tab-manage"); if(mt) mt.hidden=!state.isAdmin;
