@@ -1394,6 +1394,8 @@ function mountManage(){
     html+=classGridHTML(MG_CL);
     html+=`<div class="mg-actions"><button class="btn primary" onclick="mgSaveClassGrid('${esc(MG_CL)}')">Save class timetable</button>
       <button class="btn danger-btn" onclick="mgClearClassGrid('${esc(MG_CL)}')">Clear this class</button></div>`;
+    html+=`<div class="tt-sub" style="margin-top:16px">Preview — Class ${esc(MG_CL)} <span class="muted" style="font-weight:600">(subject · teacher)</span></div>`;
+    html+=classPreviewHTML(MG_CL);
   } else {
     html+=`<p class="muted">No classes yet — add classrooms under <b>Rooms, places &amp; subjects</b> first (classes come from there), or bulk-import below.</p>`;
   }
@@ -1719,6 +1721,26 @@ function classGridHTML(C){
     if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="ttx">—</td>`).join("")+`</tr>`; }
     h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
     DAYS.forEach(d=>{ const cell=data[d][p]||{}; h+=`<td class="ttcell"><select class="ttc-s" id="clc-s-${d}-${p}">${sOpts(cell.subject||"")}</select><select class="ttc-c" id="clc-t-${d}-${p}">${tOpts(cell.teacher||"")}</select></td>`; });
+    h+=`</tr>`;
+  }
+  h+=`</tbody></table></div>`;
+  return h;
+}
+function classPreviewHTML(C){
+  const data=classGridData(C);
+  let h=`<div class="tt-grid-wrap"><table class="tt-grid tt-view tt-class"><thead><tr><th>Period</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
+  for(let p=1;p<=PERIODS;p++){
+    if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="tv-free">·</td>`).join("")+`</tr>`; }
+    h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
+    DAYS.forEach(d=>{
+      const cell=data[d][p];
+      if(!cell){ h+=`<td class="tv-free">·</td>`; return; }
+      const prev=data[d][p-1];
+      const cont = p!==BREAK_AFTER+1 && prev && prev.teacher===cell.teacher && (prev.subject||"")===(cell.subject||"");
+      if(cont){ h+=`<td class="tv-cont"></td>`; return; }
+      const subj=cell.subject||subjectOf(ent(C).act, deptOf(cell.teacher));
+      h+=`<td><b>${esc(subj)}</b><i>${esc(NAME(cell.teacher))}</i></td>`;
+    });
     h+=`</tr>`;
   }
   h+=`</tbody></table></div>`;
