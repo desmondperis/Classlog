@@ -256,13 +256,6 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .tt-view td i{display:block; font-style:normal; font-size:10px; color:var(--muted); font-weight:600; margin-top:1px}
 .tt-view td.tv-free{color:#cdd6e0}
 .tt-view td.tv-cont{background:#fafbfd}
-.clc-cell{padding:3px; vertical-align:top}
-.clc-row{display:flex; align-items:center; gap:2px; margin-bottom:3px}
-.clc-row:last-child{margin-bottom:0}
-.clc-row .ttc-s{flex:1 1 auto; min-width:0; width:auto}
-.clc-x{flex:0 0 auto; border:none; background:transparent; color:#c0563b; font-size:15px; line-height:1; cursor:pointer; padding:0 2px}
-.clc-x:hover{color:#a23820}
-.tt-view td .tv-sep{display:block; height:1px; background:var(--line); margin:4px 0}
 .tt-sub{font-weight:800; font-size:13px; margin:6px 0}
 .danger-btn{color:var(--err,#c0392b)}
 .danger-btn:hover{background:#fdeeec; border-color:#e6a89f}
@@ -473,6 +466,7 @@ let SUBJECTS = DEFAULT_SUBJECTS.slice();
 let TEACHERS = DEFAULT_TEACHERS.map(t=>Object.assign({},t));
 let RAW = JSON.parse(JSON.stringify(DEFAULT_RAW));
 let RAWX = {};
+let CLASSSUBJ = {};
 let DEPTS = [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))];
 let SCHEDULE={}, CLASSES=[], DEPARTMENTS=[];
 
@@ -534,7 +528,7 @@ function rebuildDerived(){
   DEPARTMENTS=[...new Set([...(DEPTS||[]), ...TEACHERS.map(t=>t.dept)])].filter(Boolean).sort();
   SCHEDULE={};
   for(const t of TEACHERS){ SCHEDULE[t.id]={}; for(const d of DAYS){
-    const arr=(((RAW[t.id]||{})[d])||[]).map((cell,i)=>{ const co=cellObj(cell); if(!co) return null; const e=ent(co.c); e.period=i+1; e.periodEnd=i+1; e.subject=co.s||subjectOf(e.act,t.dept); return e; }).filter(Boolean);
+    const arr=(((RAW[t.id]||{})[d])||[]).map((cell,i)=>{ const co=cellObj(cell); if(!co) return null; const e=ent(co.c); e.period=i+1; e.periodEnd=i+1; e.subject=co.s || ((CLASSSUBJ[co.c]&&CLASSSUBJ[co.c][d]&&CLASSSUBJ[co.c][d][i])||"") || subjectOf(e.act,t.dept); return e; }).filter(Boolean);
     const merged=[]; for(const e of arr){ const last=merged[merged.length-1]; if(last && last.slug===e.slug && last.subject===e.subject && e.period===last.periodEnd+1) last.periodEnd=e.period; else merged.push(e); }
     SCHEDULE[t.id][d]=merged;
   } }
@@ -590,7 +584,7 @@ async function apiGetMany(keys){
   }catch(e){ return {}; }
 }
 async function loadAppConfig(){
-  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:schedulex","cfg:depts","cfg:places","cfg:subjects","cfg:bell"]);
+  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:schedulex","cfg:depts","cfg:places","cfg:subjects","cfg:bell","cfg:classsubj"]);
   const seed=(getBranch()===DEFAULT_BRANCH); // only the home branch seeds the built-in defaults; other branches start empty
   const pArr=s=>{ try{ const a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } };
   const pObj=s=>{ try{ const o=JSON.parse(s); return (o&&typeof o==="object"&&!Array.isArray(o))?o:null; }catch(e){ return null; } };
@@ -598,6 +592,7 @@ async function loadAppConfig(){
   ROOMS    = pObj(v["cfg:rooms"])    || (seed ? Object.assign({},DEFAULT_ROOMS) : {});
   RAW      = pObj(v["cfg:schedule"]) || (seed ? JSON.parse(JSON.stringify(DEFAULT_RAW)) : {});
   RAWX     = pObj(v["cfg:schedulex"])|| {};
+  CLASSSUBJ= pObj(v["cfg:classsubj"])|| {};
   DEPTS    = pArr(v["cfg:depts"])    || (seed ? [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))] : []);
   PLACES   = pArr(v["cfg:places"])   || (seed ? DEFAULT_PLACES.slice() : []);
   SUBJECTS = pArr(v["cfg:subjects"]) || (seed ? DEFAULT_SUBJECTS.slice() : []);
@@ -1393,7 +1388,7 @@ function mountManage(){
   if(MG_CL && clList.indexOf(MG_CL)<0) MG_CL=null;
   if(!MG_CL && clList[0]) MG_CL=clList[0];
   html+=`<section class="card"><div class="card-h"><h2>Class timetables</h2>${MG_CL?`<span class="muted">Class ${esc(MG_CL)}</span>`:""}</div>
-    <p class="muted mg-note">Build the timetable <b>by class</b>. Each period shows the class's <b>subject(s)</b> — set or change them here and Save; a change applies to <b>every teacher</b> taking that class in that period. Who teaches each class — including co-teaching, where a period has more than one teacher — is set in the <b>teacher timetable</b> or bulk import and stays in the background. Use <b>×</b> to drop a lesson. To add a lesson to an empty period, assign the teacher in the teacher timetable (or import it) and it appears here to set the subject.</p>`;
+    <p class="muted mg-note">Build the timetable <b>by class</b>. Set the <b>subject</b> for every period and Save — the subject applies to <b>whoever</b> teaches that class in that period, so co-teaching (more than one teacher in a period) is covered automatically. Who teaches each class is set in the <b>teacher timetable</b> or bulk import, and stays in the background. Subjects are remembered per class even for periods with no teacher yet — once a teacher is assigned, the subject shows for them too.</p>`;
   if(clList.length){
     const clSel=clList.map(c=>`<option value="${esc(c)}"${MG_CL===c?" selected":""}>${esc(c)}</option>`).join("");
     html+=`<div class="field" style="max-width:340px"><label>Class</label><select id="cl-class" onchange="mgPickClass(this.value)">${clSel}</select></div>`;
@@ -1720,27 +1715,29 @@ function classGridData(C){
 }
 function mgPickClass(c){ MG_CL=c; mountManage(); }
 function clcSubjOpts(cur){ let o=`<option value=""${cur?"":" selected"}>subject…</option>`+(SUBJECTS||[]).map(s=>`<option${cur===s?" selected":""}>${esc(s)}</option>`).join(""); if(cur&&(SUBJECTS||[]).indexOf(cur)<0) o+=`<option selected>${esc(cur)}</option>`; return o; }
-function clcRowHTML(subject, teachersCSV){ return `<div class="clc-row"><select class="ttc-s clc-s">${clcSubjOpts(subject||"")}</select><input type="hidden" class="clc-t" value="${esc(teachersCSV||"")}"><button type="button" class="clc-x" title="Remove this lesson" onclick="clcDelRow(this)">×</button></div>`; }
-function clcDelRow(btn){ const row=btn.closest(".clc-row"); if(row) row.remove(); }
+function classSubjOf(C, day, p){
+  const v = CLASSSUBJ[C] && CLASSSUBJ[C][day] && CLASSSUBJ[C][day][p-1];
+  if(v) return v;
+  for(const t of TEACHERS){ const co=cellObj((((RAW[t.id]||{})[day])||[])[p-1]); if(co && co.c===C && co.s) return co.s; }
+  return "";
+}
 function classGridHTML(C){
-  const data=classGridData(C);
   let h=`<div class="tt-grid-wrap"><table class="tt-grid tt-class"><thead><tr><th>Period</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
   for(let p=1;p<=PERIODS;p++){
     if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="ttx">—</td>`).join("")+`</tr>`; }
     h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
-    DAYS.forEach(d=>{ const pairs=data[d][p]||[]; const groups=[]; pairs.forEach(x=>{ const s=x.subject||subjectOf(ent(C).act, deptOf(x.teacher)); let g=groups.find(o=>o.subject===s); if(!g){ g={subject:s, teachers:[]}; groups.push(g); } if(g.teachers.indexOf(x.teacher)<0) g.teachers.push(x.teacher); }); if(!groups.length){ h+=`<td class="ttcell clc-cell" id="clc-cell-${d}-${p}"></td>`; return; } const rows=groups.map(g=>clcRowHTML(g.subject, g.teachers.join(","))).join(""); h+=`<td class="ttcell clc-cell" id="clc-cell-${d}-${p}"><div class="clc-rows">${rows}</div></td>`; });
+    DAYS.forEach(d=>{ h+=`<td class="ttcell"><select class="ttc-s" id="clc-s-${d}-${p}">${clcSubjOpts(classSubjOf(C,d,p))}</select></td>`; });
     h+=`</tr>`;
   }
   h+=`</tbody></table></div>`;
   return h;
 }
 function classPreviewHTML(C){
-  const data=classGridData(C);
   let h=`<div class="tt-grid-wrap"><table class="tt-grid tt-view tt-class"><thead><tr><th>Period</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
   for(let p=1;p<=PERIODS;p++){
     if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="tv-free">·</td>`).join("")+`</tr>`; }
     h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
-    DAYS.forEach(d=>{ const pairs=data[d][p]||[]; if(!pairs.length){ h+=`<td class="tv-free">·</td>`; return; } const subs=[]; pairs.forEach(x=>{ const s=x.subject||subjectOf(ent(C).act, deptOf(x.teacher)); if(subs.indexOf(s)<0) subs.push(s); }); h+=`<td>`+subs.map((s,i)=>`${i?'<span class="tv-sep"></span>':''}<b>${esc(s)}</b>`).join("")+`</td>`; });
+    DAYS.forEach(d=>{ const s=classSubjOf(C,d,p); h+= s?`<td><b>${esc(s)}</b></td>`:`<td class="tv-free">·</td>`; });
     h+=`</tr>`;
   }
   h+=`</tbody></table></div>`;
@@ -1754,27 +1751,27 @@ function clApply(C, plan){
 }
 async function mgSaveClassGrid(C){
   if(!C) return;
-  let plan=[];
-  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ const cell=document.getElementById("clc-cell-"+d+"-"+p); if(!cell) continue; cell.querySelectorAll(".clc-row").forEach(r=>{ const sEl=r.querySelector(".clc-s"), tEl=r.querySelector(".clc-t"); const sv=(sEl&&sEl.value||"").trim(); const tcsv=(tEl&&tEl.value||"").trim(); if(!tcsv) return; tcsv.split(",").map(x=>x.trim()).filter(Boolean).forEach(tid=>plan.push({day:d,period:p,teacher:tid,subject:sv})); }); } });
-  // a teacher can only hold one class in a given slot — if listed twice in a cell, keep the last
-  const seen={}, dedup=[]; for(let i=plan.length-1;i>=0;i--){ const k=plan[i].teacher+"|"+plan[i].day+"|"+plan[i].period; if(seen[k])continue; seen[k]=1; dedup.unshift(plan[i]); } plan=dedup;
-  const conflicts=[];
-  plan.forEach(a=>{ const co=cellObj(((RAW[a.teacher]||{})[a.day]||[])[a.period-1]); if(co && co.c!==C) conflicts.push(Object.assign({},a,{existing:co.c})); });
-  if(conflicts.length){
-    const lines=conflicts.slice(0,10).map(c=>"• "+NAME(c.teacher)+" — "+c.day.slice(0,3)+" "+periodLabel(c.period)+": currently "+(ent(c.existing).label||c.existing)).join("\n");
-    const more=conflicts.length>10?("\n…and "+(conflicts.length-10)+" more"):"";
-    if(!confirm("Some teachers are already booked at these times with a different class. Saving moves them to "+C+" and removes them from the other class there:\n\n"+lines+more+"\n\nContinue?")) return;
-  }
-  clRemoveClass(C); clApply(C, plan);
-  const ok=await saveTimetableCfg();
+  const map={};
+  DAYS.forEach(d=>{ const arr=[]; for(let p=1;p<=PERIODS;p++) arr.push((gv("clc-s-"+d+"-"+p)||"").trim()); while(arr.length && !arr[arr.length-1]) arr.pop(); if(arr.length) map[d]=arr; });
+  if(Object.keys(map).length) CLASSSUBJ[C]=map; else delete CLASSSUBJ[C];
+  // apply these subjects onto every teacher already teaching this class (co-teaching supported)
+  Object.keys(RAW).forEach(tid=>{ const days=RAW[tid]||{}; DAYS.forEach(d=>{ const cells=days[d]; if(!Array.isArray(cells)) return; for(let p=1;p<=PERIODS;p++){ const co=cellObj(cells[p-1]); if(co && co.c===C){ const subj=(map[d]&&map[d][p-1])||""; cells[p-1]= subj ? {c:C, s:subj} : C; } } }); });
+  rebuildDerived();
+  const a=await apiSet("cfg:classsubj", JSON.stringify(CLASSSUBJ));
+  const b=await apiSet("cfg:schedule", JSON.stringify(RAW));
+  const ok=a&&b;
+  toast(ok?"Class timetable saved":"Couldn't save — admins only / check connection", ok?"✓":"⚠");
   mountManage();
-  if(ok && ROOMS[C]===undefined) setTimeout(()=>toast("Saved. No room set for "+C+" — add one under Rooms, places & subjects",""),450);
+  if(ok && ROOMS[C]===undefined) setTimeout(()=>toast("Saved. No room set for "+C+" — add one under Rooms, places & subjects",""),500);
 }
 async function mgClearClassGrid(C){
   if(!C) return;
-  if(!confirm("Remove Class "+C+" from every teacher's timetable? This clears all of "+C+"'s periods.")) return;
-  clRemoveClass(C);
-  await saveTimetableCfg();
+  if(!confirm("Remove Class "+C+" completely — its subjects and every teacher's periods for it?")) return;
+  clRemoveClass(C); delete CLASSSUBJ[C];
+  rebuildDerived();
+  const a=await apiSet("cfg:classsubj", JSON.stringify(CLASSSUBJ));
+  const b=await apiSet("cfg:schedule", JSON.stringify(RAW));
+  toast((a&&b)?"Class cleared":"Couldn't save — admins only / check connection",(a&&b)?"✓":"⚠");
   mountManage();
 }
 function classBulkTemplateCSV(){
@@ -1786,7 +1783,7 @@ function mgDownloadClassTemplate(){ downloadCSV("class_timetable_template.csv", 
 function classTimetableCSV(C){
   const data=classGridData(C);
   const rows=[["Class","Day","Period","Subject","Teacher"]];
-  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ (data[d][p]||[]).forEach(x=>rows.push([C,d,String(p), x.subject||subjectOf(ent(C).act, deptOf(x.teacher)), NAME(x.teacher)])); } });
+  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ (data[d][p]||[]).forEach(x=>rows.push([C,d,String(p), classSubjOf(C,d,p)||x.subject, NAME(x.teacher)])); } });
   return toCSV(rows);
 }
 function mgDownloadClass(){ if(!MG_CL) return; downloadCSV("class_"+MG_CL+"_timetable.csv", classTimetableCSV(MG_CL)); }
@@ -1812,8 +1809,9 @@ function applyClassBulk(rows){
   }
   const classes=Object.keys(byClass);
   if(!classes.length){ toast(unknownT.size?("No matching teachers: "+[...unknownT].slice(0,5).join(", ")):"No valid rows — check the columns (Class, Day, Period, Subject, Teacher)","⚠"); return; }
-  classes.forEach(C=>{ clRemoveClass(C); clApply(C, byClass[C]); });
-  saveTimetableCfg().then(ok=>{ mountManage(); let msg="Imported "+applied+" lesson(s) across "+classes.length+" class(es)"; const notes=[]; if(unknownT.size) notes.push("unmatched teacher(s): "+[...unknownT].slice(0,4).join(", ")); if(bad) notes.push(bad+" row(s) skipped"); if(notes.length) msg+=" · "+notes.join(" · "); toast(ok?msg:"Couldn't save — admins only / check connection", ok?"✓":"⚠"); });
+  classes.forEach(C=>{ clRemoveClass(C); CLASSSUBJ[C]={}; clApply(C, byClass[C]); byClass[C].forEach(a=>{ if(a.subject){ if(!CLASSSUBJ[C][a.day]) CLASSSUBJ[C][a.day]=[]; CLASSSUBJ[C][a.day][a.period-1]=a.subject; } }); if(!Object.keys(CLASSSUBJ[C]).length) delete CLASSSUBJ[C]; });
+  rebuildDerived();
+  Promise.all([apiSet("cfg:schedule",JSON.stringify(RAW)), apiSet("cfg:classsubj",JSON.stringify(CLASSSUBJ))]).then(res=>{ const ok=res[0]&&res[1]; mountManage(); let msg="Imported "+applied+" lesson(s) across "+classes.length+" class(es)"; const notes=[]; if(unknownT.size) notes.push("unmatched teacher(s): "+[...unknownT].slice(0,4).join(", ")); if(bad) notes.push(bad+" row(s) skipped"); if(notes.length) msg+=" · "+notes.join(" · "); toast(ok?msg:"Couldn't save — admins only / check connection", ok?"✓":"⚠"); });
 }
 function mgClassBulkUpload(files){
   const f=files&&files[0]; if(!f) return;
