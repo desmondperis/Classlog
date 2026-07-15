@@ -259,11 +259,9 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .clc-cell{padding:3px; vertical-align:top}
 .clc-row{display:flex; align-items:center; gap:2px; margin-bottom:3px}
 .clc-row:last-child{margin-bottom:0}
-.clc-row .ttc-s,.clc-row .ttc-c{flex:1 1 auto; min-width:0; width:auto}
+.clc-row .ttc-s{flex:1 1 auto; min-width:0; width:auto}
 .clc-x{flex:0 0 auto; border:none; background:transparent; color:#c0563b; font-size:15px; line-height:1; cursor:pointer; padding:0 2px}
 .clc-x:hover{color:#a23820}
-.clc-add{display:block; width:100%; margin-top:2px; border:1px dashed var(--line); background:transparent; color:var(--muted); border-radius:6px; cursor:pointer; font-size:11px; font-weight:700; padding:2px 6px}
-.clc-add:hover{border-color:var(--blue); color:var(--blue)}
 .tt-view td .tv-sep{display:block; height:1px; background:var(--line); margin:4px 0}
 .tt-sub{font-weight:800; font-size:13px; margin:6px 0}
 .danger-btn{color:var(--err,#c0392b)}
@@ -1395,7 +1393,7 @@ function mountManage(){
   if(MG_CL && clList.indexOf(MG_CL)<0) MG_CL=null;
   if(!MG_CL && clList[0]) MG_CL=clList[0];
   html+=`<section class="card"><div class="card-h"><h2>Class timetables</h2>${MG_CL?`<span class="muted">Class ${esc(MG_CL)}</span>`:""}</div>
-    <p class="muted mg-note">Build the timetable <b>by class</b> instead of by teacher. Pick a class, then for each period choose the <b>subject</b> and the <b>teacher</b> who takes it. A period can have <b>more than one teacher</b> — tap <b>+ teacher</b> in a cell to add another subject/teacher pair (e.g. a split class or option group). Saving writes straight into those teachers' own timetables — it's one shared schedule, so they'll see the class for logging. If a teacher is already booked elsewhere at that time, you'll be warned before they're moved.</p>`;
+    <p class="muted mg-note">Build the timetable <b>by class</b>. Each period shows the class's <b>subject(s)</b> — set or change them here and Save; a change applies to <b>every teacher</b> taking that class in that period. Who teaches each class — including co-teaching, where a period has more than one teacher — is set in the <b>teacher timetable</b> or bulk import and stays in the background. Use <b>×</b> to drop a lesson. To add a lesson to an empty period, assign the teacher in the teacher timetable (or import it) and it appears here to set the subject.</p>`;
   if(clList.length){
     const clSel=clList.map(c=>`<option value="${esc(c)}"${MG_CL===c?" selected":""}>${esc(c)}</option>`).join("");
     html+=`<div class="field" style="max-width:340px"><label>Class</label><select id="cl-class" onchange="mgPickClass(this.value)">${clSel}</select></div>`;
@@ -1721,10 +1719,8 @@ function classGridData(C){
   return map;
 }
 function mgPickClass(c){ MG_CL=c; mountManage(); }
-function clcTeacherOpts(cur){ return `<option value=""${cur?"":" selected"}>— teacher</option>`+TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<option value="${esc(t.id)}"${cur===t.id?" selected":""}>${esc(t.name)}</option>`).join(""); }
 function clcSubjOpts(cur){ let o=`<option value=""${cur?"":" selected"}>subject…</option>`+(SUBJECTS||[]).map(s=>`<option${cur===s?" selected":""}>${esc(s)}</option>`).join(""); if(cur&&(SUBJECTS||[]).indexOf(cur)<0) o+=`<option selected>${esc(cur)}</option>`; return o; }
-function clcRowHTML(subject, teacher){ return `<div class="clc-row"><select class="ttc-s clc-s">${clcSubjOpts(subject||"")}</select><select class="ttc-c clc-t">${clcTeacherOpts(teacher||"")}</select><button type="button" class="clc-x" title="Remove this teacher" onclick="clcDelRow(this)">×</button></div>`; }
-function clcAddRow(d,p){ const cell=document.getElementById("clc-cell-"+d+"-"+p); if(!cell) return; const box=cell.querySelector(".clc-rows"); if(box) box.insertAdjacentHTML("beforeend", clcRowHTML("","")); }
+function clcRowHTML(subject, teachersCSV){ return `<div class="clc-row"><select class="ttc-s clc-s">${clcSubjOpts(subject||"")}</select><input type="hidden" class="clc-t" value="${esc(teachersCSV||"")}"><button type="button" class="clc-x" title="Remove this lesson" onclick="clcDelRow(this)">×</button></div>`; }
 function clcDelRow(btn){ const row=btn.closest(".clc-row"); if(row) row.remove(); }
 function classGridHTML(C){
   const data=classGridData(C);
@@ -1732,7 +1728,7 @@ function classGridHTML(C){
   for(let p=1;p<=PERIODS;p++){
     if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="ttx">—</td>`).join("")+`</tr>`; }
     h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
-    DAYS.forEach(d=>{ const pairs=data[d][p]||[]; const rows=(pairs.length?pairs:[{teacher:"",subject:""}]).map(x=>clcRowHTML(x.subject||"", x.teacher||"")).join(""); h+=`<td class="ttcell clc-cell" id="clc-cell-${d}-${p}"><div class="clc-rows">${rows}</div><button type="button" class="clc-add" onclick="clcAddRow('${d}',${p})">+ teacher</button></td>`; });
+    DAYS.forEach(d=>{ const pairs=data[d][p]||[]; const groups=[]; pairs.forEach(x=>{ const s=x.subject||subjectOf(ent(C).act, deptOf(x.teacher)); let g=groups.find(o=>o.subject===s); if(!g){ g={subject:s, teachers:[]}; groups.push(g); } if(g.teachers.indexOf(x.teacher)<0) g.teachers.push(x.teacher); }); if(!groups.length){ h+=`<td class="ttcell clc-cell" id="clc-cell-${d}-${p}"></td>`; return; } const rows=groups.map(g=>clcRowHTML(g.subject, g.teachers.join(","))).join(""); h+=`<td class="ttcell clc-cell" id="clc-cell-${d}-${p}"><div class="clc-rows">${rows}</div></td>`; });
     h+=`</tr>`;
   }
   h+=`</tbody></table></div>`;
@@ -1759,7 +1755,7 @@ function clApply(C, plan){
 async function mgSaveClassGrid(C){
   if(!C) return;
   let plan=[];
-  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ const cell=document.getElementById("clc-cell-"+d+"-"+p); if(!cell) continue; cell.querySelectorAll(".clc-row").forEach(r=>{ const sEl=r.querySelector(".clc-s"), tEl=r.querySelector(".clc-t"); const tv=(tEl&&tEl.value||"").trim(); const sv=(sEl&&sEl.value||"").trim(); if(tv) plan.push({day:d,period:p,teacher:tv,subject:sv}); }); } });
+  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ const cell=document.getElementById("clc-cell-"+d+"-"+p); if(!cell) continue; cell.querySelectorAll(".clc-row").forEach(r=>{ const sEl=r.querySelector(".clc-s"), tEl=r.querySelector(".clc-t"); const sv=(sEl&&sEl.value||"").trim(); const tcsv=(tEl&&tEl.value||"").trim(); if(!tcsv) return; tcsv.split(",").map(x=>x.trim()).filter(Boolean).forEach(tid=>plan.push({day:d,period:p,teacher:tid,subject:sv})); }); } });
   // a teacher can only hold one class in a given slot — if listed twice in a cell, keep the last
   const seen={}, dedup=[]; for(let i=plan.length-1;i>=0;i--){ const k=plan[i].teacher+"|"+plan[i].day+"|"+plan[i].period; if(seen[k])continue; seen[k]=1; dedup.unshift(plan[i]); } plan=dedup;
   const conflicts=[];
