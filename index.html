@@ -1408,7 +1408,7 @@ function mountManage(){
         <label class="btn mg-upload">Upload CSV<input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="mgClassBulkUpload(this.files)"></label>
         <button class="btn" onclick="mgDownloadClassTemplate()">Blank template</button>
       </span></div>`;
-    html+=`<div class="tt-sub" style="margin-top:16px">Preview — Class ${esc(MG_CL)} <span class="muted" style="font-weight:600">(subject · teacher)</span></div>`;
+    html+=`<div class="tt-sub" style="margin-top:16px">Preview — Class ${esc(MG_CL)} <span class="muted" style="font-weight:600">(subject)</span></div>`;
     html+=classPreviewHTML(MG_CL);
   } else {
     html+=`<p class="muted">No classes yet — add classrooms under <b>Rooms, places &amp; subjects</b> first (classes come from there), or bulk-import below.</p>`;
@@ -1744,7 +1744,7 @@ function classPreviewHTML(C){
   for(let p=1;p<=PERIODS;p++){
     if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="tv-free">·</td>`).join("")+`</tr>`; }
     h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
-    DAYS.forEach(d=>{ const pairs=data[d][p]||[]; if(!pairs.length){ h+=`<td class="tv-free">·</td>`; return; } h+=`<td>`+pairs.map((x,i)=>`${i?'<span class="tv-sep"></span>':''}<b>${esc(x.subject||subjectOf(ent(C).act, deptOf(x.teacher)))}</b><i>${esc(NAME(x.teacher))}</i>`).join("")+`</td>`; });
+    DAYS.forEach(d=>{ const pairs=data[d][p]||[]; if(!pairs.length){ h+=`<td class="tv-free">·</td>`; return; } const subs=[]; pairs.forEach(x=>{ const s=x.subject||subjectOf(ent(C).act, deptOf(x.teacher)); if(subs.indexOf(s)<0) subs.push(s); }); h+=`<td>`+subs.map((s,i)=>`${i?'<span class="tv-sep"></span>':''}<b>${esc(s)}</b>`).join("")+`</td>`; });
     h+=`</tr>`;
   }
   h+=`</tbody></table></div>`;
