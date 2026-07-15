@@ -256,6 +256,15 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .tt-view td i{display:block; font-style:normal; font-size:10px; color:var(--muted); font-weight:600; margin-top:1px}
 .tt-view td.tv-free{color:#cdd6e0}
 .tt-view td.tv-cont{background:#fafbfd}
+.clc-cell{padding:3px; vertical-align:top}
+.clc-row{display:flex; align-items:center; gap:2px; margin-bottom:3px}
+.clc-row:last-child{margin-bottom:0}
+.clc-row .ttc-s,.clc-row .ttc-c{flex:1 1 auto; min-width:0; width:auto}
+.clc-x{flex:0 0 auto; border:none; background:transparent; color:#c0563b; font-size:15px; line-height:1; cursor:pointer; padding:0 2px}
+.clc-x:hover{color:#a23820}
+.clc-add{display:block; width:100%; margin-top:2px; border:1px dashed var(--line); background:transparent; color:var(--muted); border-radius:6px; cursor:pointer; font-size:11px; font-weight:700; padding:2px 6px}
+.clc-add:hover{border-color:var(--blue); color:var(--blue)}
+.tt-view td .tv-sep{display:block; height:1px; background:var(--line); margin:4px 0}
 .tt-sub{font-weight:800; font-size:13px; margin:6px 0}
 .danger-btn{color:var(--err,#c0392b)}
 .danger-btn:hover{background:#fdeeec; border-color:#e6a89f}
@@ -1386,25 +1395,26 @@ function mountManage(){
   if(MG_CL && clList.indexOf(MG_CL)<0) MG_CL=null;
   if(!MG_CL && clList[0]) MG_CL=clList[0];
   html+=`<section class="card"><div class="card-h"><h2>Class timetables</h2>${MG_CL?`<span class="muted">Class ${esc(MG_CL)}</span>`:""}</div>
-    <p class="muted mg-note">Build the timetable <b>by class</b> instead of by teacher. Pick a class, then for each period choose the <b>subject</b> and the <b>teacher</b> who takes it. Saving writes straight into those teachers' own timetables — it's one shared schedule, so they'll see the class for logging. If a teacher is already booked elsewhere at that time, you'll be warned before they're moved.</p>`;
+    <p class="muted mg-note">Build the timetable <b>by class</b> instead of by teacher. Pick a class, then for each period choose the <b>subject</b> and the <b>teacher</b> who takes it. A period can have <b>more than one teacher</b> — tap <b>+ teacher</b> in a cell to add another subject/teacher pair (e.g. a split class or option group). Saving writes straight into those teachers' own timetables — it's one shared schedule, so they'll see the class for logging. If a teacher is already booked elsewhere at that time, you'll be warned before they're moved.</p>`;
   if(clList.length){
     const clSel=clList.map(c=>`<option value="${esc(c)}"${MG_CL===c?" selected":""}>${esc(c)}</option>`).join("");
     html+=`<div class="field" style="max-width:340px"><label>Class</label><select id="cl-class" onchange="mgPickClass(this.value)">${clSel}</select></div>`;
     html+=`<div class="tt-sub">Edit — Class ${esc(MG_CL)}</div>`;
     html+=classGridHTML(MG_CL);
     html+=`<div class="mg-actions"><button class="btn primary" onclick="mgSaveClassGrid('${esc(MG_CL)}')">Save class timetable</button>
-      <button class="btn danger-btn" onclick="mgClearClassGrid('${esc(MG_CL)}')">Clear this class</button></div>`;
+      <button class="btn danger-btn" onclick="mgClearClassGrid('${esc(MG_CL)}')">Clear this class</button>
+      <button class="btn" onclick="mgDownloadClass()">Download CSV</button>
+      <span class="mg-actions-right">
+        <label class="btn mg-upload">Upload CSV<input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="mgClassBulkUpload(this.files)"></label>
+        <button class="btn" onclick="mgDownloadClassTemplate()">Blank template</button>
+      </span></div>`;
     html+=`<div class="tt-sub" style="margin-top:16px">Preview — Class ${esc(MG_CL)} <span class="muted" style="font-weight:600">(subject · teacher)</span></div>`;
     html+=classPreviewHTML(MG_CL);
   } else {
     html+=`<p class="muted">No classes yet — add classrooms under <b>Rooms, places &amp; subjects</b> first (classes come from there), or bulk-import below.</p>`;
   }
-  html+=`<details class="mg-details mg-sub"><summary>Bulk import (class timetables)</summary>
-    <p class="muted mg-note">Upload a table with one row per lesson and these columns: <b>Class, Day, Period, Subject, Teacher</b>. Teachers are matched by <b>name</b> to your existing list, so add them under <b>Teachers</b> first. Period is the number (1–${PERIODS}). Importing a class <b>replaces</b> that class everywhere in the schedule. Upload a <b>.csv</b> or <b>.xlsx</b>.</p>
-    <div class="mg-actions">
-      <button class="btn" onclick="mgDownloadClassTemplate()">Download CSV template</button>
-      <label class="btn primary mg-upload">Upload filled file<input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="mgClassBulkUpload(this.files)"></label>
-    </div>
+  html+=`<details class="mg-details mg-sub"><summary>Bulk import — how it works</summary>
+    <p class="muted mg-note">Use <b>Upload CSV</b> above to import a table with one row per lesson and these columns: <b>Class, Day, Period, Subject, Teacher</b> (grab the layout from <b>Blank template</b>). Teachers are matched by <b>name</b> to your existing list, so add them under <b>Teachers</b> first. Period is the number (1–${PERIODS}). It handles many classes in one file, and importing a class <b>replaces</b> that class everywhere in the schedule. A <b>.csv</b> or <b>.xlsx</b> both work.</p>
   </details>`;
   html+=`</section>`;
 
@@ -1706,21 +1716,23 @@ function classTTList(){
   return [...set].sort(classSort);
 }
 function classGridData(C){
-  const map={}; DAYS.forEach(d=>map[d]={});
-  for(const t of TEACHERS){ const days=RAW[t.id]||{}; DAYS.forEach(d=>{ const arr=days[d]||[]; for(let p=1;p<=PERIODS;p++){ const co=cellObj(arr[p-1]); if(co && co.c===C && !map[d][p]) map[d][p]={teacher:t.id, subject: co.s || subjectOf(ent(co.c).act, deptOf(t.id))}; } }); }
+  const map={}; DAYS.forEach(d=>{ map[d]={}; for(let p=1;p<=PERIODS;p++) map[d][p]=[]; });
+  for(const t of TEACHERS){ const days=RAW[t.id]||{}; DAYS.forEach(d=>{ const arr=days[d]||[]; for(let p=1;p<=PERIODS;p++){ const co=cellObj(arr[p-1]); if(co && co.c===C) map[d][p].push({teacher:t.id, subject: co.s || subjectOf(ent(co.c).act, deptOf(t.id))}); } }); }
   return map;
 }
 function mgPickClass(c){ MG_CL=c; mountManage(); }
+function clcTeacherOpts(cur){ return `<option value=""${cur?"":" selected"}>— teacher</option>`+TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(t=>`<option value="${esc(t.id)}"${cur===t.id?" selected":""}>${esc(t.name)}</option>`).join(""); }
+function clcSubjOpts(cur){ let o=`<option value=""${cur?"":" selected"}>subject…</option>`+(SUBJECTS||[]).map(s=>`<option${cur===s?" selected":""}>${esc(s)}</option>`).join(""); if(cur&&(SUBJECTS||[]).indexOf(cur)<0) o+=`<option selected>${esc(cur)}</option>`; return o; }
+function clcRowHTML(subject, teacher){ return `<div class="clc-row"><select class="ttc-s clc-s">${clcSubjOpts(subject||"")}</select><select class="ttc-c clc-t">${clcTeacherOpts(teacher||"")}</select><button type="button" class="clc-x" title="Remove this teacher" onclick="clcDelRow(this)">×</button></div>`; }
+function clcAddRow(d,p){ const cell=document.getElementById("clc-cell-"+d+"-"+p); if(!cell) return; const box=cell.querySelector(".clc-rows"); if(box) box.insertAdjacentHTML("beforeend", clcRowHTML("","")); }
+function clcDelRow(btn){ const row=btn.closest(".clc-row"); if(row) row.remove(); }
 function classGridHTML(C){
   const data=classGridData(C);
-  const sorted=TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name));
-  const tOpts=cur=>`<option value=""${cur?"":" selected"}>— teacher</option>`+sorted.map(t=>`<option value="${esc(t.id)}"${cur===t.id?" selected":""}>${esc(t.name)}</option>`).join("");
-  const sOpts=cur=>{ let o=`<option value=""${cur?"":" selected"}>subject…</option>`+(SUBJECTS||[]).map(s=>`<option${cur===s?" selected":""}>${esc(s)}</option>`).join(""); if(cur&&(SUBJECTS||[]).indexOf(cur)<0) o+=`<option selected>${esc(cur)}</option>`; return o; };
   let h=`<div class="tt-grid-wrap"><table class="tt-grid tt-class"><thead><tr><th>Period</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
   for(let p=1;p<=PERIODS;p++){
     if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="ttx">—</td>`).join("")+`</tr>`; }
     h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
-    DAYS.forEach(d=>{ const cell=data[d][p]||{}; h+=`<td class="ttcell"><select class="ttc-s" id="clc-s-${d}-${p}">${sOpts(cell.subject||"")}</select><select class="ttc-c" id="clc-t-${d}-${p}">${tOpts(cell.teacher||"")}</select></td>`; });
+    DAYS.forEach(d=>{ const pairs=data[d][p]||[]; const rows=(pairs.length?pairs:[{teacher:"",subject:""}]).map(x=>clcRowHTML(x.subject||"", x.teacher||"")).join(""); h+=`<td class="ttcell clc-cell" id="clc-cell-${d}-${p}"><div class="clc-rows">${rows}</div><button type="button" class="clc-add" onclick="clcAddRow('${d}',${p})">+ teacher</button></td>`; });
     h+=`</tr>`;
   }
   h+=`</tbody></table></div>`;
@@ -1732,15 +1744,7 @@ function classPreviewHTML(C){
   for(let p=1;p<=PERIODS;p++){
     if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="tv-free">·</td>`).join("")+`</tr>`; }
     h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
-    DAYS.forEach(d=>{
-      const cell=data[d][p];
-      if(!cell){ h+=`<td class="tv-free">·</td>`; return; }
-      const prev=data[d][p-1];
-      const cont = p!==BREAK_AFTER+1 && prev && prev.teacher===cell.teacher && (prev.subject||"")===(cell.subject||"");
-      if(cont){ h+=`<td class="tv-cont"></td>`; return; }
-      const subj=cell.subject||subjectOf(ent(C).act, deptOf(cell.teacher));
-      h+=`<td><b>${esc(subj)}</b><i>${esc(NAME(cell.teacher))}</i></td>`;
-    });
+    DAYS.forEach(d=>{ const pairs=data[d][p]||[]; if(!pairs.length){ h+=`<td class="tv-free">·</td>`; return; } h+=`<td>`+pairs.map((x,i)=>`${i?'<span class="tv-sep"></span>':''}<b>${esc(x.subject||subjectOf(ent(C).act, deptOf(x.teacher)))}</b><i>${esc(NAME(x.teacher))}</i>`).join("")+`</td>`; });
     h+=`</tr>`;
   }
   h+=`</tbody></table></div>`;
@@ -1754,8 +1758,10 @@ function clApply(C, plan){
 }
 async function mgSaveClassGrid(C){
   if(!C) return;
-  const plan=[];
-  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ const tv=(gv("clc-t-"+d+"-"+p)||"").trim(); const sv=(gv("clc-s-"+d+"-"+p)||"").trim(); if(tv) plan.push({day:d,period:p,teacher:tv,subject:sv}); } });
+  let plan=[];
+  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ const cell=document.getElementById("clc-cell-"+d+"-"+p); if(!cell) continue; cell.querySelectorAll(".clc-row").forEach(r=>{ const sEl=r.querySelector(".clc-s"), tEl=r.querySelector(".clc-t"); const tv=(tEl&&tEl.value||"").trim(); const sv=(sEl&&sEl.value||"").trim(); if(tv) plan.push({day:d,period:p,teacher:tv,subject:sv}); }); } });
+  // a teacher can only hold one class in a given slot — if listed twice in a cell, keep the last
+  const seen={}, dedup=[]; for(let i=plan.length-1;i>=0;i--){ const k=plan[i].teacher+"|"+plan[i].day+"|"+plan[i].period; if(seen[k])continue; seen[k]=1; dedup.unshift(plan[i]); } plan=dedup;
   const conflicts=[];
   plan.forEach(a=>{ const co=cellObj(((RAW[a.teacher]||{})[a.day]||[])[a.period-1]); if(co && co.c!==C) conflicts.push(Object.assign({},a,{existing:co.c})); });
   if(conflicts.length){
@@ -1781,6 +1787,13 @@ function classBulkTemplateCSV(){
   return toCSV([["Class","Day","Period","Subject","Teacher"],[c,"Monday","1","Science",sample],[c,"Monday","2","Mathematics",sample],[c,"Tuesday","1","English",sample]]);
 }
 function mgDownloadClassTemplate(){ downloadCSV("class_timetable_template.csv", classBulkTemplateCSV()); }
+function classTimetableCSV(C){
+  const data=classGridData(C);
+  const rows=[["Class","Day","Period","Subject","Teacher"]];
+  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ (data[d][p]||[]).forEach(x=>rows.push([C,d,String(p), x.subject||subjectOf(ent(C).act, deptOf(x.teacher)), NAME(x.teacher)])); } });
+  return toCSV(rows);
+}
+function mgDownloadClass(){ if(!MG_CL) return; downloadCSV("class_"+MG_CL+"_timetable.csv", classTimetableCSV(MG_CL)); }
 function applyClassBulk(rows){
   rows=(rows||[]).filter(r=>Array.isArray(r) && r.some(c=>String(c).trim()!==""));
   if(!rows.length){ toast("That file looks empty","⚠"); return; }
