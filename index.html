@@ -1311,6 +1311,7 @@ function exportCSV(){
 /* ---------- Admin (management) view ---------- */
 let TF={id:null,name:"",email:"",dept:"",role:"teacher"};
 let MG_TT=null;
+let MG_CL=null;
 
 function mountManage(){
   if(!MG_TT && TEACHERS[0]) MG_TT=TEACHERS[0].id;
@@ -1376,6 +1377,31 @@ function mountManage(){
     <div class="mg-actions">
       <button class="btn" onclick="mgDownloadBulkTemplate()">Download Excel template</button>
       <label class="btn primary mg-upload">Upload filled file<input type="file" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="mgBulkUpload(this.files)"></label>
+    </div>
+  </details>`;
+  html+=`</section>`;
+
+  // ===== Class timetables (writes into the same shared teacher schedules) =====
+  const clList=classTTList();
+  if(MG_CL && clList.indexOf(MG_CL)<0) MG_CL=null;
+  if(!MG_CL && clList[0]) MG_CL=clList[0];
+  html+=`<section class="card"><div class="card-h"><h2>Class timetables</h2>${MG_CL?`<span class="muted">Class ${esc(MG_CL)}</span>`:""}</div>
+    <p class="muted mg-note">Build the timetable <b>by class</b> instead of by teacher. Pick a class, then for each period choose the <b>subject</b> and the <b>teacher</b> who takes it. Saving writes straight into those teachers' own timetables — it's one shared schedule, so they'll see the class for logging. If a teacher is already booked elsewhere at that time, you'll be warned before they're moved.</p>`;
+  if(clList.length){
+    const clSel=clList.map(c=>`<option value="${esc(c)}"${MG_CL===c?" selected":""}>${esc(c)}</option>`).join("");
+    html+=`<div class="field" style="max-width:340px"><label>Class</label><select id="cl-class" onchange="mgPickClass(this.value)">${clSel}</select></div>`;
+    html+=`<div class="tt-sub">Edit — Class ${esc(MG_CL)}</div>`;
+    html+=classGridHTML(MG_CL);
+    html+=`<div class="mg-actions"><button class="btn primary" onclick="mgSaveClassGrid('${esc(MG_CL)}')">Save class timetable</button>
+      <button class="btn danger-btn" onclick="mgClearClassGrid('${esc(MG_CL)}')">Clear this class</button></div>`;
+  } else {
+    html+=`<p class="muted">No classes yet — add classrooms under <b>Rooms, places &amp; subjects</b> first (classes come from there), or bulk-import below.</p>`;
+  }
+  html+=`<details class="mg-details mg-sub"><summary>Bulk import (class timetables)</summary>
+    <p class="muted mg-note">Upload a table with one row per lesson and these columns: <b>Class, Day, Period, Subject, Teacher</b>. Teachers are matched by <b>name</b> to your existing list, so add them under <b>Teachers</b> first. Period is the number (1–${PERIODS}). Importing a class <b>replaces</b> that class everywhere in the schedule. Upload a <b>.csv</b> or <b>.xlsx</b>.</p>
+    <div class="mg-actions">
+      <button class="btn" onclick="mgDownloadClassTemplate()">Download CSV template</button>
+      <label class="btn primary mg-upload">Upload filled file<input type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="mgClassBulkUpload(this.files)"></label>
     </div>
   </details>`;
   html+=`</section>`;
@@ -1670,6 +1696,103 @@ async function mgSaveGrid(id){
   if(unknown.size) setTimeout(()=>toast("Saved. Unknown class(es): "+[...unknown].join(", ")+" — add a room under Rooms & places","⚠"),400);
 }
 async function mgClearGrid(id){ if(!confirm("Clear the entire timetable for "+NAME(id)+"? This removes all classes for every day.")) return; RAW[id]={}; RAWX[id]={}; await saveTimetableCfg(); mountManage(); }
+
+/* ----- Class-centric timetable (writes into the shared per-teacher schedule) ----- */
+function classTTList(){
+  const set=new Set(CLASSES||[]);
+  Object.values(RAW||{}).forEach(days=>Object.values(days||{}).forEach(arr=>(arr||[]).forEach(cell=>{ const co=cellObj(cell); if(co && !/^(SDP:|Lib:|libJ:)/i.test(co.c)) set.add(co.c); })));
+  return [...set].sort(classSort);
+}
+function classGridData(C){
+  const map={}; DAYS.forEach(d=>map[d]={});
+  for(const t of TEACHERS){ const days=RAW[t.id]||{}; DAYS.forEach(d=>{ const arr=days[d]||[]; for(let p=1;p<=PERIODS;p++){ const co=cellObj(arr[p-1]); if(co && co.c===C && !map[d][p]) map[d][p]={teacher:t.id, subject: co.s || subjectOf(ent(co.c).act, deptOf(t.id))}; } }); }
+  return map;
+}
+function mgPickClass(c){ MG_CL=c; mountManage(); }
+function classGridHTML(C){
+  const data=classGridData(C);
+  const sorted=TEACHERS.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  const tOpts=cur=>`<option value=""${cur?"":" selected"}>— teacher</option>`+sorted.map(t=>`<option value="${esc(t.id)}"${cur===t.id?" selected":""}>${esc(t.name)}</option>`).join("");
+  const sOpts=cur=>{ let o=`<option value=""${cur?"":" selected"}>subject…</option>`+(SUBJECTS||[]).map(s=>`<option${cur===s?" selected":""}>${esc(s)}</option>`).join(""); if(cur&&(SUBJECTS||[]).indexOf(cur)<0) o+=`<option selected>${esc(cur)}</option>`; return o; };
+  let h=`<div class="tt-grid-wrap"><table class="tt-grid tt-class"><thead><tr><th>Period</th>`+DAYS.map(d=>`<th>${d.slice(0,3)}</th>`).join("")+`</tr></thead><tbody>`;
+  for(let p=1;p<=PERIODS;p++){
+    if(p===BREAK_AFTER+1){ h+=`<tr class="fxrow"><th>${esc((BELLCFG.brk&&BELLCFG.brk.r)||"Break")}<small>${esc(BREAK_TIME)}</small></th>`+DAYS.map(()=>`<td class="ttx">—</td>`).join("")+`</tr>`; }
+    h+=`<tr><th>${esc(periodLabel(p))}<small>${esc(periodTime(p))}</small></th>`;
+    DAYS.forEach(d=>{ const cell=data[d][p]||{}; h+=`<td class="ttcell"><select class="ttc-s" id="clc-s-${d}-${p}">${sOpts(cell.subject||"")}</select><select class="ttc-c" id="clc-t-${d}-${p}">${tOpts(cell.teacher||"")}</select></td>`; });
+    h+=`</tr>`;
+  }
+  h+=`</tbody></table></div>`;
+  return h;
+}
+function clRemoveClass(C){
+  Object.keys(RAW).forEach(tid=>{ const days=RAW[tid]||{}; DAYS.forEach(d=>{ const arr=days[d]; if(!Array.isArray(arr)) return; for(let i=0;i<arr.length;i++){ const co=cellObj(arr[i]); if(co && co.c===C) arr[i]=""; } while(arr.length && !arr[arr.length-1]) arr.pop(); if(!arr.length) delete days[d]; }); });
+}
+function clApply(C, plan){
+  plan.forEach(a=>{ if(!RAW[a.teacher]) RAW[a.teacher]={}; if(!Array.isArray(RAW[a.teacher][a.day])) RAW[a.teacher][a.day]=[]; const arr=RAW[a.teacher][a.day]; while(arr.length < a.period) arr.push(""); arr[a.period-1]= a.subject ? {c:C, s:a.subject} : C; });
+}
+async function mgSaveClassGrid(C){
+  if(!C) return;
+  const plan=[];
+  DAYS.forEach(d=>{ for(let p=1;p<=PERIODS;p++){ const tv=(gv("clc-t-"+d+"-"+p)||"").trim(); const sv=(gv("clc-s-"+d+"-"+p)||"").trim(); if(tv) plan.push({day:d,period:p,teacher:tv,subject:sv}); } });
+  const conflicts=[];
+  plan.forEach(a=>{ const co=cellObj(((RAW[a.teacher]||{})[a.day]||[])[a.period-1]); if(co && co.c!==C) conflicts.push(Object.assign({},a,{existing:co.c})); });
+  if(conflicts.length){
+    const lines=conflicts.slice(0,10).map(c=>"• "+NAME(c.teacher)+" — "+c.day.slice(0,3)+" "+periodLabel(c.period)+": currently "+(ent(c.existing).label||c.existing)).join("\n");
+    const more=conflicts.length>10?("\n…and "+(conflicts.length-10)+" more"):"";
+    if(!confirm("Some teachers are already booked at these times with a different class. Saving moves them to "+C+" and removes them from the other class there:\n\n"+lines+more+"\n\nContinue?")) return;
+  }
+  clRemoveClass(C); clApply(C, plan);
+  const ok=await saveTimetableCfg();
+  mountManage();
+  if(ok && ROOMS[C]===undefined) setTimeout(()=>toast("Saved. No room set for "+C+" — add one under Rooms, places & subjects",""),450);
+}
+async function mgClearClassGrid(C){
+  if(!C) return;
+  if(!confirm("Remove Class "+C+" from every teacher's timetable? This clears all of "+C+"'s periods.")) return;
+  clRemoveClass(C);
+  await saveTimetableCfg();
+  mountManage();
+}
+function classBulkTemplateCSV(){
+  const sample=(TEACHERS[0]&&TEACHERS[0].name)||"Mr. John Doe";
+  const c=(classTTList()[0])||"7A";
+  return toCSV([["Class","Day","Period","Subject","Teacher"],[c,"Monday","1","Science",sample],[c,"Monday","2","Mathematics",sample],[c,"Tuesday","1","English",sample]]);
+}
+function mgDownloadClassTemplate(){ downloadCSV("class_timetable_template.csv", classBulkTemplateCSV()); }
+function applyClassBulk(rows){
+  rows=(rows||[]).filter(r=>Array.isArray(r) && r.some(c=>String(c).trim()!==""));
+  if(!rows.length){ toast("That file looks empty","⚠"); return; }
+  const first=rows[0].map(h=>String(h||"").trim().toLowerCase());
+  const hasHeader=/class|period|teacher|subject/i.test(rows[0].join(" "));
+  let ci,di,pi,si,ti,start;
+  if(hasHeader){ start=1; const f=n=>{ let i=first.findIndex(h=>h===n); if(i<0) i=first.findIndex(h=>h.indexOf(n)>=0); return i; }; ci=f("class"); di=f("day"); pi=f("period"); si=f("subject"); ti=f("teacher"); if(ci<0)ci=0; if(di<0)di=1; if(pi<0)pi=2; if(si<0)si=3; if(ti<0)ti=4; }
+  else { start=0; ci=0; di=1; pi=2; si=3; ti=4; }
+  const byClass={}; const unknownT=new Set(); let bad=0, applied=0;
+  for(let r=start;r<rows.length;r++){
+    const row=rows[r]||[];
+    const C=cellIn(String(row[ci]||"").trim());
+    const day=matchDay(row[di]);
+    const per=parseInt(String(row[pi]||"").replace(/[^0-9]/g,""),10);
+    const subj=String((si>=0?row[si]:"")||"").trim();
+    const tname=String(row[ti]||"").trim();
+    if(!C || !day || !(per>=1&&per<=PERIODS) || !tname){ if(row.some(c=>String(c).trim()!=="")) bad++; continue; }
+    const tid=matchTeacher(tname); if(!tid){ unknownT.add(tname); continue; }
+    (byClass[C]=byClass[C]||[]).push({day, period:per, teacher:tid, subject:subj}); applied++;
+  }
+  const classes=Object.keys(byClass);
+  if(!classes.length){ toast(unknownT.size?("No matching teachers: "+[...unknownT].slice(0,5).join(", ")):"No valid rows — check the columns (Class, Day, Period, Subject, Teacher)","⚠"); return; }
+  classes.forEach(C=>{ clRemoveClass(C); clApply(C, byClass[C]); });
+  saveTimetableCfg().then(ok=>{ mountManage(); let msg="Imported "+applied+" lesson(s) across "+classes.length+" class(es)"; const notes=[]; if(unknownT.size) notes.push("unmatched teacher(s): "+[...unknownT].slice(0,4).join(", ")); if(bad) notes.push(bad+" row(s) skipped"); if(notes.length) msg+=" · "+notes.join(" · "); toast(ok?msg:"Couldn't save — admins only / check connection", ok?"✓":"⚠"); });
+}
+function mgClassBulkUpload(files){
+  const f=files&&files[0]; if(!f) return;
+  const name=(f.name||"").toLowerCase();
+  if(name.endsWith(".xlsx")||name.endsWith(".xls")){
+    loadXLSX().then(XLSX=>{ const reader=new FileReader(); reader.onload=()=>{ try{ const wb=XLSX.read(new Uint8Array(reader.result),{type:"array"}); const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:"",blankrows:false}); applyClassBulk(rows); }catch(e){ toast("Couldn't read that Excel file","⚠"); } }; reader.onerror=()=>toast("Couldn't read that file","⚠"); reader.readAsArrayBuffer(f); }).catch(()=>toast("Couldn't load the Excel reader — check your connection","⚠"));
+  } else {
+    const reader=new FileReader(); reader.onload=()=>{ const rows=parseCSV(stripBOM(String(reader.result||""))); applyClassBulk(rows); }; reader.onerror=()=>toast("Couldn't read that file","⚠"); reader.readAsText(f);
+  }
+}
 
 /* bell timings editor */
 function bellEditorHTML(){
