@@ -390,6 +390,41 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .skel-n{ height:30px; width:54px; margin-bottom:9px } .skel-k{ height:11px; width:82px }
 .skel-h{ height:16px; width:150px } .skel-row{ height:34px; margin:9px 0 }
 
+/* Substitution */
+.sub-wrap{display:flex; flex-direction:column; gap:12px; margin-top:6px}
+.sub-card{border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; background:var(--surface); box-shadow:var(--shs)}
+.sub-card-h{display:flex; align-items:center; gap:8px; margin-bottom:4px}
+.sub-absent{flex:1; min-width:0; font-weight:700}
+.sub-x{flex:0 0 auto; border:none; background:transparent; color:#b23b2e; font-size:20px; line-height:1; cursor:pointer; padding:0 4px}
+.sub-x:hover{color:#8f2b20}
+.sub-slot{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 0; border-top:1px solid var(--line)}
+.sub-slot:first-child{border-top:none}
+.sub-per{flex:0 0 auto; font-weight:800; color:var(--blue-d); font-size:12px; min-width:34px}
+.sub-cls{flex:1 1 110px; min-width:0; font-size:13px}
+.sub-arrow{flex:0 0 auto; color:var(--muted)}
+.sub-pick{flex:1 1 150px; min-width:0}
+.sub-assigned{flex:1 1 150px; font-size:13px; font-weight:600}
+.sub-badge{flex:0 0 auto; font-size:11px; font-weight:800; padding:2px 9px; border-radius:999px; letter-spacing:.02em}
+.sub-badge.pending{background:#fdf3e0; color:#a4620d}
+.sub-badge.accepted{background:#e5f4ec; color:var(--ok)}
+.sub-badge.rejected{background:#fdeceb; color:#b23b2e}
+.sub-rreason{flex:1 1 100%; font-size:12px; color:var(--muted); font-style:italic}
+.sub-empty{font-size:13px; color:var(--muted); padding:4px 0}
+.sub-note{font-size:13px; margin:8px 0; padding:8px 10px; border-radius:var(--rs)}
+.sub-note.warn{background:#fdf3e0; color:#8a5a12}
+.sub-add{margin-top:12px}
+.sub-none{margin-top:8px}
+.mysub{margin:0 0 12px; border:1px solid var(--orange); background:#fff8ef; border-radius:var(--r); padding:10px 12px}
+.mysub-h{font-weight:800; color:var(--orange-d); font-size:13px; margin-bottom:4px; letter-spacing:.02em}
+.mysub-row{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:5px 0; border-top:1px solid #f2e3ce}
+.mysub-row:first-of-type{border-top:none}
+.mysub-txt{flex:1 1 140px; min-width:0; font-size:13px}
+.mysub-acts{flex:0 0 auto; display:flex; gap:6px}
+.btn.tiny{padding:4px 10px; font-size:12px; border-radius:8px}
+.btn.tiny.ok{background:var(--blue); color:#fff; border:none}
+.btn.tiny.no{background:#fff; color:#b23b2e; border:1px solid #e3b3ac}
+.linkbtn{border:none; background:transparent; color:var(--blue); font-size:12px; text-decoration:underline; cursor:pointer; padding:0 2px}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important }
 }
@@ -408,6 +443,7 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
     <div class="tabs" id="tabs" role="tablist" hidden>
       <button class="tab" id="tab-teacher" role="tab" aria-selected="true" onclick="setMode('teacher')">Log a class</button>
       <button class="tab" id="tab-admin" role="tab" aria-selected="false" onclick="setMode('admin')">Dashboard</button>
+      <button class="tab" id="tab-sub" role="tab" aria-selected="false" hidden onclick="setMode('sub')">Substitution</button>
       <button class="tab" id="tab-manage" role="tab" aria-selected="false" hidden onclick="setMode('manage')">Admin</button>
     </div>
   </div>
@@ -465,6 +501,7 @@ let TEACHERS = DEFAULT_TEACHERS.map(t=>Object.assign({},t));
 let RAW = JSON.parse(JSON.stringify(DEFAULT_RAW));
 let RAWX = {};
 let CLASSSUBJ = {};
+let SUBDUTY = "";
 let DEPTS = [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))];
 let SCHEDULE={}, CLASSES=[], DEPARTMENTS=[];
 
@@ -520,6 +557,8 @@ const ROLE_LABEL={teacher:"Teacher — own classes only", hod:"HOD — sees own 
 const ROLE_SHORT={teacher:"Teacher", hod:"HOD", leader:"Leader", admin:"Admin"};
 function roleOf(t){ if(!t) return "teacher"; if(t.role && ROLES.includes(t.role)) return t.role; if(t.admin===true) return "admin"; return "teacher"; }
 function canSeeDashboard(){ if(state.role==="admin"||state.role==="leader"||state.role==="hod") return true; return !!state.myTeacherId; }
+function canSeeSub(){ return state.isAdmin || state.role==="leader" || (!!state.dept && state.dept===SUBDUTY); }
+function canEditSub(){ return state.isAdmin || state.role==="leader"; }
 function rebuildDerived(){
   applyBell();
   CLASSES=Object.keys(ROOMS).sort(classSort);
@@ -596,6 +635,7 @@ async function loadAppConfig(){
   SUBJECTS = pArr(v["cfg:subjects"]) || (seed ? DEFAULT_SUBJECTS.slice() : []);
   let bell=null; try{ const b=JSON.parse(v["cfg:bell"]); if(validBell(b)) bell=b; }catch(e){}
   BELLCFG  = bell || JSON.parse(JSON.stringify(DEFAULT_BELL));
+  try{ SUBDUTY = (await apiGet("sub:duty")) || ""; }catch(e){ SUBDUTY=""; }
   rebuildDerived();
   lastCfgSync=Date.now();
 }
@@ -768,25 +808,29 @@ function showApp(){
   const top=document.querySelector(".top"); if(top) top.style.display="";
   document.getElementById("tabs").hidden=false;
   const dash=document.getElementById("tab-admin"); if(dash) dash.hidden=!canSeeDashboard();
+  const st=document.getElementById("tab-sub"); if(st) st.hidden=!canSeeSub();
   const mt=document.getElementById("tab-manage"); if(mt) mt.hidden=!state.isAdmin;
   if(state.mode==="manage" && !state.isAdmin) state.mode="teacher";
+  if(state.mode==="sub" && !canSeeSub()) state.mode="teacher";
   if(state.mode==="admin" && !canSeeDashboard()) state.mode="teacher";
   renderUser(); mountView();
 }
 
 async function setMode(m){
   if(m==="manage" && !state.isAdmin) m="teacher";
+  if(m==="sub" && !canSeeSub()) m="teacher";
   if(m==="admin" && !canSeeDashboard()) m="teacher";
   state.mode=m;
   document.getElementById("tab-teacher").setAttribute("aria-selected",m==="teacher");
   document.getElementById("tab-admin").setAttribute("aria-selected",m==="admin");
+  const ts=document.getElementById("tab-sub"); if(ts) ts.setAttribute("aria-selected",m==="sub");
   const tm=document.getElementById("tab-manage"); if(tm) tm.setAttribute("aria-selected",m==="manage");
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
   await flushTeacherSave();
   await syncConfig(false);
   mountView();
 }
-function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="manage"){ if(!state.isAdmin){ state.mode="teacher"; return mountTeacher(); } return mountManage(); } if(state.mode==="teacher")mountTeacher(); else mountAdmin(); }
+function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="manage"){ if(!state.isAdmin){ state.mode="teacher"; return mountTeacher(); } return mountManage(); } if(state.mode==="sub"){ if(!canSeeSub()){ state.mode="teacher"; return mountTeacher(); } return mountSub(); } if(state.mode==="teacher")mountTeacher(); else mountAdmin(); }
 
 /* ---------- Teacher view ---------- */
 async function mountTeacher(){
@@ -829,10 +873,17 @@ function showTeacherPrompt(){
 }
 async function onTeacher(id){ await flushTeacherSave(); state.teacherId=id; await store.set("device:lastTeacher",id,false); await loadTeacher(); }
 function updateDateCap(){ const el=document.getElementById("dcap"); if(el)el.textContent=dayName(state.date)+" · "+niceDate(state.date); const inp=document.getElementById("dpick"); if(inp)inp.value=state.date; }
-async function pickDate(v){ if(!v)return; const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(v))); if(state.teacherId && !sameWk) await flushTeacherSave(); state.date=v; updateDateCap(); if(!state.teacherId){ return; } if(sameWk){ dayEnter=true; renderDay(); } else { await loadTeacher(); } }
-async function dayStep(n){ const nv=ymd(addDays(parseYmd(state.date),n)); const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(nv))); if(state.teacherId && !sameWk) await flushTeacherSave(); state.date=nv; updateDateCap(); if(!state.teacherId) return; if(sameWk){ dayEnter=true; renderDay(); } else { await loadTeacher(); } }
+async function pickDate(v){ if(!v)return; const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(v))); if(state.teacherId && !sameWk) await flushTeacherSave(); state.date=v; updateDateCap(); if(!state.teacherId){ return; } if(sameWk){ await showDay(); } else { await loadTeacher(); } }
+async function dayStep(n){ const nv=ymd(addDays(parseYmd(state.date),n)); const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(nv))); if(state.teacherId && !sameWk) await flushTeacherSave(); state.date=nv; updateDateCap(); if(!state.teacherId) return; if(sameWk){ await showDay(); } else { await loadTeacher(); } }
 let dayEnter=false;
-async function loadTeacher(){ const raw=await store.get(wkey(curWeek(),state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; dayEnter=true; renderDay(); }
+async function loadTeacher(){ const raw=await store.get(wkey(curWeek(),state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; await showDay(); }
+async function showDay(){ dayEnter=true; await loadSubForDay(); renderDay(); }
+async function loadSubForDay(){
+  const d=state.date; let sched=null, resp=null;
+  try{ const s=await apiGet("sub:"+d); sched=s?JSON.parse(s):null; }catch(e){}
+  try{ const r=await apiGet("subresp:"+d); resp=r?JSON.parse(r):null; }catch(e){}
+  state.mySubDay={ date:d, sched:(sched&&Array.isArray(sched.rows))?sched:null, resp:(resp&&typeof resp==="object")?resp:{} };
+}
 function updateProg(){
   const pill=document.getElementById("prog"); if(!pill)return;
   const id=state.teacherId, dName=dayName(state.date);
@@ -884,7 +935,7 @@ function renderDay(){
   const isSelf = !!state.myTeacherId && state.teacherId===state.myTeacherId;
   const syncBtn = isSelf ? `<button class="daytool-btn" onclick="syncWeekToCalendar()">Sync to Calendar</button>` : "";
   const unsyncBtn = isSelf ? `<button class="daytool-btn" onclick="removeWeekFromCalendar()">Remove from Calendar</button>` : "";
-  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span><span class="day-tools">${syncBtn}${unsyncBtn}${planBtn}</span></div><div class="rows">`;
+  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span><span class="day-tools">${syncBtn}${unsyncBtn}${planBtn}</span></div>${mySubsHTML()}<div class="rows">`;
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
       if(s.type==="break"){
@@ -1159,6 +1210,136 @@ async function saveTeacher(){
 }
 async function flushTeacherSave(){ if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; if(state.teacherId){ try{ await saveTeacher(); }catch(e){} } } }
 async function syncConfig(force){ if(!state.user) return; const now=Date.now(); if(!force && now-lastCfgSync<10000) return; try{ await loadAppConfig(); }catch(e){} }
+
+/* ---------- Substitution ---------- */
+let subState={ date:null, dept:"", rows:[], resp:{} };
+let subSaveTimer=null;
+function subDeptList(){ return (DEPARTMENTS&&DEPARTMENTS.length)?DEPARTMENTS.slice():(DEPTS||[]).slice(); }
+function subBusyAt(tid, day, period){ const list=(SCHEDULE[tid]&&SCHEDULE[tid][day])||[]; return list.some(e=> (e.period||0)<=period && period<=((e.periodEnd||e.period)||0)); }
+function absentDaySlots(absentId, day){
+  const out=[]; const list=(SCHEDULE[absentId]&&SCHEDULE[absentId][day])||[];
+  for(let p=1;p<=PERIODS;p++){
+    const e=list.find(x=> (x.period||0)<=p && p<=((x.periodEnd||x.period)||0));
+    if(!e) continue;
+    const code = e.act==="SDP" ? ("SDP"+(e.group&&e.group.length?(" "+e.group.join(",")):"")) : (e.code||e.act||"");
+    out.push({ period:p, code, subject:e.subject||"", act:e.act });
+  }
+  return out;
+}
+function freeSubsFor(day, period, dutyDept, absentSet, taken){
+  return TEACHERS.filter(t=> t.dept===dutyDept && !subBusyAt(t.id,day,period) && !absentSet.has(t.id) && !(taken&&taken.has(t.id))).map(t=>t.id);
+}
+function subAbsentOptions(cur, used){
+  let o=`<option value=""${cur?"":" selected"}>Absent teacher…</option>`;
+  TEACHERS.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).forEach(t=>{ if(t.id!==cur && used.has(t.id)) return; o+=`<option value="${esc(t.id)}"${t.id===cur?" selected":""}>${esc(t.name)}${t.dept?(" · "+esc(t.dept)):""}</option>`; });
+  return o;
+}
+function subFreeOptions(cur, free){
+  let o=`<option value=""${cur?"":" selected"}>— free teacher —</option>`;
+  const ids=free.slice(); const notFree = cur && ids.indexOf(cur)<0; if(notFree) ids.unshift(cur);
+  ids.forEach(id=>{ o+=`<option value="${esc(id)}"${id===cur?" selected":""}>${esc(NAME(id))}${(id===cur&&notFree)?" (busy)":""}</option>`; });
+  return o;
+}
+async function loadSub(date){
+  subState.date=date;
+  let sched=null, resp=null;
+  try{ const s=await apiGet("sub:"+date); sched=s?JSON.parse(s):null; }catch(e){}
+  try{ const r=await apiGet("subresp:"+date); resp=r?JSON.parse(r):null; }catch(e){}
+  subState.rows = (sched&&Array.isArray(sched.rows))?sched.rows:[];
+  subState.dept = (sched&&sched.dept) || SUBDUTY || (canEditSub()?(subDeptList()[0]||""):(state.dept||"")) || "";
+  subState.resp = (resp&&typeof resp==="object")?resp:{};
+}
+async function mountSub(){ if(!subState.date) subState.date=ymd(new Date()); await loadSub(subState.date); renderSub(); }
+function subCardHTML(row,i,day,dutyDept,absentSet,ro){
+  const absentOpts=subAbsentOptions(row.absent, absentSet);
+  let slots="";
+  if(row.absent){
+    const list=absentDaySlots(row.absent, day);
+    if(!list.length){ slots=`<div class="sub-empty">No classes for ${esc(NAME(row.absent))} on ${esc(day)}.</div>`; }
+    else list.forEach(sl=>{
+      const p=sl.period;
+      const taken=new Set(); (subState.rows||[]).forEach((r2,j)=>{ if(j===i) return; const a=r2.subs&&r2.subs[p]; if(a) taken.add(a); });
+      const cur=(row.subs&&row.subs[p])||"";
+      const free=freeSubsFor(day,p,dutyDept,absentSet,taken);
+      const picker = ro ? `<span class="sub-assigned">${cur?esc(NAME(cur)):`<span class="muted">— none —</span>`}</span>`
+                        : `<select class="sub-pick" onchange="subSetSub(${i},${p},this.value)">${subFreeOptions(cur,free)}</select>`;
+      let badge="";
+      if(cur){ const st=subState.resp&&subState.resp[cur+"|"+p]; const s=st?st.s:"pending"; badge=`<span class="sub-badge ${s}">${s==="accepted"?"Accepted":s==="rejected"?"Rejected":"Pending"}</span>`; if(s==="rejected"&&st&&st.r) badge+=`<span class="sub-rreason" title="${esc(st.r)}">“${esc(st.r)}”</span>`; }
+      slots+=`<div class="sub-slot"><span class="sub-per">${esc(periodLabel(p))}</span><span class="sub-cls"><b>${esc(sl.code)}</b>${sl.subject?` <span class="muted">${esc(sl.subject)}</span>`:""}</span><span class="sub-arrow">→</span>${picker}${badge}</div>`;
+    });
+  } else { slots=`<div class="sub-empty">Choose the absent teacher to see their periods.</div>`; }
+  return `<div class="sub-card"><div class="sub-card-h"><select class="sub-absent" ${ro?"disabled":""} onchange="subSetAbsent(${i},this.value)">${absentOpts}</select>${ro?"":`<button class="sub-x" title="Remove" onclick="subRemoveAbsent(${i})">×</button>`}</div><div class="sub-slots">${slots}</div></div>`;
+}
+function renderSub(){
+  const day=dayName(subState.date); const isWeekday=DAYS.indexOf(day)>=0;
+  const ro=!canEditSub(); const dutyDept=subState.dept||"";
+  let deptCtl;
+  if(canEditSub()){
+    const opts=subDeptList().map(d=>`<option value="${esc(d)}"${d===dutyDept?" selected":""}>${esc(d)}</option>`).join("");
+    deptCtl=`<label for="subdept">Department on duty</label><select id="subdept" onchange="subSetDept(this.value)"><option value=""${dutyDept?"":" selected"} disabled>Select department…</option>${opts}</select>`;
+  } else { deptCtl=`<label>Department on duty</label><div class="who-fixed">${esc(dutyDept||"—")}</div>`; }
+  const absentSet=new Set((subState.rows||[]).map(r=>r.absent).filter(Boolean));
+  let cards=""; (subState.rows||[]).forEach((row,i)=>{ cards+=subCardHTML(row,i,day,dutyDept,absentSet,ro); });
+  if(!(subState.rows||[]).length){ cards=`<div class="prompt sub-none"><b>No substitutions yet</b>${ro?"When the department on duty adds substitutions, they’ll appear here.":"Tap “Add absent teacher” to start building the list for this day."}</div>`; }
+  const addBtn = ro?"":`<button class="btn subadd-btn" onclick="subAddAbsent()">+ Add absent teacher</button>`;
+  const dutyWarn = (!ro && !dutyDept) ? `<div class="sub-note warn">Pick the department on duty to list free teachers.</div>` : "";
+  const dayWarn = isWeekday?"":`<div class="sub-note warn">${esc(day)} isn’t a teaching day.</div>`;
+  view().innerHTML=`
+    <div class="ctl">
+      <div class="field" style="min-width:220px">${deptCtl}</div>
+      <div class="field"><label for="subdate">Date</label>
+        <div class="wkpick">
+          <button class="wkarrow" aria-label="Previous day" onclick="subDayStep(-1)">‹</button>
+          <input type="date" id="subdate" value="${subState.date}" onchange="subPickDate(this.value)">
+          <button class="wkarrow" aria-label="Next day" onclick="subDayStep(1)">›</button>
+        </div>
+        <span class="wkcap">${esc(day)} · ${esc(niceDate(subState.date))}</span>
+      </div>
+    </div>
+    ${dutyWarn}${dayWarn}
+    <div class="sub-wrap">${cards}</div>
+    <div class="sub-add">${addBtn}</div>`;
+}
+function subSetDept(d){ if(!canEditSub()) return; subState.dept=d; renderSub(); scheduleSubSave(); if(d && d!==SUBDUTY){ SUBDUTY=d; apiSet("sub:duty", d); } }
+function subAddAbsent(){ if(!canEditSub()) return; subState.rows=subState.rows||[]; subState.rows.push({absent:"",subs:{}}); renderSub(); }
+function subRemoveAbsent(i){ if(!canEditSub()) return; subState.rows.splice(i,1); renderSub(); scheduleSubSave(); }
+function subSetAbsent(i,tid){ if(!canEditSub()) return; subState.rows[i].absent=tid; subState.rows[i].subs={}; renderSub(); scheduleSubSave(); }
+function subSetSub(i,p,tid){ if(!canEditSub()) return; if(!subState.rows[i].subs) subState.rows[i].subs={}; if(tid) subState.rows[i].subs[p]=tid; else delete subState.rows[i].subs[p]; renderSub(); scheduleSubSave(); }
+function scheduleSubSave(){ clearTimeout(subSaveTimer); subSaveTimer=setTimeout(saveSubSched,500); }
+async function saveSubSched(){ if(!canEditSub()) return; const rows=(subState.rows||[]).filter(r=>r.absent); const blob={ dept:subState.dept||"", rows }; const ok=await apiSet("sub:"+subState.date, JSON.stringify(blob)); toast(ok?"Substitution saved":"Couldn't save — admins & leaders only", ok?"✓":"⚠"); }
+async function subDayStep(n){ subState.date=ymd(addDays(parseYmd(subState.date),n)); await loadSub(subState.date); renderSub(); }
+async function subPickDate(v){ if(!v) return; subState.date=v; await loadSub(subState.date); renderSub(); }
+
+/* substitution duties shown on the teacher's own Log a class page */
+function mySubsHTML(){
+  const sd=state.mySubDay; if(!sd || sd.date!==state.date || !sd.sched) return "";
+  const day=dayName(state.date), meId=state.teacherId; if(!meId) return "";
+  const items=[];
+  (sd.sched.rows||[]).forEach(row=>{ if(!row.absent||!row.subs) return; Object.keys(row.subs).forEach(p=>{ if(row.subs[p]!==meId) return; const period=parseInt(p,10); const sl=absentDaySlots(row.absent, day).find(x=>x.period===period); const cls=sl?(sl.code+(sl.subject?(" · "+sl.subject):"")):""; const st=(sd.resp&&sd.resp[meId+"|"+p])||null; items.push({ period, absent:row.absent, cls, s:st?st.s:"pending", reason:st?st.r:"" }); }); });
+  if(!items.length) return "";
+  items.sort((a,b)=>a.period-b.period);
+  const canAct = state.myTeacherId && state.teacherId===state.myTeacherId;
+  let rows="";
+  items.forEach(it=>{
+    let action="";
+    if(it.s==="accepted"){ action=`<span class="sub-badge accepted">Accepted</span>`+(canAct?` <button class="linkbtn" onclick="subRespond(${it.period},'rejected')">change</button>`:""); }
+    else if(it.s==="rejected"){ action=`<span class="sub-badge rejected">Rejected</span>`+(it.reason?`<span class="sub-rreason">“${esc(it.reason)}”</span>`:"")+(canAct?` <button class="linkbtn" onclick="subRespond(${it.period},'accepted')">accept instead</button>`:""); }
+    else { action = canAct ? `<span class="mysub-acts"><button class="btn tiny ok" onclick="subRespond(${it.period},'accepted')">Accept</button><button class="btn tiny no" onclick="subRespond(${it.period},'rejected')">Reject</button></span>` : `<span class="sub-badge pending">Pending</span>`; }
+    rows+=`<div class="mysub-row"><span class="sub-per">${esc(periodLabel(it.period))}</span><span class="mysub-txt">Cover <b>${esc(it.cls||"class")}</b> for <b>${esc(NAME(it.absent))}</b></span>${action}</div>`;
+  });
+  return `<div class="mysub"><div class="mysub-h">Substitution ${items.length>1?"duties":"duty"} today</div>${rows}</div>`;
+}
+async function subRespond(period, status){
+  const meId=state.myTeacherId; if(!meId || state.teacherId!==meId) return;
+  let reason="";
+  if(status==="rejected"){ reason=(prompt("Reason for rejecting this substitution (required):")||"").trim(); if(!reason){ toast("A reason is required to reject","⚠"); return; } }
+  const d=state.date;
+  let resp={}; try{ const r=await apiGet("subresp:"+d); if(r){ const o=JSON.parse(r); if(o&&typeof o==="object") resp=o; } }catch(e){}
+  resp[meId+"|"+period]={ s:status, r:reason, u:new Date().toISOString() };
+  const ok=await apiSet("subresp:"+d, JSON.stringify(resp));
+  if(ok){ state.mySubDay={ date:d, sched:(state.mySubDay&&state.mySubDay.sched)||null, resp }; renderDay(); toast(status==="accepted"?"Accepted":"Rejected","✓"); }
+  else toast("Couldn't save — check connection","⚠");
+}
 
 /* ---------- Admin view ---------- */
 let adminBlobs={};
