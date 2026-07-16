@@ -424,6 +424,10 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .btn.tiny.ok{background:var(--blue); color:#fff; border:none}
 .btn.tiny.no{background:#fff; color:#b23b2e; border:1px solid #e3b3ac}
 .linkbtn{border:none; background:transparent; color:var(--blue); font-size:12px; text-decoration:underline; cursor:pointer; padding:0 2px}
+.absent-toggle.on{background:#fdeceb; color:#b23b2e; border-color:#e3b3ac}
+.absent-banner{margin:0 0 12px; border:1px solid #e3b3ac; background:#fdeceb; color:#8f2b20; border-radius:var(--r); padding:9px 12px; font-size:13px}
+.cnt-absent{color:#b23b2e; font-weight:800}
+.day.absent .rows{opacity:.55}
 
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important }
@@ -926,16 +930,20 @@ function renderDay(){
   const list=(SCHEDULE[id]&&SCHEDULE[id][dName])||[];
   const done=list.filter(e=>((state.blob[dkeyOf(dName,e.slug)]||{}).t||"").trim()).length;
   const dvar=DAYVAR[dName]||"--blue";
-  const cnt=list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend");
+  const absent = !!(state.blob._absent && state.blob._absent[dName]);
+  const cnt = absent ? "marked absent" : (list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend"));
   const allX=(state.blob._x && state.blob._x[dName]) || [];
   const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
   const en = dayEnter; dayEnter=false;
   const canPlan = true; // everyone can set planned topics for their own classes; server still guards who can write which teacher
   const planBtn = canPlan ? `<button class="daytool-btn" onclick="openBulkPlan()">Bulk plan</button>` : "";
   const isSelf = !!state.myTeacherId && state.teacherId===state.myTeacherId;
+  const canMarkAbsent = isSelf || state.isAdmin || state.role==="leader" || state.role==="hod";
   const syncBtn = isSelf ? `<button class="daytool-btn" onclick="syncWeekToCalendar()">Sync to Calendar</button>` : "";
   const unsyncBtn = isSelf ? `<button class="daytool-btn" onclick="removeWeekFromCalendar()">Remove from Calendar</button>` : "";
-  let html=`<section class="day${en?" enter":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt">${cnt}</span><span class="day-tools">${syncBtn}${unsyncBtn}${planBtn}</span></div>${mySubsHTML()}<div class="rows">`;
+  const absentBtn = canMarkAbsent ? `<button class="daytool-btn absent-toggle${absent?" on":""}" onclick="toggleAbsent('${esc(dName)}')">${absent?"Marked absent":"Mark absent"}</button>` : "";
+  const absentBanner = absent ? `<div class="absent-banner"><b>Marked absent</b> for ${esc(dName)} · classes aren’t expected.${canMarkAbsent?` <button class="linkbtn" onclick="toggleAbsent('${esc(dName)}')">Mark present</button>`:""}</div>` : "";
+  let html=`<section class="day${en?" enter":""}${absent?" absent":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt${absent?" cnt-absent":""}">${cnt}</span><span class="day-tools">${absentBtn}${syncBtn}${unsyncBtn}${planBtn}</span></div>${absentBanner}${mySubsHTML()}<div class="rows">`;
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
       if(s.type==="break"){
@@ -1209,6 +1217,14 @@ async function saveTeacher(){
   toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠");
 }
 async function flushTeacherSave(){ if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; if(state.teacherId){ try{ await saveTeacher(); }catch(e){} } } }
+async function toggleAbsent(day){
+  if(!(state.myTeacherId && state.teacherId===state.myTeacherId) && !state.isAdmin && state.role!=="leader" && state.role!=="hod") return;
+  clearTimeout(saveTimer); saveTimer=null;
+  state.blob._absent = state.blob._absent || {};
+  if(state.blob._absent[day]){ delete state.blob._absent[day]; if(!Object.keys(state.blob._absent).length) delete state.blob._absent; }
+  else { state.blob._absent[day] = { u:new Date().toISOString() }; }
+  await saveTeacher(); renderDay();
+}
 async function syncConfig(force){ if(!state.user) return; const now=Date.now(); if(!force && now-lastCfgSync<10000) return; try{ await loadAppConfig(); }catch(e){} }
 
 /* ---------- Substitution ---------- */
