@@ -749,6 +749,7 @@ async function signIn(user){
   renderUser(); showApp();
 }
 async function signOut(){
+  await flushTeacherSave();
   try{ await fetch(API_BASE+"/api/logout",{method:"POST",headers:authHeaders()}); }catch(e){}
   SID=""; prefSet("sid",""); prefSet("session:user","");
   state.user=null; clearCalToken();
@@ -828,8 +829,8 @@ function showTeacherPrompt(){
 }
 async function onTeacher(id){ await flushTeacherSave(); state.teacherId=id; await store.set("device:lastTeacher",id,false); await loadTeacher(); }
 function updateDateCap(){ const el=document.getElementById("dcap"); if(el)el.textContent=dayName(state.date)+" · "+niceDate(state.date); const inp=document.getElementById("dpick"); if(inp)inp.value=state.date; }
-async function pickDate(v){ if(!v)return; const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(v))); state.date=v; updateDateCap(); if(!state.teacherId){ return; } if(sameWk){ dayEnter=true; renderDay(); } else { await flushTeacherSave(); await loadTeacher(); } }
-async function dayStep(n){ const nv=ymd(addDays(parseYmd(state.date),n)); const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(nv))); state.date=nv; updateDateCap(); if(!state.teacherId) return; if(sameWk){ dayEnter=true; renderDay(); } else { await flushTeacherSave(); await loadTeacher(); } }
+async function pickDate(v){ if(!v)return; const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(v))); if(state.teacherId && !sameWk) await flushTeacherSave(); state.date=v; updateDateCap(); if(!state.teacherId){ return; } if(sameWk){ dayEnter=true; renderDay(); } else { await loadTeacher(); } }
+async function dayStep(n){ const nv=ymd(addDays(parseYmd(state.date),n)); const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(nv))); if(state.teacherId && !sameWk) await flushTeacherSave(); state.date=nv; updateDateCap(); if(!state.teacherId) return; if(sameWk){ dayEnter=true; renderDay(); } else { await loadTeacher(); } }
 let dayEnter=false;
 async function loadTeacher(){ const raw=await store.get(wkey(curWeek(),state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; dayEnter=true; renderDay(); }
 function updateProg(){
@@ -962,6 +963,7 @@ function openBulkPlan(){
   back.querySelector(".tt-modal-x").onclick=close;
   back.addEventListener("click",e=>{ if(e.target===back) close(); });
   back.querySelector("#bpSave").onclick=async()=>{
+    clearTimeout(saveTimer); saveTimer=null;
     const rows=[];
     back.querySelectorAll(".bp-grow").forEach(r=>{ rows.push({ grade:r.getAttribute("data-grade"), topic:(r.querySelector(".bp-gtopic").value||"").trim(), weeks:parseInt(r.querySelector(".bp-gweeks").value,10)||1 }); });
     const active=rows.filter(r=>r.topic);
