@@ -446,19 +446,27 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .cal-item.closed .cal-type{color:#b23b2e}
 .cal-name{flex:1 1 auto; min-width:0; font-weight:700; font-size:13.5px}
 .cal-range{flex:0 0 auto; font-size:12px; color:var(--muted)}
-.cal-list{display:flex; flex-direction:column; gap:10px; margin:2px 0 12px}
-.cal-card{position:relative; border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; background:var(--surface); box-shadow:var(--shs)}
-.cal-x{position:absolute; top:6px; right:8px; border:none; background:transparent; color:#b23b2e; font-size:20px; line-height:1; cursor:pointer; padding:0 4px}
-.cal-x:hover{color:#8f2b20}
-.cal-name-in{width:100%; padding-right:28px}
-.cal-row2{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px}
-.cal-type-in{flex:1 1 180px; min-width:0}
-.cal-cls{flex:0 0 auto; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:var(--ink)}
-.cal-cls input{width:16px; height:16px}
-.cal-row3{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px}
-.cal-dl{flex:0 0 auto; font-size:12px; color:var(--muted); font-weight:700}
-.cal-date{flex:1 1 130px; min-width:0}
-.cal-empty{font-size:13px; color:var(--muted); margin:4px 0 12px}
+.cal-head{display:flex; align-items:center; gap:8px; margin:2px 0 10px}
+.cal-title{flex:1; text-align:center; font-weight:800; font-size:15px; color:var(--ink)}
+.cal-todaybtn{flex:0 0 auto; padding:4px 12px; font-size:12px}
+.cal-wdrow{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px}
+.cal-wd{text-align:center; font-size:11px; font-weight:800; color:var(--muted); padding:2px 0}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+.cal-cell{min-height:64px; border:1px solid var(--line); border-radius:10px; background:var(--surface); padding:4px; display:flex; flex-direction:column; gap:2px; cursor:pointer; overflow:hidden}
+.cal-cell.pad{background:transparent; border:none; cursor:default; min-height:0}
+.cal-cell.wknd{background:#f6f8fb}
+.cal-cell.today{border-color:var(--blue); box-shadow:0 0 0 1px var(--blue) inset}
+.cal-cell:hover:not(.pad){border-color:var(--blue)}
+.cal-dnum{font-size:12px; font-weight:800; color:var(--muted)}
+.cal-cell.today .cal-dnum{color:var(--blue-d)}
+.cal-chip{display:block; width:100%; text-align:left; font-size:10.5px; line-height:1.2; font-weight:700; padding:2px 5px; border-radius:6px; border:none; cursor:pointer; background:var(--blue-l); color:var(--blue-d); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.cal-chip.closed{background:#fdeceb; color:#b23b2e}
+.cal-hint{font-size:12px; margin:10px 0 6px}
+.cal-actions{display:flex; gap:10px; flex-wrap:wrap}
+.cal-cls2{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--ink); margin:12px 0 2px}
+.cal-cls2 input{width:16px; height:16px}
+.ce-dates{display:flex; gap:12px; margin-top:2px}
+.ce-dcol{flex:1; min-width:0}
 
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important }
@@ -1502,34 +1510,150 @@ function calBannerHTML(dateStr){
 let calSaveTimer=null;
 function scheduleCalSave(){ clearTimeout(calSaveTimer); calSaveTimer=setTimeout(saveCalendar,600); }
 async function saveCalendar(){ if(!state.isAdmin) return; const clean=(CALENDAR||[]).map(calNorm).filter(Boolean); const ok=await apiSet("cfg:calendar", JSON.stringify(clean)); toast(ok?"Calendar saved":"Couldn't save — admins only", ok?"✓":"⚠"); }
-function calAdd(){ if(!state.isAdmin) return; CALENDAR.push(calNorm({name:"", type:"holiday", start:ymd(new Date()), end:"", noClasses:true})); renderCalEditor(); scheduleCalSave(); }
 function calRemove(i){ if(!state.isAdmin||!CALENDAR[i]) return; CALENDAR.splice(i,1); renderCalEditor(); scheduleCalSave(); }
-function calSetName(i,val){ if(!state.isAdmin||!CALENDAR[i]) return; CALENDAR[i].name=(val||"").slice(0,120); scheduleCalSave(); }
-function calSetType(i,val){ if(!state.isAdmin||!CALENDAR[i]) return; CALENDAR[i].type=CAL_TYPES.some(x=>x.v===val)?val:"other"; CALENDAR[i].noClasses=calClosedDefault(CALENDAR[i].type); renderCalEditor(); scheduleCalSave(); }
-function calSetStart(i,val){ if(!state.isAdmin||!CALENDAR[i]||!/^\d{4}-\d{2}-\d{2}$/.test(val)) return; CALENDAR[i].start=val; if(CALENDAR[i].end && CALENDAR[i].end<val) CALENDAR[i].end=val; scheduleCalSave(); }
-function calSetEnd(i,val){ if(!state.isAdmin||!CALENDAR[i]) return; if(val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) return; CALENDAR[i].end=(val && val>=CALENDAR[i].start)?val:""; scheduleCalSave(); }
-function calSetClosed(i,val){ if(!state.isAdmin||!CALENDAR[i]) return; CALENDAR[i].noClasses=!!val; scheduleCalSave(); }
-function calCardHTML(e,i){
-  const typeOpts=CAL_TYPES.map(t=>`<option value="${t.v}"${e.type===t.v?" selected":""}>${esc(t.label)}</option>`).join("");
-  return `<div class="cal-card">
-    <button class="cal-x" title="Remove" onclick="calRemove(${i})">×</button>
-    <input type="text" class="cal-name-in" placeholder="Name (e.g. Diwali, or Summer Break (AN))" value="${esc(e.name||"")}" oninput="calSetName(${i},this.value)">
-    <div class="cal-row2">
-      <select class="cal-type-in" onchange="calSetType(${i},this.value)">${typeOpts}</select>
-      <label class="cal-cls"><input type="checkbox" ${e.noClasses?"checked":""} onchange="calSetClosed(${i},this.checked)"> No classes</label>
-    </div>
-    <div class="cal-row3">
-      <span class="cal-dl">From</span><input type="date" class="cal-date" value="${esc(e.start||"")}" onchange="calSetStart(${i},this.value)">
-      <span class="cal-dl">to</span><input type="date" class="cal-date" value="${esc(e.end||"")}" onchange="calSetEnd(${i},this.value)">
-    </div>
-  </div>`;
-}
+let calCursor=null;
+function calMonthStart(){ if(!calCursor){ const t=new Date(); calCursor=ymd(new Date(t.getFullYear(),t.getMonth(),1)); } return calCursor; }
+function calPrevMonth(){ const d=parseYmd(calMonthStart()); calCursor=ymd(new Date(d.getFullYear(),d.getMonth()-1,1)); renderCalEditor(); }
+function calNextMonth(){ const d=parseYmd(calMonthStart()); calCursor=ymd(new Date(d.getFullYear(),d.getMonth()+1,1)); renderCalEditor(); }
+function calToday(){ const t=new Date(); calCursor=ymd(new Date(t.getFullYear(),t.getMonth(),1)); renderCalEditor(); }
 function renderCalEditor(){
   const host=document.getElementById("calEditor"); if(!host) return;
-  const entries=(CALENDAR||[]).map((e,i)=>({e,i})).sort((A,B)=>calSortEntries(A.e,B.e));
-  const cards=entries.map(o=>calCardHTML(o.e,o.i)).join("");
-  host.innerHTML = (entries.length ? `<div class="cal-list">${cards}</div>` : `<div class="cal-empty">No entries yet. Add holidays, breaks, exams, PTMs and function days — each shows as a banner on Log a class, and anything marked “No classes” greys out that day’s timetable.</div>`) + `<button class="btn subadd-btn" onclick="calAdd()">+ Add entry</button>`;
+  const first=parseYmd(calMonthStart()); const y=first.getFullYear(), m=first.getMonth();
+  const monthName=first.toLocaleString("en-US",{month:"long",year:"numeric"});
+  const startDow=first.getDay(); const daysInMonth=new Date(y,m+1,0).getDate();
+  const todayY=ymd(new Date());
+  const wd=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  let cells=""; for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell pad"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=ymd(new Date(y,m,d)); const items=calendarFor(ds);
+    const chips=items.map(e=>{ const gi=CALENDAR.indexOf(e); return `<button class="cal-chip${e.noClasses?" closed":""}" onclick="event.stopPropagation();openCalEntry(${gi})" title="${esc(e.name||calTypeLabel(e.type))}">${esc(e.name||calTypeLabel(e.type))}</button>`; }).join("");
+    const dow=new Date(y,m,d).getDay(); const wknd=(dow===0||dow===6);
+    cells+=`<div class="cal-cell${ds===todayY?" today":""}${wknd?" wknd":""}${items.length?" has":""}" onclick="openCalEntry(null,'${ds}')"><span class="cal-dnum">${d}</span>${chips}</div>`;
+  }
+  host.innerHTML=`
+    <div class="cal-head">
+      <button class="wkarrow" aria-label="Previous month" onclick="calPrevMonth()">‹</button>
+      <div class="cal-title">${esc(monthName)}</div>
+      <button class="wkarrow" aria-label="Next month" onclick="calNextMonth()">›</button>
+      <button class="btn cal-todaybtn" onclick="calToday()">Today</button>
+    </div>
+    <div class="cal-wdrow">${wd.map(w=>`<div class="cal-wd">${w}</div>`).join("")}</div>
+    <div class="cal-grid">${cells}</div>
+    <p class="muted cal-hint">Tap a day to add an entry, or tap an entry to edit it.</p>
+    <div class="cal-actions"><button class="btn subadd-btn" onclick="openCalEntry(null,'')">+ Add entry</button><button class="btn ghost" onclick="calLoadAlmanac()">Load 2026–27 almanac</button></div>`;
 }
+function openCalEntry(idx, defDate){
+  if(!state.isAdmin) return;
+  const editing=(idx!=null && CALENDAR[idx]);
+  const e=editing?CALENDAR[idx]:{name:"",type:"holiday",start:(defDate||ymd(new Date())),end:"",noClasses:true};
+  closeCalEntry();
+  const typeOpts=CAL_TYPES.map(t=>`<option value="${t.v}"${e.type===t.v?" selected":""}>${esc(t.label)}</option>`).join("");
+  const back=document.createElement("div"); back.className="tt-modal-back"; back.id="calEntryModal";
+  back.innerHTML=`<div class="tt-modal am-modal">
+    <button class="tt-modal-x" type="button" title="Close">&times;</button>
+    <h4>${editing?"Edit entry":"Add entry"}</h4>
+    <label class="am-lab" for="ce-name">Name</label>
+    <input type="text" id="ce-name" class="am-sel" placeholder="e.g. Diwali, or Summer Break (AN)" value="${esc(e.name||"")}">
+    <label class="am-lab" for="ce-type">Type</label>
+    <select id="ce-type" class="am-sel" onchange="ceType()">${typeOpts}</select>
+    <label class="cal-cls2"><input type="checkbox" id="ce-noclass" ${e.noClasses?"checked":""}> No classes (grey out the timetable)</label>
+    <div class="ce-dates">
+      <div class="ce-dcol"><label class="am-lab" for="ce-start">From</label><input type="date" id="ce-start" class="am-sel" value="${esc(e.start||"")}"></div>
+      <div class="ce-dcol"><label class="am-lab" for="ce-end">To (optional)</label><input type="date" id="ce-end" class="am-sel" value="${esc(e.end||"")}"></div>
+    </div>
+    <div class="tt-modal-btns">${editing?`<button class="btn danger-btn" type="button" id="ceDel">Remove</button>`:""}<button class="btn primary" type="button" id="ceSave">${editing?"Save":"Add"}</button></div>
+  </div>`;
+  document.body.appendChild(back);
+  back.querySelector(".tt-modal-x").onclick=closeCalEntry;
+  back.addEventListener("click",ev=>{ if(ev.target===back) closeCalEntry(); });
+  back.querySelector("#ceSave").onclick=()=>calSaveEntry(editing?idx:null);
+  const del=back.querySelector("#ceDel"); if(del) del.onclick=()=>{ calRemove(idx); closeCalEntry(); };
+  const n=document.getElementById("ce-name"); if(n) n.focus();
+}
+function ceType(){ const t=(document.getElementById("ce-type")||{}).value; const cb=document.getElementById("ce-noclass"); if(cb) cb.checked=calClosedDefault(t); }
+function closeCalEntry(){ const m=document.getElementById("calEntryModal"); if(m){ try{m.remove();}catch(e){} } }
+function calSaveEntry(idx){
+  if(!state.isAdmin) return;
+  const name=((document.getElementById("ce-name")||{}).value||"").trim();
+  const type=(document.getElementById("ce-type")||{}).value||"holiday";
+  const noClasses=!!(document.getElementById("ce-noclass")||{}).checked;
+  const start=(document.getElementById("ce-start")||{}).value||"";
+  let end=(document.getElementById("ce-end")||{}).value||"";
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(start)){ toast("Pick a start date","⚠"); return; }
+  if(end && !/^\d{4}-\d{2}-\d{2}$/.test(end)) end="";
+  if(end && end<start) end=start;
+  const entry=calNorm({name,type,start,end,noClasses}); if(!entry){ toast("Invalid entry","⚠"); return; }
+  if(idx!=null && CALENDAR[idx]) CALENDAR[idx]=entry; else CALENDAR.push(entry);
+  closeCalEntry(); renderCalEditor(); scheduleCalSave();
+}
+function calLoadAlmanac(){
+  if(!state.isAdmin) return;
+  const br=getBranch();
+  if(!confirm("Add the 2026–27 school almanac dates for "+br+"? Dates for other branches are skipped. You can edit or remove anything afterwards, and breaks need their end date set.")) return;
+  let added=0;
+  ALMANAC_2627.filter(a=> !a.br || a.br===br).forEach(a=>{
+    const e=calNorm(a); if(!e) return;
+    const dup=(CALENDAR||[]).some(x=> x.start===e.start && String(x.name||"").toLowerCase()===String(e.name||"").toLowerCase());
+    if(dup) return; CALENDAR.push(e); added++;
+  });
+  renderCalEditor(); if(added) saveCalendar();
+  toast(added?("Added "+added+" dates for "+br):"Almanac already loaded","✓");
+}
+const ALMANAC_2627=[
+  {name:"Good Friday",type:"holiday",start:"2026-04-03"},
+  {name:"Easter",type:"holiday",start:"2026-04-05"},
+  {name:"Ambedkar Jayanti",type:"holiday",start:"2026-04-14"},
+  {name:"Buddha Purnima",type:"holiday",start:"2026-05-01"},
+  {name:"Eid-ul-Zuha",type:"holiday",start:"2026-05-27"},
+  {name:"Muharram",type:"holiday",start:"2026-06-26"},
+  {name:"Independence Day",type:"holiday",start:"2026-08-15"},
+  {name:"Eid-e-Milad",type:"holiday",start:"2026-08-26"},
+  {name:"Raksha Bandhan",type:"holiday",start:"2026-08-28"},
+  {name:"Janmashtami",type:"holiday",start:"2026-09-04"},
+  {name:"Gandhi Jayanti",type:"holiday",start:"2026-10-02"},
+  {name:"Dussehra",type:"holiday",start:"2026-10-19",end:"2026-10-20"},
+  {name:"Valmiki Jayanti",type:"holiday",start:"2026-10-26"},
+  {name:"Diwali",type:"holiday",start:"2026-11-08"},
+  {name:"Bhai Duj",type:"holiday",start:"2026-11-11"},
+  {name:"Guru Nanak Birthday",type:"holiday",start:"2026-11-24"},
+  {name:"Christmas Eve",type:"holiday",start:"2026-12-24"},
+  {name:"Christmas",type:"holiday",start:"2026-12-25"},
+  {name:"New Year's Day",type:"holiday",start:"2027-01-01"},
+  {name:"Republic Day",type:"holiday",start:"2027-01-26"},
+  {name:"Mahashivratri",type:"holiday",start:"2027-03-06"},
+  {name:"Eid-ul-Fitr",type:"holiday",start:"2027-03-10"},
+  {name:"Holi",type:"holiday",start:"2027-03-22"},
+  {name:"Good Friday",type:"holiday",start:"2027-03-26"},
+  {name:"Easter",type:"holiday",start:"2027-03-28"},
+  {name:"Summer Break (Nursery–IX & XI)",type:"break",start:"2026-05-18"},
+  {name:"Summer Break (Classes X & XII)",type:"break",start:"2026-05-30"},
+  {name:"Winter Break",type:"break",start:"2026-12-21"},
+  {name:"Periodic Test (X & XII)",type:"exam",start:"2026-07-06",br:"Anand Niketan"},
+  {name:"Periodic Test (X & XII)",type:"exam",start:"2026-07-27",br:"Dwarka"},
+  {name:"Term I (Classes IV–IX, XI)",type:"exam",start:"2026-09-07"},
+  {name:"Term II (Classes IV–IX, XI)",type:"exam",start:"2027-02-24"},
+  {name:"1st Meeting (all classes)",type:"ptm",start:"2026-05-16"},
+  {name:"Special Meeting (Board classes)",type:"ptm",start:"2026-07-25",br:"Anand Niketan"},
+  {name:"Midterm Result",type:"ptm",start:"2026-09-26",br:"Anand Niketan"},
+  {name:"Pre-Board I Result",type:"ptm",start:"2026-10-31",br:"Anand Niketan"},
+  {name:"Pre-Board I Result",type:"ptm",start:"2026-11-28",br:"Dwarka"},
+  {name:"2nd Meeting & Pre-Board II Result",type:"ptm",start:"2027-01-23",br:"Anand Niketan"},
+  {name:"Annual Result",type:"ptm",start:"2027-03-20"},
+  {name:"Earth Day",type:"function",start:"2026-04-22"},
+  {name:"Founding Day",type:"function",start:"2026-07-10"},
+  {name:"Independence Day Celebration (Juniors)",type:"function",start:"2026-08-13"},
+  {name:"Independence Day Celebration (Seniors)",type:"function",start:"2026-08-14"},
+  {name:"ILC Day",type:"function",start:"2026-08-20",end:"2026-08-22"},
+  {name:"Sports Week – Senior",type:"function",start:"2026-08-29",br:"Anand Niketan"},
+  {name:"Investiture Ceremony",type:"function",start:"2026-10-22",end:"2026-10-24"},
+  {name:"Annual Sports Day",type:"function",start:"2026-11-27",br:"Anand Niketan"},
+  {name:"Annual Sports Day",type:"function",start:"2026-11-26",br:"Dwarka"},
+  {name:"Christmas Party",type:"function",start:"2026-12-11"},
+  {name:"Baccalaureate Service",type:"function",start:"2026-12-18"},
+  {name:"Annual Play – Junior",type:"function",start:"2027-01-30",br:"Anand Niketan"},
+  {name:"Annual Play – Junior",type:"function",start:"2027-02-05",end:"2027-02-06",br:"Dwarka"},
+  {name:"Annual Sports Day – Junior",type:"function",start:"2027-02-13",br:"Dwarka"}
+];
 
 /* ---------- Admin view ---------- */
 let adminBlobs={};
