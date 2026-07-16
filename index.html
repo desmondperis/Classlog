@@ -205,13 +205,11 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .brk-add{margin-left:10px; padding:1px 10px; font-weight:800; font-size:15px; line-height:1.5; border-radius:999px}
 .bp-modal{max-width:520px; max-height:82vh; display:flex; flex-direction:column}
 .bp-list{overflow-y:auto; margin:2px -4px 14px; padding:0 4px}
-.bp-day{font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--blue); margin:12px 0 6px}
-.bp-row{display:flex; align-items:center; gap:10px; padding:5px 0}
-.bp-cls{flex:0 0 40%; font-size:13px; display:flex; align-items:baseline; gap:6px; min-width:0}
-.bp-cls b{color:var(--blue-d)}
-.bp-sub{color:var(--muted); font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.bp-per{margin-left:auto; color:var(--muted); font-size:11px; font-weight:600}
-.bp-row input{flex:1; min-width:0}
+.bp-grow{display:flex; align-items:center; gap:10px; padding:7px 0; border-bottom:1px solid var(--line)}
+.bp-grow:last-child{border-bottom:none}
+.bp-glabel{flex:0 0 84px; font-weight:800; color:var(--blue-d); font-size:13px}
+.bp-gtopic{flex:1; min-width:0}
+.bp-gweeks{flex:0 0 auto}
 .mg-list{display:flex; flex-direction:column}
 .mg-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 2px; border-top:1px solid #eef2f6}
 .mg-row:first-child{border-top:none}
@@ -880,7 +878,7 @@ function renderDay(){
   const allX=(state.blob._x && state.blob._x[dName]) || [];
   const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
   const en = dayEnter; dayEnter=false;
-  const canPlan = (state.role==="hod"||state.role==="admin");
+  const canPlan = true; // everyone can set planned topics for their own classes; server still guards who can write which teacher
   const planBtn = canPlan ? `<button class="daytool-btn" onclick="openBulkPlan()">Bulk plan</button>` : "";
   const isSelf = !!state.myTeacherId && state.teacherId===state.myTeacherId;
   const syncBtn = isSelf ? `<button class="daytool-btn" onclick="syncWeekToCalendar()">Sync to Calendar</button>` : "";
@@ -936,40 +934,56 @@ function renderDay(){
   html+=`</div></section>`;
   host.innerHTML=html; updateProg();
 }
+function gradeOf(code){ const m=String(code||"").match(/^\d+/); return m?m[0]:String(code||""); }
+function gradeLabel(g){ return /^\d+$/.test(g) ? "Class "+g : g; }
 function openBulkPlan(){
   const id=state.teacherId; if(!id){ toast("Pick a teacher first","⚠"); return; }
-  let rowsHtml=""; let any=false;
-  DAYS.forEach(day=>{
-    const list=(SCHEDULE[id]&&SCHEDULE[id][day])||[];
-    if(!list.length) return;
-    rowsHtml+=`<div class="bp-day">${esc(day)}</div>`;
-    list.forEach(e=>{
-      any=true; const dk=dkeyOf(day,e.slug); const p=(state.blob[dk]||{}).p||"";
-      const code = e.act==="SDP" ? "SDP" : e.code;
-      const sub = e.act==="SDP" ? e.group.join(", ") : e.subject;
-      rowsHtml+=`<div class="bp-row"><span class="bp-cls"><b>${esc(code)}</b> <span class="bp-sub">${esc(sub)}</span> <span class="bp-per">${esc(periodLabel(e.period))}</span></span><input type="text" placeholder="Planned topic" value="${esc(p)}" data-dk="${esc(dk)}"></div>`;
-    });
+  // distinct grades this teacher takes (plain V.Ed. classes only; sections merged into their grade)
+  const grades=[]; const firstSlot={};
+  DAYS.forEach(day=>{ ((SCHEDULE[id]&&SCHEDULE[id][day])||[]).forEach(e=>{ if(e.act!=="V.Ed.") return; const g=gradeOf(e.code); if(grades.indexOf(g)<0){ grades.push(g); firstSlot[g]={day,slug:e.slug}; } }); });
+  grades.sort((a,b)=>classSort(a,b));
+  if(!grades.length){ toast("No regular classes this week to plan","⚠"); return; }
+  const curTopic=g=>{ const s=firstSlot[g]; if(!s) return ""; return (state.blob[dkeyOf(s.day,s.slug)]||{}).p||""; };
+  let rowsHtml="";
+  grades.forEach(g=>{
+    const wopts=[1,2,3,4].map(w=>`<option value="${w}">${w} week${w>1?"s":""}</option>`).join("");
+    rowsHtml+=`<div class="bp-grow" data-grade="${esc(g)}"><span class="bp-glabel">${esc(gradeLabel(g))}</span><input type="text" class="bp-gtopic" placeholder="Planned topic" value="${esc(curTopic(g))}"><select class="bp-gweeks">${wopts}</select></div>`;
   });
-  if(!any){ toast("No scheduled classes this week","⚠"); return; }
   const back=document.createElement("div"); back.className="tt-modal-back";
   back.innerHTML=`<div class="tt-modal bp-modal">
     <button class="tt-modal-x" type="button" title="Close">&times;</button>
     <h4>Bulk plan — ${esc(NAME(id))}</h4>
-    <p>Week of ${esc(niceDate(dateOf(curWeek(),"Monday")))}. Set planned topics for the week, then save.</p>
+    <p>Set a topic per class and how many weeks it runs, starting the week of ${esc(niceDate(dateOf(curWeek(),"Monday")))}. The topic applies to every section of that class. Leave a topic blank to skip it.</p>
     <div class="bp-list">${rowsHtml}</div>
-    <div class="tt-modal-btns"><button class="btn primary" type="button" id="bpSave">Save all</button></div>
+    <div class="tt-modal-btns"><button class="btn primary" type="button" id="bpSave">Save plan</button></div>
   </div>`;
   document.body.appendChild(back);
   const close=()=>{ try{back.remove();}catch(e){} };
   back.querySelector(".tt-modal-x").onclick=close;
   back.addEventListener("click",e=>{ if(e.target===back) close(); });
   back.querySelector("#bpSave").onclick=async()=>{
-    back.querySelectorAll("input[data-dk]").forEach(inp=>{
-      const dk=inp.getAttribute("data-dk"), val=inp.value; const rec=state.blob[dk]||{};
-      if(val.trim()){ rec.p=val; rec.u=new Date().toISOString(); state.blob[dk]=rec; }
-      else if(rec.p!==undefined){ delete rec.p; rec.u=new Date().toISOString(); if(!(rec.t||"").trim() && !(rec.r||"").trim()) delete state.blob[dk]; else state.blob[dk]=rec; }
-    });
+    const rows=[];
+    back.querySelectorAll(".bp-grow").forEach(r=>{ rows.push({ grade:r.getAttribute("data-grade"), topic:(r.querySelector(".bp-gtopic").value||"").trim(), weeks:parseInt(r.querySelector(".bp-gweeks").value,10)||1 }); });
+    const active=rows.filter(r=>r.topic);
+    if(!active.length){ close(); return; }
+    // grade -> every {day,slug} the teacher takes for that grade (all sections, all days)
+    const slotsByGrade={}; active.forEach(r=>slotsByGrade[r.grade]=[]);
+    DAYS.forEach(day=>{ ((SCHEDULE[id]&&SCHEDULE[id][day])||[]).forEach(e=>{ if(e.act!=="V.Ed.") return; const g=gradeOf(e.code); if(slotsByGrade[g]) slotsByGrade[g].push({day,slug:e.slug}); }); });
+    const now=new Date().toISOString(); const base=parseYmd(curWeek());
+    const maxWeeks=Math.max.apply(null, active.map(r=>r.weeks));
+    let futFail=false;
+    for(let wk=0; wk<maxWeeks; wk++){
+      const weekMon=ymd(addDays(base, wk*7)); const isCur=(wk===0);
+      let blob;
+      if(isCur){ blob=state.blob; }
+      else { const raw=await apiGet(wkey(weekMon,id)); try{ blob=raw?JSON.parse(raw):{}; }catch(e){ blob={}; } if(!blob||typeof blob!=="object"||Array.isArray(blob)) blob={}; }
+      let changed=false;
+      active.forEach(r=>{ if(wk>=r.weeks) return; (slotsByGrade[r.grade]||[]).forEach(s=>{ const dk=dkeyOf(s.day,s.slug); const rec=blob[dk]||{}; rec.p=r.topic; rec.u=now; blob[dk]=rec; changed=true; }); });
+      if(!isCur && changed){ const ok=await apiSet(wkey(weekMon,id), JSON.stringify(blob)); if(!ok) futFail=true; }
+    }
     close(); renderDay(); await saveTeacher();
+    if(futFail) toast("Saved this week; some later weeks didn't save — check your connection","⚠");
+    else if(maxWeeks>1) toast("Plan saved across "+maxWeeks+" weeks","✓");
   };
 }
 /* ---------- Google Calendar sync (client-side token, primary calendar, idempotent) ---------- */
