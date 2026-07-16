@@ -9,11 +9,12 @@ function json(o, s) {
   return new Response(JSON.stringify(o), { status: s || 200, headers: { "content-type": "application/json" } });
 }
 function isDataKey(k) { return typeof k === "string" && /^w:\d{4}-\d{2}-\d{2}:[a-z0-9]+$/.test(k); }
-function isConfigKey(k) { return typeof k === "string" && /^cfg:(teachers|rooms|schedule|schedulex|depts|places|subjects|bell|classsubj)$/.test(k); }
+function isConfigKey(k) { return typeof k === "string" && /^cfg:(teachers|rooms|schedule|schedulex|depts|places|subjects|bell|classsubj|calendar)$/.test(k); }
 function isSubSched(k) { return typeof k === "string" && /^sub:\d{4}-\d{2}-\d{2}$/.test(k); }
 function isSubResp(k) { return typeof k === "string" && /^subresp:\d{4}-\d{2}-\d{2}$/.test(k); }
+function isAbsent(k) { return typeof k === "string" && /^absent:\d{4}-\d{2}-\d{2}$/.test(k); }
 function isSubDuty(k) { return k === "sub:duty"; }
-function canEditSub(idn) { return idn.role === "admin" || idn.role === "leader"; }
+function canSetDuty(idn) { return idn.role === "admin" || idn.role === "leader"; }
 function tidOfKey(k) { const m = /^w:\d{4}-\d{2}-\d{2}:([a-z0-9]+)$/.exec(k || ""); return m ? m[1] : null; }
 
 // School branches (must match login.js / whoami.js / the client)
@@ -78,7 +79,7 @@ export async function onRequestGet(context) {
     const values = {};
     await Promise.all(keys.map(async (k) => {
       if (isConfigKey(k)) { values[k] = await env.LOG_KV.get(prefix + k); return; }
-      if (isSubSched(k) || isSubResp(k) || isSubDuty(k)) { values[k] = await env.LOG_KV.get(prefix + k); return; }
+      if (isSubSched(k) || isSubResp(k) || isAbsent(k) || isSubDuty(k)) { values[k] = await env.LOG_KV.get(prefix + k); return; }
       if (isDataKey(k) && canRead(idn, tidOfKey(k))) { values[k] = await env.LOG_KV.get(prefix + k); }
     }));
     return json({ values });
@@ -86,7 +87,7 @@ export async function onRequestGet(context) {
 
   const key = url.searchParams.get("key");
   if (isConfigKey(key)) return json({ value: await env.LOG_KV.get(prefix + key) });
-  if (isSubSched(key) || isSubResp(key) || isSubDuty(key)) return json({ value: await env.LOG_KV.get(prefix + key) });
+  if (isSubSched(key) || isSubResp(key) || isAbsent(key) || isSubDuty(key)) return json({ value: await env.LOG_KV.get(prefix + key) });
   if (!isDataKey(key)) return json({ error: "bad key" }, 400);
   if (!canRead(idn, tidOfKey(key))) return json({ error: "forbidden" }, 403);
   return json({ value: await env.LOG_KV.get(prefix + key) });
@@ -104,17 +105,22 @@ export async function onRequestPost(context) {
   const key = body && body.key;
   const value = body && body.value;
   const dataK = isDataKey(key), cfgK = isConfigKey(key);
-  const subSched = isSubSched(key), subResp = isSubResp(key), subDuty = isSubDuty(key);
-  if (!dataK && !cfgK && !subSched && !subResp && !subDuty) return json({ error: "bad key" }, 400);
+  const subSched = isSubSched(key), subResp = isSubResp(key), absentK = isAbsent(key), subDuty = isSubDuty(key);
+  if (!dataK && !cfgK && !subSched && !subResp && !absentK && !subDuty) return json({ error: "bad key" }, 400);
   if (typeof value !== "string") return json({ error: "bad value" }, 400);
   if (value.length > (cfgK ? 2000000 : 200000)) return json({ error: "too large" }, 413);
 
   if (cfgK) {
     if (idn.role !== "admin") return json({ error: "admin only" }, 403);
-  } else if (subSched || subDuty) {
-    if (!canEditSub(idn)) return json({ error: "forbidden" }, 403);
-  } else if (subResp) {
-    // any signed-in user may record their own accept/reject (kept separate from the schedule)
+  } else if (subDuty) {
+    if (!canSetDuty(idn)) return json({ error: "forbidden" }, 403);
+  } else if (subSched) {
+    // admins/leaders always; otherwise the department currently on duty may edit
+    let dutyDept = ""; try { dutyDept = (await env.LOG_KV.get(prefix + "sub:duty")) || ""; } catch (e) {}
+    const allowed = idn.role === "admin" || idn.role === "leader" || (idn.dept && idn.dept === dutyDept);
+    if (!allowed) return json({ error: "forbidden" }, 403);
+  } else if (subResp || absentK) {
+    // any signed-in user may record their own accept/reject or their own absence
   } else {
     if (!canWrite(idn, tidOfKey(key))) return json({ error: "forbidden" }, 403);
   }
