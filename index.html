@@ -428,6 +428,37 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .absent-banner{margin:0 0 12px; border:1px solid #e3b3ac; background:#fdeceb; color:#8f2b20; border-radius:var(--r); padding:9px 12px; font-size:13px}
 .cnt-absent{color:#b23b2e; font-weight:800}
 .day.absent .rows{opacity:.55}
+.sub-card.auto{border-color:#e3b3ac}
+.sub-absent-fixed{flex:1; min-width:0; font-weight:800}
+.sub-reason-chip{flex:0 0 auto; font-size:11px; font-weight:800; padding:2px 9px; border-radius:999px; background:#fdeceb; color:#b23b2e}
+.sub-auto-tag{flex:0 0 auto; font-size:11px; color:var(--muted)}
+.hide{display:none !important}
+.am-modal{max-width:420px}
+.am-lab{display:block; font-size:12px; font-weight:800; color:var(--muted); margin:12px 0 4px}
+.am-lab:first-of-type{margin-top:4px}
+.am-sel,.am-note{width:100%}
+.am-other{margin-top:2px}
+.day.muted .rows{opacity:.5}
+.cal-banner{margin:0 0 12px; display:flex; flex-direction:column; gap:6px}
+.cal-item{display:flex; align-items:center; gap:8px; flex-wrap:wrap; border:1px solid var(--line); background:var(--blue-l); border-radius:var(--r); padding:8px 12px}
+.cal-item.closed{border-color:#e3b3ac; background:#fdeceb}
+.cal-type{flex:0 0 auto; font-size:11px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--blue-d)}
+.cal-item.closed .cal-type{color:#b23b2e}
+.cal-name{flex:1 1 auto; min-width:0; font-weight:700; font-size:13.5px}
+.cal-range{flex:0 0 auto; font-size:12px; color:var(--muted)}
+.cal-list{display:flex; flex-direction:column; gap:10px; margin:2px 0 12px}
+.cal-card{position:relative; border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; background:var(--surface); box-shadow:var(--shs)}
+.cal-x{position:absolute; top:6px; right:8px; border:none; background:transparent; color:#b23b2e; font-size:20px; line-height:1; cursor:pointer; padding:0 4px}
+.cal-x:hover{color:#8f2b20}
+.cal-name-in{width:100%; padding-right:28px}
+.cal-row2{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:8px}
+.cal-type-in{flex:1 1 180px; min-width:0}
+.cal-cls{flex:0 0 auto; display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:var(--ink)}
+.cal-cls input{width:16px; height:16px}
+.cal-row3{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:8px}
+.cal-dl{flex:0 0 auto; font-size:12px; color:var(--muted); font-weight:700}
+.cal-date{flex:1 1 130px; min-width:0}
+.cal-empty{font-size:13px; color:var(--muted); margin:4px 0 12px}
 
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important }
@@ -506,6 +537,7 @@ let RAW = JSON.parse(JSON.stringify(DEFAULT_RAW));
 let RAWX = {};
 let CLASSSUBJ = {};
 let SUBDUTY = "";
+let CALENDAR = [];
 let DEPTS = [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))];
 let SCHEDULE={}, CLASSES=[], DEPARTMENTS=[];
 
@@ -562,7 +594,8 @@ const ROLE_SHORT={teacher:"Teacher", hod:"HOD", leader:"Leader", admin:"Admin"};
 function roleOf(t){ if(!t) return "teacher"; if(t.role && ROLES.includes(t.role)) return t.role; if(t.admin===true) return "admin"; return "teacher"; }
 function canSeeDashboard(){ if(state.role==="admin"||state.role==="leader"||state.role==="hod") return true; return !!state.myTeacherId; }
 function canSeeSub(){ return state.isAdmin || state.role==="leader" || (!!state.dept && state.dept===SUBDUTY); }
-function canEditSub(){ return state.isAdmin || state.role==="leader"; }
+function canEditSub(){ return state.isAdmin || state.role==="leader" || (!!state.dept && state.dept===SUBDUTY); }
+function canSetDuty(){ return state.isAdmin || state.role==="leader"; }
 function rebuildDerived(){
   applyBell();
   CLASSES=Object.keys(ROOMS).sort(classSort);
@@ -625,7 +658,7 @@ async function apiGetMany(keys){
   }catch(e){ return {}; }
 }
 async function loadAppConfig(){
-  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:schedulex","cfg:depts","cfg:places","cfg:subjects","cfg:bell","cfg:classsubj"]);
+  const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:schedulex","cfg:depts","cfg:places","cfg:subjects","cfg:bell","cfg:classsubj","cfg:calendar"]);
   const seed=(getBranch()===DEFAULT_BRANCH); // only the home branch seeds the built-in defaults; other branches start empty
   const pArr=s=>{ try{ const a=JSON.parse(s); return Array.isArray(a)?a:null; }catch(e){ return null; } };
   const pObj=s=>{ try{ const o=JSON.parse(s); return (o&&typeof o==="object"&&!Array.isArray(o))?o:null; }catch(e){ return null; } };
@@ -639,6 +672,7 @@ async function loadAppConfig(){
   SUBJECTS = pArr(v["cfg:subjects"]) || (seed ? DEFAULT_SUBJECTS.slice() : []);
   let bell=null; try{ const b=JSON.parse(v["cfg:bell"]); if(validBell(b)) bell=b; }catch(e){}
   BELLCFG  = bell || JSON.parse(JSON.stringify(DEFAULT_BELL));
+  CALENDAR = (pArr(v["cfg:calendar"]) || []).map(calNorm).filter(Boolean);
   try{ SUBDUTY = (await apiGet("sub:duty")) || ""; }catch(e){ SUBDUTY=""; }
   rebuildDerived();
   lastCfgSync=Date.now();
@@ -883,10 +917,15 @@ let dayEnter=false;
 async function loadTeacher(){ const raw=await store.get(wkey(curWeek(),state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; await showDay(); }
 async function showDay(){ dayEnter=true; await loadSubForDay(); renderDay(); }
 async function loadSubForDay(){
-  const d=state.date; let sched=null, resp=null;
-  try{ const s=await apiGet("sub:"+d); sched=s?JSON.parse(s):null; }catch(e){}
-  try{ const r=await apiGet("subresp:"+d); resp=r?JSON.parse(r):null; }catch(e){}
-  state.mySubDay={ date:d, sched:(sched&&Array.isArray(sched.rows))?sched:null, resp:(resp&&typeof resp==="object")?resp:{} };
+  const d=state.date; let sched=null, resp={}, absentMap={};
+  try{
+    const v=await apiGetMany(["sub:"+d,"subresp:"+d,"absent:"+d]);
+    try{ sched=v["sub:"+d]?JSON.parse(v["sub:"+d]):null; }catch(e){}
+    try{ const o=v["subresp:"+d]?JSON.parse(v["subresp:"+d]):null; if(o&&typeof o==="object") resp=o; }catch(e){}
+    try{ const o=v["absent:"+d]?JSON.parse(v["absent:"+d]):null; if(o&&typeof o==="object") absentMap=o; }catch(e){}
+  }catch(e){}
+  state.mySubDay={ date:d, sched:(sched&&Array.isArray(sched.rows))?sched:null, resp };
+  state.absentDay={ date:d, map:absentMap };
 }
 function updateProg(){
   const pill=document.getElementById("prog"); if(!pill)return;
@@ -930,8 +969,15 @@ function renderDay(){
   const list=(SCHEDULE[id]&&SCHEDULE[id][dName])||[];
   const done=list.filter(e=>((state.blob[dkeyOf(dName,e.slug)]||{}).t||"").trim()).length;
   const dvar=DAYVAR[dName]||"--blue";
-  const absent = !!(state.blob._absent && state.blob._absent[dName]);
-  const cnt = absent ? "marked absent" : (list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend"));
+  const absentRec = (state.absentDay && state.absentDay.date===state.date) ? ((state.absentDay.map||{})[id]||null) : null;
+  const absent = !!absentRec;
+  const absentWhy = absent ? (absentRec.reason==="Other" ? (absentRec.note||"Other") : (absentRec.reason||"Absent")) : "";
+  const calItems = calendarFor(state.date);
+  const calClosed = calItems.some(e=>e.noClasses);
+  const closedEntry = calClosed ? (calItems.find(e=>e.noClasses)||{}) : null;
+  const closedName = closedEntry ? (closedEntry.name || calTypeLabel(closedEntry.type||"holiday")) : "";
+  const muted = absent || calClosed;
+  const cnt = absent ? "marked absent" : (calClosed ? closedName : (list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend")));
   const allX=(state.blob._x && state.blob._x[dName]) || [];
   const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
   const en = dayEnter; dayEnter=false;
@@ -942,8 +988,8 @@ function renderDay(){
   const syncBtn = isSelf ? `<button class="daytool-btn" onclick="syncWeekToCalendar()">Sync to Calendar</button>` : "";
   const unsyncBtn = isSelf ? `<button class="daytool-btn" onclick="removeWeekFromCalendar()">Remove from Calendar</button>` : "";
   const absentBtn = canMarkAbsent ? `<button class="daytool-btn absent-toggle${absent?" on":""}" onclick="toggleAbsent('${esc(dName)}')">${absent?"Marked absent":"Mark absent"}</button>` : "";
-  const absentBanner = absent ? `<div class="absent-banner"><b>Marked absent</b> for ${esc(dName)} · classes aren’t expected.${canMarkAbsent?` <button class="linkbtn" onclick="toggleAbsent('${esc(dName)}')">Mark present</button>`:""}</div>` : "";
-  let html=`<section class="day${en?" enter":""}${absent?" absent":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt${absent?" cnt-absent":""}">${cnt}</span><span class="day-tools">${absentBtn}${syncBtn}${unsyncBtn}${planBtn}</span></div>${absentBanner}${mySubsHTML()}<div class="rows">`;
+  const absentBanner = absent ? `<div class="absent-banner"><b>Marked absent</b>${absentWhy?" — "+esc(absentWhy):""} · classes aren’t expected.${canMarkAbsent?` <button class="linkbtn" onclick="toggleAbsent('${esc(dName)}')">Mark present</button>`:""}</div>` : "";
+  let html=`<section class="day${en?" enter":""}${muted?" muted":""}" id="day-${esc(dName)}" style="--dc:var(${dvar})"><div class="day-h"><h3>${esc(dName)}</h3><span class="date">${esc(niceDate(state.date))}</span><span class="cnt${absent?" cnt-absent":""}">${cnt}</span><span class="day-tools">${absentBtn}${syncBtn}${unsyncBtn}${planBtn}</span></div>${calBannerHTML(state.date)}${absentBanner}${mySubsHTML()}<div class="rows">`;
   if(isWeekday){
     daySlots(id,dName).forEach(s=>{
       if(s.type==="break"){
@@ -1217,13 +1263,56 @@ async function saveTeacher(){
   toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠");
 }
 async function flushTeacherSave(){ if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; if(state.teacherId){ try{ await saveTeacher(); }catch(e){} } } }
+function canMarkAbsentNow(){ return (state.myTeacherId && state.teacherId===state.myTeacherId) || state.isAdmin || state.role==="leader" || state.role==="hod"; }
 async function toggleAbsent(day){
-  if(!(state.myTeacherId && state.teacherId===state.myTeacherId) && !state.isAdmin && state.role!=="leader" && state.role!=="hod") return;
-  clearTimeout(saveTimer); saveTimer=null;
-  state.blob._absent = state.blob._absent || {};
-  if(state.blob._absent[day]){ delete state.blob._absent[day]; if(!Object.keys(state.blob._absent).length) delete state.blob._absent; }
-  else { state.blob._absent[day] = { u:new Date().toISOString() }; }
-  await saveTeacher(); renderDay();
+  if(!canMarkAbsentNow()) return;
+  const id=state.teacherId, d=state.date; if(!id) return;
+  const isAbsent = !!(state.absentDay && state.absentDay.date===d && (state.absentDay.map||{})[id]);
+  if(isAbsent){
+    let map={}; try{ const raw=await apiGet("absent:"+d); if(raw){ const o=JSON.parse(raw); if(o&&typeof o==="object") map=o; } }catch(e){}
+    delete map[id];
+    const ok=await apiSet("absent:"+d, JSON.stringify(map));
+    if(ok){ state.absentDay={date:d, map}; renderDay(); toast("Marked present","✓"); } else toast("Couldn't save — check connection","⚠");
+  } else { openAbsentModal(day); }
+}
+function openAbsentModal(day){
+  const id=state.teacherId; if(!id) return;
+  const cur=(state.absentDay&&state.absentDay.date===state.date)?((state.absentDay.map||{})[id]||null):null;
+  const reason=cur?(cur.reason||"On leave"):"On leave"; const note=cur?(cur.note||""):"";
+  closeAbsentModal();
+  const back=document.createElement("div"); back.className="tt-modal-back"; back.id="absentModal";
+  back.innerHTML=`<div class="tt-modal am-modal">
+    <button class="tt-modal-x" type="button" title="Close">&times;</button>
+    <h4>Mark ${esc(NAME(id))} absent</h4>
+    <label class="am-lab" for="am-reason">Reason</label>
+    <select id="am-reason" class="am-sel" onchange="amOther()">
+      <option${reason==="On leave"?" selected":""}>On leave</option>
+      <option${reason==="School duty"?" selected":""}>School duty</option>
+      <option${reason==="Other"?" selected":""}>Other</option>
+    </select>
+    <div id="am-otherwrap" class="am-other${reason==="Other"?"":" hide"}"><label class="am-lab" for="am-note">Details</label><input type="text" id="am-note" class="am-note" placeholder="Reason" value="${esc(note)}"></div>
+    <div class="tt-modal-btns"><button class="btn primary" type="button" id="amSave">Mark absent</button></div>
+  </div>`;
+  document.body.appendChild(back);
+  back.querySelector(".tt-modal-x").onclick=closeAbsentModal;
+  back.addEventListener("click",e=>{ if(e.target===back) closeAbsentModal(); });
+  back.querySelector("#amSave").onclick=()=>confirmAbsent(day);
+  const s=document.getElementById("am-reason"); if(s) s.focus();
+}
+function amOther(){ const r=(document.getElementById("am-reason")||{}).value; const w=document.getElementById("am-otherwrap"); if(w) w.classList.toggle("hide", r!=="Other"); }
+function closeAbsentModal(){ const m=document.getElementById("absentModal"); if(m){ try{m.remove();}catch(e){} } }
+async function confirmAbsent(day){
+  if(!canMarkAbsentNow()) return;
+  const id=state.teacherId; if(!id) return;
+  const r=(document.getElementById("am-reason")||{}).value||"On leave";
+  const note=r==="Other"?(((document.getElementById("am-note")||{}).value||"").trim()):"";
+  if(r==="Other" && !note){ toast("Add a reason","⚠"); return; }
+  const d=state.date;
+  let map={}; try{ const raw=await apiGet("absent:"+d); if(raw){ const o=JSON.parse(raw); if(o&&typeof o==="object") map=o; } }catch(e){}
+  map[id]={ reason:r, note, u:new Date().toISOString() };
+  const ok=await apiSet("absent:"+d, JSON.stringify(map));
+  if(ok){ state.absentDay={date:d, map}; closeAbsentModal(); renderDay(); toast("Marked absent","✓"); }
+  else toast("Couldn't save — check connection","⚠");
 }
 async function syncConfig(force){ if(!state.user) return; const now=Date.now(); if(!force && now-lastCfgSync<10000) return; try{ await loadAppConfig(); }catch(e){} }
 
@@ -1260,16 +1349,35 @@ function subFreeOptions(cur, free){
 }
 async function loadSub(date){
   subState.date=date;
-  let sched=null, resp=null;
-  try{ const s=await apiGet("sub:"+date); sched=s?JSON.parse(s):null; }catch(e){}
-  try{ const r=await apiGet("subresp:"+date); resp=r?JSON.parse(r):null; }catch(e){}
-  subState.rows = (sched&&Array.isArray(sched.rows))?sched.rows:[];
-  subState.dept = (sched&&sched.dept) || SUBDUTY || (canEditSub()?(subDeptList()[0]||""):(state.dept||"")) || "";
-  subState.resp = (resp&&typeof resp==="object")?resp:{};
+  let sched=null, resp={}, absentMap={};
+  try{
+    const v=await apiGetMany(["sub:"+date,"subresp:"+date,"absent:"+date]);
+    try{ sched=v["sub:"+date]?JSON.parse(v["sub:"+date]):null; }catch(e){}
+    try{ const o=v["subresp:"+date]?JSON.parse(v["subresp:"+date]):null; if(o&&typeof o==="object") resp=o; }catch(e){}
+    try{ const o=v["absent:"+date]?JSON.parse(v["absent:"+date]):null; if(o&&typeof o==="object") absentMap=o; }catch(e){}
+  }catch(e){}
+  try{ const dd=await apiGet("sub:duty"); if(dd!=null) SUBDUTY=dd||""; }catch(e){}
+  subState.dept = SUBDUTY || (sched&&sched.dept) || "";
+  subState.resp = resp;
+  subState.absent = absentMap;
+  // merged rows: teachers who marked themselves absent first, then any extra rows added manually
+  const schedRows=(sched&&Array.isArray(sched.rows))?sched.rows:[];
+  const byTid={}; schedRows.forEach(r=>{ if(r&&r.absent) byTid[r.absent]=r; });
+  const rows=[]; const seen={};
+  Object.keys(absentMap).forEach(tid=>{ const r=byTid[tid]; rows.push({absent:tid, subs:(r&&r.subs)?r.subs:{}, auto:true, reason:absentMap[tid]}); seen[tid]=1; });
+  schedRows.forEach(r=>{ if(r&&r.absent && !seen[r.absent]){ rows.push({absent:r.absent, subs:r.subs||{}, auto:false}); seen[r.absent]=1; } });
+  subState.rows=rows;
 }
 async function mountSub(){ if(!subState.date) subState.date=ymd(new Date()); await loadSub(subState.date); renderSub(); }
-function subCardHTML(row,i,day,dutyDept,absentSet,ro){
-  const absentOpts=subAbsentOptions(row.absent, absentSet);
+function subCardHTML(row,i,day,absentSet,ro){
+  const isAuto=!!row.auto;
+  let header;
+  if(isAuto){
+    const rr=row.reason||{}; const why=rr.reason==="Other"?(rr.note||"Other"):(rr.reason||"Absent");
+    header=`<div class="sub-card-h"><span class="sub-absent-fixed">${esc(NAME(row.absent))}</span><span class="sub-reason-chip">${esc(why)}</span><span class="sub-auto-tag">self-marked</span></div>`;
+  } else {
+    header=`<div class="sub-card-h"><select class="sub-absent" ${ro?"disabled":""} onchange="subSetAbsent(${i},this.value)">${subAbsentOptions(row.absent, absentSet)}</select>${ro?"":`<button class="sub-x" title="Remove" onclick="subRemoveAbsent(${i})">×</button>`}</div>`;
+  }
   let slots="";
   if(row.absent){
     const list=absentDaySlots(row.absent, day);
@@ -1278,7 +1386,7 @@ function subCardHTML(row,i,day,dutyDept,absentSet,ro){
       const p=sl.period;
       const taken=new Set(); (subState.rows||[]).forEach((r2,j)=>{ if(j===i) return; const a=r2.subs&&r2.subs[p]; if(a) taken.add(a); });
       const cur=(row.subs&&row.subs[p])||"";
-      const free=freeSubsFor(day,p,dutyDept,absentSet,taken);
+      const free=freeSubsFor(day,p,null,absentSet,taken);
       const picker = ro ? `<span class="sub-assigned">${cur?esc(NAME(cur)):`<span class="muted">— none —</span>`}</span>`
                         : `<select class="sub-pick" onchange="subSetSub(${i},${p},this.value)">${subFreeOptions(cur,free)}</select>`;
       let badge="";
@@ -1286,21 +1394,21 @@ function subCardHTML(row,i,day,dutyDept,absentSet,ro){
       slots+=`<div class="sub-slot"><span class="sub-per">${esc(periodLabel(p))}</span><span class="sub-cls"><b>${esc(sl.code)}</b>${sl.subject?` <span class="muted">${esc(sl.subject)}</span>`:""}</span><span class="sub-arrow">→</span>${picker}${badge}</div>`;
     });
   } else { slots=`<div class="sub-empty">Choose the absent teacher to see their periods.</div>`; }
-  return `<div class="sub-card"><div class="sub-card-h"><select class="sub-absent" ${ro?"disabled":""} onchange="subSetAbsent(${i},this.value)">${absentOpts}</select>${ro?"":`<button class="sub-x" title="Remove" onclick="subRemoveAbsent(${i})">×</button>`}</div><div class="sub-slots">${slots}</div></div>`;
+  return `<div class="sub-card${isAuto?" auto":""}">${header}<div class="sub-slots">${slots}</div></div>`;
 }
 function renderSub(){
   const day=dayName(subState.date); const isWeekday=DAYS.indexOf(day)>=0;
   const ro=!canEditSub(); const dutyDept=subState.dept||"";
   let deptCtl;
-  if(canEditSub()){
+  if(canSetDuty()){
     const opts=subDeptList().map(d=>`<option value="${esc(d)}"${d===dutyDept?" selected":""}>${esc(d)}</option>`).join("");
     deptCtl=`<label for="subdept">Department on duty</label><select id="subdept" onchange="subSetDept(this.value)"><option value=""${dutyDept?"":" selected"} disabled>Select department…</option>${opts}</select>`;
   } else { deptCtl=`<label>Department on duty</label><div class="who-fixed">${esc(dutyDept||"—")}</div>`; }
   const absentSet=new Set((subState.rows||[]).map(r=>r.absent).filter(Boolean));
-  let cards=""; (subState.rows||[]).forEach((row,i)=>{ cards+=subCardHTML(row,i,day,dutyDept,absentSet,ro); });
-  if(!(subState.rows||[]).length){ cards=`<div class="prompt sub-none"><b>No substitutions yet</b>${ro?"When the department on duty adds substitutions, they’ll appear here.":"Tap “Add absent teacher” to start building the list for this day."}</div>`; }
+  let cards=""; (subState.rows||[]).forEach((row,i)=>{ cards+=subCardHTML(row,i,day,absentSet,ro); });
+  if(!(subState.rows||[]).length){ cards=`<div class="prompt sub-none"><b>No substitutions yet</b>${ro?"When a teacher marks themselves absent, or the department on duty adds someone, they’ll appear here.":"Absent teachers appear here automatically. Use “Add absent teacher” for anyone who didn’t mark it themselves."}</div>`; }
   const addBtn = ro?"":`<button class="btn subadd-btn" onclick="subAddAbsent()">+ Add absent teacher</button>`;
-  const dutyWarn = (!ro && !dutyDept) ? `<div class="sub-note warn">Pick the department on duty to list free teachers.</div>` : "";
+  const dutyWarn = (canSetDuty() && !dutyDept) ? `<div class="sub-note warn">Set the department on duty so its teachers can see and edit this tab.</div>` : "";
   const dayWarn = isWeekday?"":`<div class="sub-note warn">${esc(day)} isn’t a teaching day.</div>`;
   view().innerHTML=`
     <div class="ctl">
@@ -1318,13 +1426,13 @@ function renderSub(){
     <div class="sub-wrap">${cards}</div>
     <div class="sub-add">${addBtn}</div>`;
 }
-function subSetDept(d){ if(!canEditSub()) return; subState.dept=d; renderSub(); scheduleSubSave(); if(d && d!==SUBDUTY){ SUBDUTY=d; apiSet("sub:duty", d); } }
-function subAddAbsent(){ if(!canEditSub()) return; subState.rows=subState.rows||[]; subState.rows.push({absent:"",subs:{}}); renderSub(); }
+function subSetDept(d){ if(!canSetDuty()) return; subState.dept=d||""; SUBDUTY=d||""; renderSub(); scheduleSubSave(); apiSet("sub:duty", d||""); }
+function subAddAbsent(){ if(!canEditSub()) return; subState.rows=subState.rows||[]; subState.rows.push({absent:"",subs:{},auto:false}); renderSub(); }
 function subRemoveAbsent(i){ if(!canEditSub()) return; subState.rows.splice(i,1); renderSub(); scheduleSubSave(); }
 function subSetAbsent(i,tid){ if(!canEditSub()) return; subState.rows[i].absent=tid; subState.rows[i].subs={}; renderSub(); scheduleSubSave(); }
 function subSetSub(i,p,tid){ if(!canEditSub()) return; if(!subState.rows[i].subs) subState.rows[i].subs={}; if(tid) subState.rows[i].subs[p]=tid; else delete subState.rows[i].subs[p]; renderSub(); scheduleSubSave(); }
 function scheduleSubSave(){ clearTimeout(subSaveTimer); subSaveTimer=setTimeout(saveSubSched,500); }
-async function saveSubSched(){ if(!canEditSub()) return; const rows=(subState.rows||[]).filter(r=>r.absent); const blob={ dept:subState.dept||"", rows }; const ok=await apiSet("sub:"+subState.date, JSON.stringify(blob)); toast(ok?"Substitution saved":"Couldn't save — admins & leaders only", ok?"✓":"⚠"); }
+async function saveSubSched(){ if(!canEditSub()) return; const rows=(subState.rows||[]).filter(r=> r.absent && (!r.auto || Object.keys(r.subs||{}).length)).map(r=>({absent:r.absent, subs:r.subs||{}})); const blob={ dept:subState.dept||"", rows }; const ok=await apiSet("sub:"+subState.date, JSON.stringify(blob)); toast(ok?"Substitution saved":"Couldn't save — you’re not on duty", ok?"✓":"⚠"); }
 async function subDayStep(n){ subState.date=ymd(addDays(parseYmd(subState.date),n)); await loadSub(subState.date); renderSub(); }
 async function subPickDate(v){ if(!v) return; subState.date=v; await loadSub(subState.date); renderSub(); }
 
@@ -1357,6 +1465,70 @@ async function subRespond(period, status){
   const ok=await apiSet("subresp:"+d, JSON.stringify(resp));
   if(ok){ state.mySubDay={ date:d, sched:(state.mySubDay&&state.mySubDay.sched)||null, resp }; renderDay(); toast(status==="accepted"?"Accepted":"Rejected","✓"); }
   else toast("Couldn't save — check connection","⚠");
+}
+
+/* ---------- School calendar ---------- */
+const CAL_TYPES=[
+  {v:"holiday", label:"Holiday", closed:true},
+  {v:"break", label:"Break", closed:true},
+  {v:"exam", label:"Exam", closed:false},
+  {v:"ptm", label:"Parent-Teacher Meeting", closed:false},
+  {v:"function", label:"Function / Event", closed:false},
+  {v:"other", label:"Other", closed:false}
+];
+function calTypeMeta(t){ return CAL_TYPES.find(x=>x.v===t) || CAL_TYPES[CAL_TYPES.length-1]; }
+function calTypeLabel(t){ return calTypeMeta(t).label; }
+function calClosedDefault(t){ return !!calTypeMeta(t).closed; }
+function calNorm(e){
+  if(!e||typeof e!=="object") return null;
+  const start=String(e.start||"").slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+  let end=String(e.end||"").slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(end)) end="";
+  if(end && end<start) end=start;
+  const type=CAL_TYPES.some(x=>x.v===e.type)?e.type:"holiday";
+  const noClasses = (typeof e.noClasses==="boolean") ? e.noClasses : calClosedDefault(type);
+  return { name:String(e.name||"").slice(0,120), type, start, end, noClasses };
+}
+function calSortEntries(a,b){ return (a.start<b.start?-1:a.start>b.start?1:0); }
+function calendarFor(dateStr){ return (CALENDAR||[]).filter(e=> e && e.start && dateStr>=e.start && dateStr<=(e.end||e.start)); }
+function calBannerHTML(dateStr){
+  const items=calendarFor(dateStr); if(!items.length) return "";
+  const rows=items.map(e=>{
+    const range = (e.end && e.end!==e.start) ? `<span class="cal-range">${esc(niceDate(e.start))} – ${esc(niceDate(e.end))}</span>` : "";
+    return `<div class="cal-item${e.noClasses?" closed":""}"><span class="cal-type">${esc(calTypeLabel(e.type))}</span><span class="cal-name">${esc(e.name||calTypeLabel(e.type))}</span>${range}</div>`;
+  }).join("");
+  return `<div class="cal-banner">${rows}</div>`;
+}
+/* calendar admin editor (Admin tab) */
+let calSaveTimer=null;
+function scheduleCalSave(){ clearTimeout(calSaveTimer); calSaveTimer=setTimeout(saveCalendar,600); }
+async function saveCalendar(){ if(!state.isAdmin) return; const clean=(CALENDAR||[]).map(calNorm).filter(Boolean); const ok=await apiSet("cfg:calendar", JSON.stringify(clean)); toast(ok?"Calendar saved":"Couldn't save — admins only", ok?"✓":"⚠"); }
+function calAdd(){ if(!state.isAdmin) return; CALENDAR.push(calNorm({name:"", type:"holiday", start:ymd(new Date()), end:"", noClasses:true})); renderCalEditor(); scheduleCalSave(); }
+function calRemove(i){ if(!state.isAdmin||!CALENDAR[i]) return; CALENDAR.splice(i,1); renderCalEditor(); scheduleCalSave(); }
+function calSetName(i,val){ if(!state.isAdmin||!CALENDAR[i]) return; CALENDAR[i].name=(val||"").slice(0,120); scheduleCalSave(); }
+function calSetType(i,val){ if(!state.isAdmin||!CALENDAR[i]) return; CALENDAR[i].type=CAL_TYPES.some(x=>x.v===val)?val:"other"; CALENDAR[i].noClasses=calClosedDefault(CALENDAR[i].type); renderCalEditor(); scheduleCalSave(); }
+function calSetStart(i,val){ if(!state.isAdmin||!CALENDAR[i]||!/^\d{4}-\d{2}-\d{2}$/.test(val)) return; CALENDAR[i].start=val; if(CALENDAR[i].end && CALENDAR[i].end<val) CALENDAR[i].end=val; scheduleCalSave(); }
+function calSetEnd(i,val){ if(!state.isAdmin||!CALENDAR[i]) return; if(val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) return; CALENDAR[i].end=(val && val>=CALENDAR[i].start)?val:""; scheduleCalSave(); }
+function calSetClosed(i,val){ if(!state.isAdmin||!CALENDAR[i]) return; CALENDAR[i].noClasses=!!val; scheduleCalSave(); }
+function calCardHTML(e,i){
+  const typeOpts=CAL_TYPES.map(t=>`<option value="${t.v}"${e.type===t.v?" selected":""}>${esc(t.label)}</option>`).join("");
+  return `<div class="cal-card">
+    <button class="cal-x" title="Remove" onclick="calRemove(${i})">×</button>
+    <input type="text" class="cal-name-in" placeholder="Name (e.g. Diwali, or Summer Break (AN))" value="${esc(e.name||"")}" oninput="calSetName(${i},this.value)">
+    <div class="cal-row2">
+      <select class="cal-type-in" onchange="calSetType(${i},this.value)">${typeOpts}</select>
+      <label class="cal-cls"><input type="checkbox" ${e.noClasses?"checked":""} onchange="calSetClosed(${i},this.checked)"> No classes</label>
+    </div>
+    <div class="cal-row3">
+      <span class="cal-dl">From</span><input type="date" class="cal-date" value="${esc(e.start||"")}" onchange="calSetStart(${i},this.value)">
+      <span class="cal-dl">to</span><input type="date" class="cal-date" value="${esc(e.end||"")}" onchange="calSetEnd(${i},this.value)">
+    </div>
+  </div>`;
+}
+function renderCalEditor(){
+  const host=document.getElementById("calEditor"); if(!host) return;
+  const entries=(CALENDAR||[]).map((e,i)=>({e,i})).sort((A,B)=>calSortEntries(A.e,B.e));
+  const cards=entries.map(o=>calCardHTML(o.e,o.i)).join("");
+  host.innerHTML = (entries.length ? `<div class="cal-list">${cards}</div>` : `<div class="cal-empty">No entries yet. Add holidays, breaks, exams, PTMs and function days — each shows as a banner on Log a class, and anything marked “No classes” greys out that day’s timetable.</div>`) + `<button class="btn subadd-btn" onclick="calAdd()">+ Add entry</button>`;
 }
 
 /* ---------- Admin view ---------- */
@@ -1669,8 +1841,15 @@ function mountManage(){
   if(!(SUBJECTS||[]).length) html+=`<span class="muted">No subjects yet.</span>`;
   html+=`</div></details></section>`;
 
+  // School calendar
+  html+=`<section class="card"><details class="mg-details"><summary>School calendar <small class="sum-count">${(CALENDAR||[]).length}</small></summary>
+    <p class="muted mg-note">Holidays, breaks, exams, PTMs and function days. Each appears as a banner on Log a class for its date(s). Anything marked “No classes” greys out that day’s timetable so there’s no pressure to log. For a range like a break, set both dates; leave the second blank for a single day. Put a branch note in the name if needed, e.g. “Sports Day (AN)”.</p>
+    <div id="calEditor"></div>
+  </details></section>`;
+
   html+=`</div>`;
   view().innerHTML=html;
+  renderCalEditor();
 }
 
 /* ----- Teacher handlers ----- */
