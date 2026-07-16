@@ -1227,7 +1227,9 @@ function absentDaySlots(absentId, day){
   return out;
 }
 function freeSubsFor(day, period, dutyDept, absentSet, taken){
-  return TEACHERS.filter(t=> t.dept===dutyDept && !subBusyAt(t.id,day,period) && !absentSet.has(t.id) && !(taken&&taken.has(t.id))).map(t=>t.id);
+  // a substitute can be any teacher who is free that period, from ANY department;
+  // dutyDept only controls who can see/manage the tab, not who is eligible to cover
+  return TEACHERS.filter(t=> !subBusyAt(t.id,day,period) && !absentSet.has(t.id) && !(taken&&taken.has(t.id))).map(t=>t.id);
 }
 function subAbsentOptions(cur, used){
   let o=`<option value=""${cur?"":" selected"}>Absent teacher…</option>`;
@@ -1237,7 +1239,7 @@ function subAbsentOptions(cur, used){
 function subFreeOptions(cur, free){
   let o=`<option value=""${cur?"":" selected"}>— free teacher —</option>`;
   const ids=free.slice(); const notFree = cur && ids.indexOf(cur)<0; if(notFree) ids.unshift(cur);
-  ids.forEach(id=>{ o+=`<option value="${esc(id)}"${id===cur?" selected":""}>${esc(NAME(id))}${(id===cur&&notFree)?" (busy)":""}</option>`; });
+  ids.forEach(id=>{ const d=deptOf(id); o+=`<option value="${esc(id)}"${id===cur?" selected":""}>${esc(NAME(id))}${d?(" · "+esc(d)):""}${(id===cur&&notFree)?" (busy)":""}</option>`; });
   return o;
 }
 async function loadSub(date){
