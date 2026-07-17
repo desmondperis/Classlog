@@ -2,6 +2,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Class Log · Mount Carmel School</title>
 <link rel="icon" href="logo.png">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#3866B0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Class Log">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -39,6 +46,9 @@ a{color:var(--blue)}
 .user .av,.user img{width:30px; height:30px; border-radius:50%; object-fit:cover; background:var(--orange); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex:0 0 auto}
 .user .uname{font-size:13.5px; font-weight:700; color:var(--ink); max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .signout{appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--muted); border-radius:999px; padding:6px 12px; font-size:12.5px; font-weight:700; cursor:pointer}
+.install-btn{margin-left:auto; appearance:none; border:1px solid var(--blue); background:var(--blue-l); color:var(--blue-d); border-radius:999px; padding:6px 13px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap; flex:0 0 auto}
+.install-btn:hover{background:#dfe8f6}
+.install-btn:not([hidden]) ~ .user{margin-left:10px}
 .signout:hover{background:var(--bg); color:var(--blue); border-color:var(--blue)}
 .tabs{display:flex; gap:2px; margin-top:12px; border-bottom:1px solid var(--line)}
 .tab{appearance:none; border:0; background:transparent; color:var(--muted); padding:11px 16px 12px; font-weight:700; font-size:14px; cursor:pointer; border-bottom:3px solid transparent; margin-bottom:-1px}
@@ -461,8 +471,11 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .cal-cell.today .cal-dnum{color:var(--blue-d)}
 .cal-chip{display:block; width:100%; text-align:left; font-size:10.5px; line-height:1.2; font-weight:700; padding:2px 5px; border-radius:6px; border:none; cursor:pointer; background:var(--blue-l); color:var(--blue-d); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .cal-chip.closed{background:#fdeceb; color:#b23b2e}
+.cal-chip.auto{background:transparent; border:1px dashed var(--line); color:var(--muted); font-weight:600; pointer-events:none}
+.cal-chip.auto.closed{background:transparent; border:1px dashed #e3b3ac; color:#b23b2e}
 .cal-hint{font-size:12px; margin:10px 0 6px}
 .cal-actions{display:flex; gap:10px; flex-wrap:wrap}
+.cal-empty2{font-size:13px; color:var(--muted); margin:2px 0 10px}
 .cal-cls2{display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:var(--ink); margin:12px 0 2px}
 .cal-cls2 input{width:16px; height:16px}
 .ce-dates{display:flex; gap:12px; margin-top:2px}
@@ -481,6 +494,7 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
         <h1>Class Log</h1>
         <span class="yr">Mount Carmel School · 2026–27</span>
       </div>
+      <button class="install-btn" id="installBtn" hidden onclick="promptInstall()" title="Install Class Log on this device">Install app</button>
       <div class="user" id="userchip" hidden></div>
     </div>
     <div class="tabs" id="tabs" role="tablist" hidden>
@@ -546,6 +560,8 @@ let RAWX = {};
 let CLASSSUBJ = {};
 let SUBDUTY = "";
 let CALENDAR = [];
+let HOLIDAYS = [];
+let holidaysLoaded = false;
 let DEPTS = [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))];
 let SCHEDULE={}, CLASSES=[], DEPARTMENTS=[];
 
@@ -825,6 +841,7 @@ async function signIn(user){
   state.role=(who.ok&&who.role)||((who.ok&&who.admin)?"admin":"teacher"); state.isAdmin=(who.ok&&!!who.admin)||state.role==="admin";
   state.email=(who.ok&&who.email)||user.email||""; state.myTeacherId=(who.ok&&who.teacherId)||null; state.dept=(who.ok&&who.dept)||""; state.bootstrapAdmin=who.ok&&who.bootstrap;
   await loadAppConfig();
+  if(!holidaysLoaded){ loadHolidays().then(()=>{ try{ mountView(); }catch(e){} }); }
   if(state.isAdmin){
     const last=await store.get("device:lastTeacher",false);
     if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
@@ -981,9 +998,10 @@ function renderDay(){
   const absent = !!absentRec;
   const absentWhy = absent ? (absentRec.reason==="Other" ? (absentRec.note||"Other") : (absentRec.reason||"Absent")) : "";
   const calItems = calendarFor(state.date);
-  const calClosed = calItems.some(e=>e.noClasses);
-  const closedEntry = calClosed ? (calItems.find(e=>e.noClasses)||{}) : null;
-  const closedName = closedEntry ? (closedEntry.name || calTypeLabel(closedEntry.type||"holiday")) : "";
+  const autoItems = autoHolFor(state.date);
+  const calClosed = calItems.some(e=>e.noClasses) || autoItems.some(h=>h.noClass);
+  const closedEntry = calItems.find(e=>e.noClasses) || null;
+  const closedName = closedEntry ? (closedEntry.name || calTypeLabel(closedEntry.type||"holiday")) : ((autoItems.find(h=>h.noClass)||{}).name || "");
   const muted = absent || calClosed;
   const cnt = absent ? "marked absent" : (calClosed ? closedName : (list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend")));
   const allX=(state.blob._x && state.blob._x[dName]) || [];
@@ -1498,13 +1516,42 @@ function calNorm(e){
 }
 function calSortEntries(a,b){ return (a.start<b.start?-1:a.start>b.start?1:0); }
 function calendarFor(dateStr){ return (CALENDAR||[]).filter(e=> e && e.start && dateStr>=e.start && dateStr<=(e.end||e.start)); }
+// Only the festivals this school observes (from the almanac) — the live feed is filtered to these,
+// so it never brings in extras like Makar Sankranti, Pongal, Onam, Karva Chauth, etc.
+const OBSERVED_HOLIDAYS = ["good friday","easter","ambedkar","buddha purnima","vesak","eid","ramzan id","bakrid","id-ul","milad","mawlid","muharram","ashura","islamic new year","independence day","raksha","rakhi","janmashtami","gandhi jayanti","dussehra","dasara","vijayadashami","vijaya dashami","valmiki","diwali","deepavali","bhai duj","bhai dooj","bhaiya","guru nanak","shivratri","shivaratri","holi","christmas","new year's day","republic day"];
+function isObservedHoliday(name){ const n=String(name||"").toLowerCase(); return OBSERVED_HOLIDAYS.some(k=> n.indexOf(k)>=0); }
+function holidaysFor(dateStr){ return (HOLIDAYS||[]).filter(h=> h && h.date===dateStr); }
+function autoHolFor(dateStr){
+  // a manual entry on that day — or within a day — wins, so the almanac's exact dates show and nothing doubles up
+  const d=parseYmd(dateStr);
+  for(let off=-1; off<=1; off++){ if(calendarFor(ymd(addDays(d,off))).length) return []; }
+  return holidaysFor(dateStr);
+}
 function calBannerHTML(dateStr){
-  const items=calendarFor(dateStr); if(!items.length) return "";
+  const manual=calendarFor(dateStr);
+  const auto=autoHolFor(dateStr).map(h=>({name:h.name, type:"holiday", noClasses:h.noClass, auto:true}));
+  const items=auto.concat(manual); if(!items.length) return "";
   const rows=items.map(e=>{
-    const range = (e.end && e.end!==e.start) ? `<span class="cal-range">${esc(niceDate(e.start))} – ${esc(niceDate(e.end))}</span>` : "";
-    return `<div class="cal-item${e.noClasses?" closed":""}"><span class="cal-type">${esc(calTypeLabel(e.type))}</span><span class="cal-name">${esc(e.name||calTypeLabel(e.type))}</span>${range}</div>`;
+    const range = (!e.auto && e.end && e.end!==e.start) ? `<span class="cal-range">${esc(niceDate(e.start))} – ${esc(niceDate(e.end))}</span>` : "";
+    const tag = e.auto ? "Public holiday" : calTypeLabel(e.type);
+    return `<div class="cal-item${e.noClasses?" closed":""}"><span class="cal-type">${esc(tag)}</span><span class="cal-name">${esc(e.name||calTypeLabel(e.type))}</span>${range}</div>`;
   }).join("");
   return `<div class="cal-banner">${rows}</div>`;
+}
+async function loadHolidays(){
+  const ty=new Date().getFullYear(); const yrs=[ty, ty+1]; let all=[];
+  for(const y of yrs){ try{ const r=await fetch(API_BASE+"/api/holidays?year="+y,{headers:authHeaders()}); if(r.ok){ const j=await r.json(); if(Array.isArray(j.holidays)) all=all.concat(j.holidays); } }catch(e){} }
+  HOLIDAYS=all.filter(h=> h && isObservedHoliday(h.name)); holidaysLoaded=true;
+}
+async function syncHolidays(){
+  if(!state.isAdmin) return;
+  toast("Syncing public holidays…","↻");
+  const ty=new Date().getFullYear(); const yrs=[ty, ty+1]; let synced=0, err="";
+  for(const y of yrs){ try{ const r=await fetch(API_BASE+"/api/holidays?year="+y+"&sync=1",{headers:authHeaders()}); let j={}; try{ j=await r.json(); }catch(e){} if(r.ok && Array.isArray(j.holidays)) synced++; else err=(j&&j.error)||("HTTP "+r.status); }catch(e){ err="network"; } }
+  await loadHolidays(); renderCalEditor();
+  if(err==="no_key") toast("Add CALENDARIFIC_KEY in Cloudflare settings first","⚠");
+  else if(synced) toast("Public holidays updated","✓");
+  else toast("Couldn't sync — "+err,"⚠");
 }
 /* calendar admin editor (Admin tab) */
 let calSaveTimer=null;
@@ -1526,9 +1573,10 @@ function renderCalEditor(){
   let cells=""; for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell pad"></div>`;
   for(let d=1;d<=daysInMonth;d++){
     const ds=ymd(new Date(y,m,d)); const items=calendarFor(ds);
+    const autoChips=autoHolFor(ds).map(h=>`<span class="cal-chip auto${h.noClass?" closed":""}" title="${esc(h.name)} · public holiday">${esc(h.name)}</span>`).join("");
     const chips=items.map(e=>{ const gi=CALENDAR.indexOf(e); return `<button class="cal-chip${e.noClasses?" closed":""}" onclick="event.stopPropagation();openCalEntry(${gi})" title="${esc(e.name||calTypeLabel(e.type))}">${esc(e.name||calTypeLabel(e.type))}</button>`; }).join("");
     const dow=new Date(y,m,d).getDay(); const wknd=(dow===0||dow===6);
-    cells+=`<div class="cal-cell${ds===todayY?" today":""}${wknd?" wknd":""}${items.length?" has":""}" onclick="openCalEntry(null,'${ds}')"><span class="cal-dnum">${d}</span>${chips}</div>`;
+    cells+=`<div class="cal-cell${ds===todayY?" today":""}${wknd?" wknd":""}${(items.length||autoChips)?" has":""}" onclick="openCalEntry(null,'${ds}')"><span class="cal-dnum">${d}</span>${autoChips}${chips}</div>`;
   }
   host.innerHTML=`
     <div class="cal-head">
@@ -1539,8 +1587,8 @@ function renderCalEditor(){
     </div>
     <div class="cal-wdrow">${wd.map(w=>`<div class="cal-wd">${w}</div>`).join("")}</div>
     <div class="cal-grid">${cells}</div>
-    <p class="muted cal-hint">Tap a day to add an entry, or tap an entry to edit it.</p>
-    <div class="cal-actions"><button class="btn subadd-btn" onclick="openCalEntry(null,'')">+ Add entry</button><button class="btn ghost" onclick="calLoadAlmanac()">Load 2026–27 almanac</button></div>`;
+    <p class="muted cal-hint">Tap a day to add an entry, or tap an entry to edit it.${(holidaysLoaded && HOLIDAYS.length) ? " Public holidays are pulled in automatically." : ""}</p>
+    <div class="cal-actions"><button class="btn ghost" onclick="syncHolidays()">Sync public holidays</button>${(CALENDAR||[]).length ? "" : `<button class="btn primary" onclick="calLoadAlmanac()">Load 2026–27 almanac</button>`}</div>`;
 }
 function openCalEntry(idx, defDate){
   if(!state.isAdmin) return;
@@ -1967,7 +2015,7 @@ function mountManage(){
 
   // School calendar
   html+=`<section class="card"><details class="mg-details"><summary>School calendar <small class="sum-count">${(CALENDAR||[]).length}</small></summary>
-    <p class="muted mg-note">Holidays, breaks, exams, PTMs and function days. Each appears as a banner on Log a class for its date(s). Anything marked “No classes” greys out that day’s timetable so there’s no pressure to log. For a range like a break, set both dates; leave the second blank for a single day. Put a branch note in the name if needed, e.g. “Sports Day (AN)”.</p>
+    <p class="muted mg-note">National and religious public holidays are pulled in automatically (shown with a dashed outline) and shared across all branches. Add your school-specific dates here — breaks, exams, PTMs and function days. Each appears as a banner on Log a class, and anything marked “No classes” greys out that day’s timetable. For a range like a break, set both dates; leave the second blank for a single day. Put a branch note in the name if needed, e.g. “Sports Day (AN)”.</p>
     <div id="calEditor"></div>
   </details></section>`;
 
@@ -2582,5 +2630,33 @@ function mgBulkUpload(files){
     }
     renderUser(); showApp();
   }else{ state.user=null; showGate(); }
+})();
+</script>
+<script>
+/* PWA — install prompt (Android/desktop), iOS add-to-home help, service worker */
+(function(){
+  var deferredPrompt=null;
+  function isStandalone(){ return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone===true; }
+  function isIOS(){ return /iphone|ipad|ipod/i.test(navigator.userAgent||"") && !window.MSStream; }
+  function showInstall(){ var b=document.getElementById("installBtn"); if(b && !isStandalone()) b.hidden=false; }
+  function hideInstall(){ var b=document.getElementById("installBtn"); if(b) b.hidden=true; }
+  function iosInstallHelp(){
+    var back=document.createElement("div"); back.className="tt-modal-back";
+    back.innerHTML='<div class="tt-modal"><button class="tt-modal-x" type="button" title="Close">&times;</button><h4>Add to Home Screen</h4><p>Tap the <b>Share</b> button in Safari, then choose <b>Add to Home Screen</b>. Class Log will open full screen, like an app.</p><div class="tt-modal-btns"><button class="btn primary" type="button" id="iosOk">Got it</button></div></div>';
+    document.body.appendChild(back);
+    var close=function(){ try{back.remove();}catch(e){} };
+    back.querySelector(".tt-modal-x").onclick=close;
+    back.querySelector("#iosOk").onclick=close;
+    back.addEventListener("click",function(e){ if(e.target===back) close(); });
+  }
+  window.promptInstall=async function(){
+    if(deferredPrompt){ deferredPrompt.prompt(); try{ await deferredPrompt.userChoice; }catch(e){} deferredPrompt=null; hideInstall(); return; }
+    if(isIOS()){ iosInstallHelp(); return; }
+    if(typeof toast==="function"){ toast("Open your browser menu and choose Install app","↓"); } else { iosInstallHelp(); }
+  };
+  window.addEventListener("beforeinstallprompt",function(e){ e.preventDefault(); deferredPrompt=e; showInstall(); });
+  window.addEventListener("appinstalled",function(){ deferredPrompt=null; hideInstall(); });
+  if(isIOS() && !isStandalone()){ showInstall(); }  // iOS never fires beforeinstallprompt
+  if("serviceWorker" in navigator){ window.addEventListener("load",function(){ navigator.serviceWorker.register("/sw.js").catch(function(){}); }); }
 })();
 </script>
