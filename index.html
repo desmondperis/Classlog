@@ -133,6 +133,8 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .row.extra .xdel{justify-self:end; appearance:none; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:8px; width:40px; min-height:38px; cursor:pointer; font-size:18px; font-weight:700; line-height:1}
 .row.extra .xdel:hover{border-color:#d66; color:#c0392b; background:#fff5f5}
 .row.extra select{width:100%}
+.roomwrap{display:flex; flex-direction:column; gap:6px; min-width:0}
+.roomwrap select,.roomwrap input{width:100%}
 .row.extra.brk-extra{grid-template-columns:1fr auto}
 .frow{border-top:1px solid #eef2f6; padding:8px 6px}
 .frow-h{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap}
@@ -709,14 +711,25 @@ const saveDeptsCfg    = ()=> saveCfg("cfg:depts",DEPTS,"Departments saved");
 const savePlacesCfg   = ()=> saveCfg("cfg:places",PLACES,"Rooms saved");
 const saveSubjectsCfg = ()=> saveCfg("cfg:subjects",SUBJECTS,"Subjects saved");
 const saveBellCfg     = ()=> saveCfg("cfg:bell",BELLCFG,"Bell timings saved");
+function isKnownRoom(sel){ return (PLACES||[]).indexOf(sel)>=0 || CLASSES.some(c=>(c+" · Room "+ROOMS[c])===sel); }
 function roomOptions(sel){
   sel=sel||"";
+  const custom = sel && !isKnownRoom(sel);
   let o=`<option value=""${sel?"":" selected"}>Room / place…</option>`;
   if(PLACES&&PLACES.length){ o+=`<optgroup label="Rooms &amp; labs">`; PLACES.forEach(p=>{ o+=`<option${sel===p?" selected":""}>${esc(p)}</option>`; }); o+=`</optgroup>`; }
   if(CLASSES.length){ o+=`<optgroup label="Classrooms">`; CLASSES.forEach(c=>{ const lb=c+" · Room "+ROOMS[c]; o+=`<option value="${esc(lb)}"${sel===lb?" selected":""}>${esc(lb)}</option>`; }); o+=`</optgroup>`; }
-  const known = (PLACES||[]).indexOf(sel)>=0 || CLASSES.some(c=>(c+" · Room "+ROOMS[c])===sel);
-  if(sel && !known) o+=`<option value="${esc(sel)}" selected>${esc(sel)}</option>`;
+  o+=`<option value="__other__"${custom?" selected":""}>Other…</option>`;
   return o;
+}
+function roomCtl(dName,xi,x){
+  const sel=x.rm||""; const custom = sel && !isKnownRoom(sel);
+  return `<div class="roomwrap"><select class="roomsel" onchange="roomSel(this,'${esc(dName)}',${xi})">${roomOptions(sel)}</select>`+
+    `<input type="text" class="roomother" placeholder="Type room / place" value="${custom?esc(sel):""}" oninput="editX('${esc(dName)}',${xi},'rm',this.value)"${custom?"":" hidden"}></div>`;
+}
+function roomSel(selEl,day,idx){
+  const other = selEl.parentNode.querySelector(".roomother");
+  if(selEl.value==="__other__"){ if(other){ other.hidden=false; other.focus(); } editX(day,idx,"rm", other?other.value:""); }
+  else { if(other){ other.hidden=true; other.value=""; } editX(day,idx,"rm", selEl.value); }
 }
 
 /* ---------- Dates ---------- */
@@ -984,7 +997,7 @@ function brkRow(dName,xi,x){
 function xRow(dName,xi,x){
   return `<div class="row extra">
     <input type="text" placeholder="What you did (e.g. Substituted 9A – Science)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)">
-    <select class="roomsel" onchange="editX('${esc(dName)}',${xi},'rm',this.value)">${roomOptions(x.rm||"")}</select>
+    ${roomCtl(dName,xi,x)}
     <input type="text" placeholder="Remark (optional)" value="${esc(x.r||"")}" oninput="editX('${esc(dName)}',${xi},'r',this.value)">
     <button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">×</button></div>`;
 }
