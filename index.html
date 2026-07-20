@@ -136,6 +136,13 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .xsave{appearance:none; border:1px solid var(--ok); background:#fff; color:var(--ok); border-radius:8px; width:40px; min-height:38px; cursor:pointer; font-size:17px; font-weight:800; line-height:1}
 .xsave:hover{background:#eafaf1}
 .xsave.saved{background:var(--ok); color:#fff}
+.xedit{appearance:none; border:1px solid var(--line); background:#fff; color:var(--blue-d); border-radius:8px; width:40px; min-height:38px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; line-height:1}
+.xedit:hover{background:var(--blue-l); border-color:var(--blue)}
+.row.extra.saved{grid-template-columns:1fr auto; background:#f2f8f4}
+.xview{display:flex; flex-wrap:wrap; gap:5px 12px; align-items:center; min-width:0; padding:2px 0}
+.xv-what{font-weight:700; color:var(--ink); font-size:14px; overflow-wrap:anywhere}
+.xv-room{font-size:12px; font-weight:800; color:var(--blue-d); background:var(--blue-l); padding:2px 9px; border-radius:999px}
+.xv-rem{font-size:13px; color:var(--muted); overflow-wrap:anywhere}
 .row.extra select{width:100%}
 .roomwrap{display:flex; flex-direction:column; gap:6px; min-width:0}
 .roomwrap select,.roomwrap input{width:100%}
@@ -1007,15 +1014,28 @@ function daySlots(id,dName){
   }
   return out;
 }
+const PENCIL_SVG='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 function brkRow(dName,xi,x){
-  return `<div class="row extra brk-extra"><input type="text" placeholder="Break duty (e.g. 2nd floor West block)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)"><div class="xacts"><button class="xsave" title="Save this" onclick="saveX('${esc(dName)}',${xi},this)">✓</button><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">&times;</button></div></div>`;
+  if(x.saved){
+    return `<div class="row extra brk-extra saved"><div class="xview"><span class="xv-what">${esc(x.c||"(no description)")}</span></div><div class="xacts"><button class="xedit" title="Edit" onclick="editXentry('${esc(dName)}',${xi})">${PENCIL_SVG}</button><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">&times;</button></div></div>`;
+  }
+  return `<div class="row extra brk-extra"><input type="text" placeholder="Break duty (e.g. 2nd floor West block)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)"><div class="xacts"><button class="xsave" title="Save this" onclick="saveX('${esc(dName)}',${xi})">✓</button><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">&times;</button></div></div>`;
 }
 function xRow(dName,xi,x){
+  if(x.saved) return xRowView(dName,xi,x);
   return `<div class="row extra">
     <input type="text" placeholder="What you did (e.g. Substituted 9A – Science)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)">
     ${roomCtl(dName,xi,x)}
     <input type="text" placeholder="Remark (optional)" value="${esc(x.r||"")}" oninput="editX('${esc(dName)}',${xi},'r',this.value)">
-    <div class="xacts"><button class="xsave" title="Save this" onclick="saveX('${esc(dName)}',${xi},this)">✓</button><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">×</button></div></div>`;
+    <div class="xacts"><button class="xsave" title="Save this" onclick="saveX('${esc(dName)}',${xi})">✓</button><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">×</button></div></div>`;
+}
+function xRowView(dName,xi,x){
+  const parts=[`<span class="xv-what">${esc(x.c||"(no description)")}</span>`];
+  if((x.rm||"").trim()) parts.push(`<span class="xv-room">${esc(x.rm)}</span>`);
+  if((x.r||"").trim()) parts.push(`<span class="xv-rem">${esc(x.r)}</span>`);
+  return `<div class="row extra saved">
+    <div class="xview">${parts.join("")}</div>
+    <div class="xacts"><button class="xedit" title="Edit" onclick="editXentry('${esc(dName)}',${xi})">${PENCIL_SVG}</button><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">×</button></div></div>`;
 }
 function renderDay(){
   const host=document.getElementById("day"); const id=state.teacherId; const dept=deptOf(id);
@@ -1318,10 +1338,17 @@ async function saveTeacher(){
   toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠");
 }
 async function flushTeacherSave(){ if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; if(state.teacherId){ try{ await saveTeacher(); }catch(e){} } } }
-async function saveX(day,idx,btn){
+async function saveX(day,idx){
+  const arr=(state.blob._x&&state.blob._x[day])||[]; const x=arr[idx]; if(!x) return;
+  const hasContent=(x.c||"").trim()||(x.rm||"").trim()||(x.r||"").trim();
+  if(!hasContent){ toast("Nothing to save yet","⚠"); return; }
+  x.saved=true; renderDay();
   clearTimeout(saveTimer); saveTimer=null;
   if(state.teacherId){ try{ await saveTeacher(); }catch(e){} }
-  if(btn){ btn.classList.add("saved"); setTimeout(()=>{ try{ btn.classList.remove("saved"); }catch(e){} },1200); }
+}
+function editXentry(day,idx){
+  const arr=(state.blob._x&&state.blob._x[day])||[]; const x=arr[idx]; if(!x) return;
+  x.saved=false; renderDay();
 }
 function canMarkAbsentNow(){ return (state.myTeacherId && state.teacherId===state.myTeacherId) || state.isAdmin || state.role==="leader" || state.role==="hod"; }
 async function toggleAbsent(day){
