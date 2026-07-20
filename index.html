@@ -132,6 +132,10 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .row.extra input{width:100%}
 .row.extra .xdel{justify-self:end; appearance:none; border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:8px; width:40px; min-height:38px; cursor:pointer; font-size:18px; font-weight:700; line-height:1}
 .row.extra .xdel:hover{border-color:#d66; color:#c0392b; background:#fff5f5}
+.xacts{display:flex; gap:6px; align-items:center; justify-self:end}
+.xsave{appearance:none; border:1px solid var(--ok); background:#fff; color:var(--ok); border-radius:8px; width:40px; min-height:38px; cursor:pointer; font-size:17px; font-weight:800; line-height:1}
+.xsave:hover{background:#eafaf1}
+.xsave.saved{background:var(--ok); color:#fff}
 .row.extra select{width:100%}
 .roomwrap{display:flex; flex-direction:column; gap:6px; min-width:0}
 .roomwrap select,.roomwrap input{width:100%}
@@ -424,7 +428,19 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .sub-empty{font-size:13px; color:var(--muted); padding:4px 0}
 .sub-note{font-size:13px; margin:8px 0; padding:8px 10px; border-radius:var(--rs)}
 .sub-note.warn{background:#fdf3e0; color:#8a5a12}
-.sub-add{margin-top:12px}
+.sub-add{margin-top:12px; display:flex; gap:10px; flex-wrap:wrap}
+.subby-btn{background:var(--blue-l); border-color:var(--blue); color:var(--blue-d)}
+.subby-btn:hover{background:#dfe8f6}
+.subby-modal{max-width:520px}
+.subby-teacher{width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:var(--rs); font:inherit; margin-bottom:10px}
+.subby-grid{display:flex; flex-direction:column; gap:6px; max-height:52vh; overflow:auto; margin-bottom:12px}
+.subby-row{display:flex; align-items:center; gap:10px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:#fff}
+.subby-row.busy{background:#f6f8fb}
+.subby-per{font-weight:800; font-size:12.5px; color:var(--blue-d); min-width:72px; flex:0 0 auto}
+.subby-sel{flex:1; min-width:0; padding:8px 10px; border:1px solid var(--line); border-radius:9px; font:inherit}
+.subby-busy{color:var(--muted); font-size:13px}
+.subby-free{font-size:13px}
+.subby-hint{color:var(--muted); font-size:13.5px; padding:8px 2px; line-height:1.5}
 .sub-none{margin-top:8px}
 .mysub{margin:0 0 12px; border:1px solid var(--orange); background:#fff8ef; border-radius:var(--r); padding:10px 12px}
 .mysub-h{font-weight:800; color:var(--orange-d); font-size:13px; margin-bottom:4px; letter-spacing:.02em}
@@ -992,14 +1008,14 @@ function daySlots(id,dName){
   return out;
 }
 function brkRow(dName,xi,x){
-  return `<div class="row extra brk-extra"><input type="text" placeholder="Break duty (e.g. 2nd floor West block)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)"><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">&times;</button></div>`;
+  return `<div class="row extra brk-extra"><input type="text" placeholder="Break duty (e.g. 2nd floor West block)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)"><div class="xacts"><button class="xsave" title="Save this" onclick="saveX('${esc(dName)}',${xi},this)">✓</button><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">&times;</button></div></div>`;
 }
 function xRow(dName,xi,x){
   return `<div class="row extra">
     <input type="text" placeholder="What you did (e.g. Substituted 9A – Science)" value="${esc(x.c||"")}" oninput="editX('${esc(dName)}',${xi},'c',this.value)">
     ${roomCtl(dName,xi,x)}
     <input type="text" placeholder="Remark (optional)" value="${esc(x.r||"")}" oninput="editX('${esc(dName)}',${xi},'r',this.value)">
-    <button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">×</button></div>`;
+    <div class="xacts"><button class="xsave" title="Save this" onclick="saveX('${esc(dName)}',${xi},this)">✓</button><button class="xdel" title="Remove" onclick="removeX('${esc(dName)}',${xi})">×</button></div></div>`;
 }
 function renderDay(){
   const host=document.getElementById("day"); const id=state.teacherId; const dept=deptOf(id);
@@ -1302,6 +1318,11 @@ async function saveTeacher(){
   toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠");
 }
 async function flushTeacherSave(){ if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; if(state.teacherId){ try{ await saveTeacher(); }catch(e){} } } }
+async function saveX(day,idx,btn){
+  clearTimeout(saveTimer); saveTimer=null;
+  if(state.teacherId){ try{ await saveTeacher(); }catch(e){} }
+  if(btn){ btn.classList.add("saved"); setTimeout(()=>{ try{ btn.classList.remove("saved"); }catch(e){} },1200); }
+}
 function canMarkAbsentNow(){ return (state.myTeacherId && state.teacherId===state.myTeacherId) || state.isAdmin || state.role==="leader" || state.role==="hod"; }
 async function toggleAbsent(day){
   if(!canMarkAbsentNow()) return;
@@ -1447,6 +1468,7 @@ function renderSub(){
   let cards=""; (subState.rows||[]).forEach((row,i)=>{ cards+=subCardHTML(row,i,day,absentSet,ro); });
   if(!(subState.rows||[]).length){ cards=`<div class="prompt sub-none"><b>No substitutions yet</b>${ro?"When a teacher marks themselves absent, or the department on duty adds someone, they’ll appear here.":"Absent teachers appear here automatically. Use “Add absent teacher” for anyone who didn’t mark it themselves."}</div>`; }
   const addBtn = ro?"":`<button class="btn subadd-btn" onclick="subAddAbsent()">+ Add absent teacher</button>`;
+  const byBtn = ro?"":`<button class="btn subby-btn" onclick="openSubByTeacher()">Search by present teacher</button>`;
   const dutyWarn = (canSetDuty() && !dutyDept) ? `<div class="sub-note warn">Set the department on duty so its teachers can see and edit this tab.</div>` : "";
   const dayWarn = isWeekday?"":`<div class="sub-note warn">${esc(day)} isn’t a teaching day.</div>`;
   view().innerHTML=`
@@ -1463,7 +1485,7 @@ function renderSub(){
     </div>
     ${dutyWarn}${dayWarn}
     <div class="sub-wrap">${cards}</div>
-    <div class="sub-add">${addBtn}</div>`;
+    <div class="sub-add">${addBtn}${byBtn}</div>`;
 }
 function subSetDept(d){ if(!canSetDuty()) return; subState.dept=d||""; SUBDUTY=d||""; renderSub(); scheduleSubSave(); apiSet("sub:duty", d||""); }
 function subAddAbsent(){ if(!canEditSub()) return; subState.rows=subState.rows||[]; subState.rows.push({absent:"",subs:{},auto:false}); renderSub(); }
@@ -1474,6 +1496,56 @@ function scheduleSubSave(){ clearTimeout(subSaveTimer); subSaveTimer=setTimeout(
 async function saveSubSched(){ if(!canEditSub()) return; const rows=(subState.rows||[]).filter(r=> r.absent && (!r.auto || Object.keys(r.subs||{}).length)).map(r=>({absent:r.absent, subs:r.subs||{}})); const blob={ dept:subState.dept||"", rows }; const ok=await apiSet("sub:"+subState.date, JSON.stringify(blob)); toast(ok?"Substitution saved":"Couldn't save — you’re not on duty", ok?"✓":"⚠"); }
 async function subDayStep(n){ subState.date=ymd(addDays(parseYmd(subState.date),n)); await loadSub(subState.date); renderSub(); }
 async function subPickDate(v){ if(!v) return; subState.date=v; await loadSub(subState.date); renderSub(); }
+function openSubByTeacher(){
+  if(!canEditSub()) return;
+  closeSubByTeacher();
+  const day=dayName(subState.date);
+  const opts=TEACHERS.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(t=>`<option value="${esc(t.id)}">${esc(t.name)}${t.dept?(" · "+esc(t.dept)):""}</option>`).join("");
+  const back=document.createElement("div"); back.className="tt-modal-back"; back.id="subByModal";
+  back.innerHTML=`<div class="tt-modal subby-modal">
+    <button class="tt-modal-x" type="button" title="Close">&times;</button>
+    <h4>Assign by present teacher</h4>
+    <p>Pick a teacher who is present. Their free periods appear below — choose which absent class each one covers. ${esc(day)} · ${esc(niceDate(subState.date))}.</p>
+    <select id="subby-teacher" class="subby-teacher" onchange="renderSubByTeacherGrid(this.value)"><option value="" selected disabled>Select a teacher…</option>${opts}</select>
+    <div id="subby-grid" class="subby-grid"></div>
+    <div class="tt-modal-btns"><button class="btn primary" type="button" id="subbyDone">Done</button></div>
+  </div>`;
+  document.body.appendChild(back);
+  back.querySelector(".tt-modal-x").onclick=closeSubByTeacher;
+  back.addEventListener("click",e=>{ if(e.target===back) closeSubByTeacher(); });
+  back.querySelector("#subbyDone").onclick=closeSubByTeacher;
+}
+function closeSubByTeacher(){ const m=document.getElementById("subByModal"); if(m){ try{m.remove();}catch(e){} } }
+function renderSubByTeacherGrid(tid){
+  const host=document.getElementById("subby-grid"); if(!host) return;
+  if(!tid){ host.innerHTML=""; return; }
+  const day=dayName(subState.date);
+  if(!(subState.rows||[]).some(r=>r.absent)){ host.innerHTML=`<div class="subby-hint">No one is marked absent yet. Add an absent teacher first, then you can assign cover here.</div>`; return; }
+  let rows="";
+  for(let p=1;p<=PERIODS;p++){
+    if(subBusyAt(tid,day,p)){
+      const own=((SCHEDULE[tid]&&SCHEDULE[tid][day])||[]).find(e=>(e.period||0)<=p&&p<=((e.periodEnd||e.period)||0));
+      const lbl= own?((own.code||own.act||"")+(own.subject?(" · "+own.subject):"")):"Own class";
+      rows+=`<div class="subby-row busy"><span class="subby-per">${esc(periodLabel(p))}</span><span class="subby-busy">Busy · ${esc(lbl)}</span></div>`;
+      continue;
+    }
+    const opts=[]; (subState.rows||[]).forEach((r,i)=>{ if(!r.absent) return; const sl=absentDaySlots(r.absent,day).find(s=>s.period===p); if(!sl) return; opts.push({i, label:NAME(r.absent)+" · "+sl.code+(sl.subject?(" ("+sl.subject+")"):""), cur:(r.subs&&r.subs[p])||""}); });
+    if(!opts.length){ rows+=`<div class="subby-row"><span class="subby-per">${esc(periodLabel(p))}</span><span class="subby-free muted">Free · no absent classes</span></div>`; continue; }
+    let sel=""; (subState.rows||[]).forEach((r,i)=>{ if(r.subs&&r.subs[p]===tid) sel=String(i); });
+    let o=`<option value="">Free — not assigned</option>`;
+    opts.forEach(op=>{ const takenByOther=op.cur && op.cur!==tid; o+=`<option value="${op.i}"${String(op.i)===sel?" selected":""}${takenByOther?" disabled":""}>${esc(op.label)}${takenByOther?(" — taken by "+esc(NAME(op.cur))):""}</option>`; });
+    rows+=`<div class="subby-row"><span class="subby-per">${esc(periodLabel(p))}</span><select class="subby-sel" onchange="subAssignByTeacher('${esc(tid)}',${p},this.value)">${o}</select></div>`;
+  }
+  host.innerHTML=rows;
+}
+function subAssignByTeacher(tid,p,idx){
+  if(!canEditSub()) return;
+  (subState.rows||[]).forEach(r=>{ if(r.subs && r.subs[p]===tid) delete r.subs[p]; });
+  if(idx!==""&&idx!=null){ const i=+idx; if(subState.rows[i]){ if(!subState.rows[i].subs) subState.rows[i].subs={}; subState.rows[i].subs[p]=tid; } }
+  scheduleSubSave();
+  renderSubByTeacherGrid(tid);
+  renderSub();
+}
 
 /* substitution duties shown on the teacher's own Log a class page */
 function mySubsHTML(){
