@@ -143,6 +143,12 @@ input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; bo
 .xv-what{font-weight:700; color:var(--ink); font-size:14px; overflow-wrap:anywhere}
 .xv-room{font-size:12px; font-weight:800; color:var(--blue-d); background:var(--blue-l); padding:2px 9px; border-radius:999px}
 .xv-rem{font-size:13px; color:var(--muted); overflow-wrap:anywhere}
+.row.cls{grid-template-columns:130px 1fr 1fr 1fr auto}
+.row.cls.saved{grid-template-columns:130px 1fr auto; background:#f2f8f4}
+.clsview{display:flex; flex-direction:column; gap:4px; min-width:0; padding:2px 0}
+.cv-item{font-size:13.5px; color:var(--ink); overflow-wrap:anywhere; line-height:1.45}
+.cv-lab{display:inline-block; font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-right:7px; min-width:58px}
+.cv-none{color:var(--muted); font-style:italic}
 .row.extra select{width:100%}
 .roomwrap{display:flex; flex-direction:column; gap:6px; min-width:0}
 .roomwrap select,.roomwrap input{width:100%}
@@ -329,6 +335,7 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 @media (max-width:720px){
   .row{grid-template-columns:1fr; gap:7px; padding:12px 6px}
   .row.extra{grid-template-columns:1fr}
+  .row.cls,.row.cls.saved{grid-template-columns:1fr}
   .chip{flex-direction:row; align-items:baseline; gap:7px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   .pill{margin-left:0; width:100%; justify-content:center}
@@ -1090,13 +1097,22 @@ function renderDay(){
         const chip = e.act==="SDP"
           ? `<span class="chip"><b>SDP</b><span class="subj">${esc(e.group.join(", "))}</span>${per}</span>`
           : `<span class="chip"><b>${esc(e.code)}</b><span class="subj">${esc(e.subject)}</span>${e.room?`<span class="rm">Room ${esc(String(e.room))}</span>`:""}${per}</span>`;
+        if(rec.saved){
+          const parts=[];
+          if(p.trim()) parts.push(`<span class="cv-item"><span class="cv-lab">Planned</span>${esc(p)}</span>`);
+          parts.push(`<span class="cv-item"><span class="cv-lab">Covered</span>${t.trim()?esc(t):`<span class="cv-none">not logged</span>`}</span>`);
+          if(r.trim()) parts.push(`<span class="cv-item"><span class="cv-lab">Remark</span>${esc(r)}</span>`);
+          html+=`<div class="row cls saved">${chip}<div class="clsview">${parts.join("")}</div><div class="xacts"><button class="xedit" title="Edit" onclick="editClsEntry('${esc(dName)}','${esc(e.slug)}')">${PENCIL_SVG}</button></div></div>`;
+          return;
+        }
         const plannedCell = canPlan
           ? `<div class="pl"><input type="text" placeholder="Planned topic" value="${esc(p)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','p',this.value)"></div>`
           : `<div class="pl ro">${p?`<span class="pl-lab">Planned</span>${esc(p)}`:`<span class="pl-none">No planned topic</span>`}</div>`;
-        html+=`<div class="row">${chip}
+        html+=`<div class="row cls">${chip}
           ${plannedCell}
           <div class="lg${t.trim()?" has":""}" data-lg="${esc(dk)}"><input type="text" placeholder="Topic covered" value="${esc(t)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','t',this.value)"></div>
-          <div><input type="text" placeholder="Remark (optional)" value="${esc(r)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','r',this.value)"></div></div>`;
+          <div><input type="text" placeholder="Remark (optional)" value="${esc(r)}" oninput="edit('${esc(dName)}','${esc(e.slug)}','r',this.value)"></div>
+          <div class="xacts"><button class="xsave" title="Save this" onclick="saveCls('${esc(dName)}','${esc(e.slug)}')">✓</button></div></div>`;
         return;
       }
       const items=xFor(s.sid);
@@ -1349,6 +1365,18 @@ async function saveX(day,idx){
 function editXentry(day,idx){
   const arr=(state.blob._x&&state.blob._x[day])||[]; const x=arr[idx]; if(!x) return;
   x.saved=false; renderDay();
+}
+async function saveCls(day,slug){
+  const dk=dkeyOf(day,slug); const rec=state.blob[dk]||{};
+  const hasContent=(rec.t||"").trim()||(rec.r||"").trim()||(rec.p||"").trim();
+  if(!hasContent){ toast("Nothing to log yet","⚠"); return; }
+  rec.saved=true; state.blob[dk]=rec; renderDay();
+  clearTimeout(saveTimer); saveTimer=null;
+  if(state.teacherId){ try{ await saveTeacher(); }catch(e){} }
+}
+function editClsEntry(day,slug){
+  const dk=dkeyOf(day,slug); const rec=state.blob[dk]; if(!rec) return;
+  rec.saved=false; renderDay();
 }
 function canMarkAbsentNow(){ return (state.myTeacherId && state.teacherId===state.myTeacherId) || state.isAdmin || state.role==="leader" || state.role==="hod"; }
 async function toggleAbsent(day){
