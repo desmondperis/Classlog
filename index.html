@@ -1263,9 +1263,36 @@ function calWeekItems(id){
   });
   return items;
 }
+async function calSubItems(id){
+  const wkMon=curWeek(); const items=[];
+  for(const day of DAYS){
+    const dateStr=dateOf(wkMon, day);
+    let sched=null, resp={};
+    try{
+      const v=await apiGetMany(["sub:"+dateStr,"subresp:"+dateStr]);
+      try{ sched=v["sub:"+dateStr]?JSON.parse(v["sub:"+dateStr]):null; }catch(e){}
+      try{ const o=v["subresp:"+dateStr]?JSON.parse(v["subresp:"+dateStr]):null; if(o&&typeof o==="object") resp=o; }catch(e){}
+    }catch(e){}
+    if(!sched||!Array.isArray(sched.rows)) continue;
+    sched.rows.forEach(row=>{
+      if(!row||!row.absent||!row.subs) return;
+      Object.keys(row.subs).forEach(pk=>{
+        if(row.subs[pk]!==id) return;
+        if(resp[id+"|"+pk] && resp[id+"|"+pk].s==="rejected") return; // don't add declined cover
+        const p=parseInt(pk,10); if(!p||!BELL[p]) return;
+        const own=((SCHEDULE[row.absent]&&SCHEDULE[row.absent][day])||[]).find(e=>(e.period||0)<=p && p<=((e.periodEnd||e.period)||0));
+        let cls="class";
+        if(own){ cls = own.act==="SDP" ? ("SDP"+(own.group?(" — "+own.group.join(", ")):"")) : (own.code+(own.subject?(" "+own.subject):"")); }
+        items.push({key:id+"|"+dateStr+"|sub"+p, date:dateStr, s:BELL[p].s, e:BELL[p].e, title:"Substitution: "+cls+" (for "+NAME(row.absent)+")", loc:(own&&own.room)?("Room "+String(own.room)):"", desc:"Class Log substitution"});
+      });
+    });
+  }
+  return items;
+}
 async function syncWeekToCalendar(){
   const id=state.teacherId; if(!id){ toast("Pick a teacher first","⚠"); return; }
-  const items=calWeekItems(id);
+  let items=calWeekItems(id);
+  try{ items=items.concat(await calSubItems(id)); }catch(e){}
   if(!items.length){ toast("Nothing to sync for this week","⚠"); return; }
   let token;
   try{ token=await getCalToken(); }
@@ -1302,12 +1329,13 @@ async function calListTagged(token, owner, timeMin, timeMax){
 }
 async function removeWeekFromCalendar(){
   const id=state.teacherId; if(!id){ toast("Pick a teacher first","⚠"); return; }
-  if(!confirm("Remove this week's synced classes and duties for "+NAME(id)+" from your Google Calendar?")) return;
+  if(!confirm("Remove this week's synced classes, duties and substitutions for "+NAME(id)+" from your Google Calendar?")) return;
   let token;
   try{ token=await getCalToken(); }
   catch(err){ const m=(err&&err.message)||""; toast(m==="no-client-id"?"Google sign-in isn't set up yet":(m==="gis-not-loaded"?"Google is still loading — try again in a moment":"Calendar access was declined"),"⚠"); return; }
   if(!token){ toast("Couldn't get Calendar access","⚠"); return; }
   const set=new Set(calWeekItems(id).map(it=>calEvId(it.key)));
+  try{ (await calSubItems(id)).forEach(it=>set.add(calEvId(it.key))); }catch(e){}
   const wkMon=curWeek(), timeMin=wkMon+"T00:00:00+05:30", timeMax=ymd(addDays(parseYmd(wkMon),5))+"T00:00:00+05:30";
   try{ (await calListTagged(token, id, timeMin, timeMax)).forEach(x=>set.add(x)); }catch(e){}
   if(!set.size){ toast("No synced events found for this week","⚠"); return; }
