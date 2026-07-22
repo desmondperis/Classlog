@@ -1233,7 +1233,9 @@ function calBar(text, mode){
 async function calUpsert(token, it){
   const id=calEvId(it.key);
   const owner=(it.key||"").split("|")[0]||"1";
-  const body={ id, summary:it.title, start:{dateTime:it.date+"T"+it.s+":00", timeZone:"Asia/Kolkata"}, end:{dateTime:it.date+"T"+it.e+":00", timeZone:"Asia/Kolkata"}, reminders:{useDefault:false, overrides:[{method:"popup", minutes:5}]}, extendedProperties:{private:{classlog:owner}} };
+  const body={ id, summary:it.title, extendedProperties:{private:{classlog:owner}} };
+  if(it.allDay){ body.start={date:it.date}; body.end={date:ymd(addDays(parseYmd(it.date),1))}; }
+  else { body.start={dateTime:it.date+"T"+it.s+":00", timeZone:"Asia/Kolkata"}; body.end={dateTime:it.date+"T"+it.e+":00", timeZone:"Asia/Kolkata"}; body.reminders={useDefault:false, overrides:[{method:"popup", minutes:5}]}; }
   if(it.loc) body.location=it.loc; if(it.desc) body.description=it.desc;
   const base="https://www.googleapis.com/calendar/v3/calendars/primary/events";
   const H={Authorization:"Bearer "+token, "Content-Type":"application/json"};
@@ -1241,6 +1243,12 @@ async function calUpsert(token, it){
   let r=await calFetch(base+"/"+encodeURIComponent(id), {method:"PUT", headers:H, body:JSON.stringify(b2)});
   if(r && (r.status===404||r.status===410)){ r=await calFetch(base, {method:"POST", headers:H, body:JSON.stringify(body)}); }
   return !!(r && r.ok);
+}
+function xSlotTime(slot){
+  slot=String(slot||"");
+  if(/^p\d+$/.test(slot)){ const p=+slot.slice(1); return BELL[p]?{s:BELL[p].s,e:BELL[p].e}:null; }
+  if(slot==="brk"){ const bk=BELLCFG.brk||{}; return (bk.s&&bk.e)?{s:bk.s,e:bk.e}:null; }
+  const pre=BELL_PRE.find(b=>b.id===slot); return (pre&&pre.s&&pre.e)?{s:pre.s,e:pre.e}:null;
 }
 function calWeekItems(id){
   const wkMon=curWeek(); const items=[];
@@ -1259,6 +1267,14 @@ function calWeekItems(id){
         const bk=BELLCFG.brk||{}; if(!(bk.s&&bk.e)) return;
         items.push({key:id+"|"+dateStr+"|brk", date:dateStr, s:bk.s, e:bk.e, title:"Break duty: "+s.note, loc:"", desc:"Class Log duty"});
       }
+    });
+    const xs=(state.blob._x && state.blob._x[day]) || [];
+    xs.forEach((x,xi)=>{
+      const c=((x&&x.c)||"").trim(); if(!c) return;
+      const tm=xSlotTime(x.slot);
+      const it={ key:id+"|"+dateStr+"|x"+(x.slot||"other")+"-"+xi, date:dateStr, title:c, loc:(x.rm||""), desc:((x.r||"").trim()?("Class Log · "+x.r):"Class Log") };
+      if(tm){ it.s=tm.s; it.e=tm.e; } else { it.allDay=true; }
+      items.push(it);
     });
   });
   return items;
