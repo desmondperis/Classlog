@@ -390,7 +390,6 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .banner{ animation:fadeUp .4s var(--ease) both }
 .ctl,.filters{ animation:fadeUp .45s var(--ease) both }
 .prompt,.noclass{ animation:popIn .5s var(--ease-spring) both }
-.card{ animation:fadeUp .45s var(--ease) both }
 @media (hover:hover){ .card{ transition:box-shadow .22s var(--ease) } .card:hover{ box-shadow:var(--sh-hover) } .kpi{ transition:transform .18s var(--ease), box-shadow .18s var(--ease) } .kpi:hover{ transform:translateY(-2px); box-shadow:var(--sh-hover) } }
 
 /* day + staggered rows: only on a genuine load (mount / teacher / date change), NOT on add/remove */
@@ -627,7 +626,7 @@ function fmtT(hhmm){ const m=String(hhmm||"").match(/^(\d{1,2}):(\d{2})$/); if(!
 function durMin(s,e){ const p=x=>{ const m=String(x||"").match(/^(\d{1,2}):(\d{2})$/); return m?(+m[1])*60+(+m[2]):null; }; const a=p(s), b=p(e); return (a==null||b==null)?null:(b-a); }
 function validBell(o){ return !!(o && Array.isArray(o.pre) && Array.isArray(o.periods) && o.periods.length===PERIODS && o.brk && typeof o.breakAfter==="number"); }
 function normBell(){ (BELLCFG.pre||[]).forEach(b=>{b.s=norm24(b.s);b.e=norm24(b.e);}); (BELLCFG.periods||[]).forEach(p=>{p.s=norm24(p.s);p.e=norm24(p.e);}); if(BELLCFG.brk){BELLCFG.brk.s=norm24(BELLCFG.brk.s);BELLCFG.brk.e=norm24(BELLCFG.brk.e);} }
-function applyBell(){ normBell(); BELL={}; (BELLCFG.periods||[]).forEach((p,i)=>{ BELL[i+1]={r:p.r,s:p.s,e:p.e}; }); BELL_PRE=(BELLCFG.pre||[]).map(b=>({id:b.id,r:b.r,s:b.s,e:b.e,t:fmtT(b.s)+"–"+fmtT(b.e)})); BREAK_AFTER=BELLCFG.breakAfter||3; const bk=BELLCFG.brk||{}; BREAK_TIME=(bk.s&&bk.e)?(fmtT(bk.s)+"–"+fmtT(bk.e)):""; }
+function applyBell(){ normBell(); BELL={}; (BELLCFG.periods||[]).forEach((p,i)=>{ BELL[i+1]={r:p.r,s:p.s,e:p.e}; }); BELL_PRE=(BELLCFG.pre||[]).map(b=>({id:b.id,r:b.r,s:b.s,e:b.e,t:fmtT(b.s)+"–"+fmtT(b.e)})); BREAK_AFTER=(typeof BELLCFG.breakAfter==="number")?BELLCFG.breakAfter:3; const bk=BELLCFG.brk||{}; BREAK_TIME=(bk.s&&bk.e)?(fmtT(bk.s)+"–"+fmtT(bk.e)):""; }
 const periodLabel=p=>(BELL[p]?BELL[p].r:("P"+p));
 const periodTime=p=>(BELL[p]?fmtT(BELL[p].s)+"–"+fmtT(BELL[p].e):"");
 function periodText(e){ if(e.fixedSlot) return {lab:e.slotLabel||"", tim:e.slotTime||""}; const a=e.period, b=e.periodEnd||e.period; const lab=b>a?periodLabel(a)+"–"+periodLabel(b):periodLabel(a); const tim=(BELL[a]&&BELL[b])?fmtT(BELL[a].s)+"–"+fmtT(BELL[b].e):""; return {lab,tim}; }
@@ -2720,7 +2719,26 @@ function titleCase(t){ return _titleMap[blow(t)]||""; }
 function normRole(v){ const r=blow(v); return (r==="hod"||r==="leader"||r==="admin"||r==="teacher")?r:""; }
 const _roman={i:1,ii:2,iii:3,iv:4,v:5,vi:6,vii:7,viii:8};
 function periodOfHeader(t){ const s=blow(t).replace(/[^a-z0-9]/g,""); if(_roman[s]) return _roman[s]; const m=/^([1-8])$/.exec(s); return m?parseInt(m[1],10):0; }
-function classifyHeader(t){ const s=blow(t); if(s.indexOf("assembly")>=0) return {k:"assembly"}; if(s.indexOf("extended")>=0) return {k:"ext"}; if(s.indexOf("break")>=0) return {k:"brk"}; if(s==="ct") return {k:"ct"}; const isSub=/subj/.test(s); const core=s.replace(/subject|subj|class/g,""); const n=periodOfHeader(core); return n?{k:(isSub?"sub":"per"),n}:null; }
+function liveHeaderMap(){
+  const map={};
+  BELL_PRE.forEach(b=>{ const k=blow(b.r); if(k && !(k in map)) map[k]={k:b.id}; });
+  const bk=BELLCFG.brk||{}; const bkl=blow(bk.r||"Break"); if(bkl && !(bkl in map)) map[bkl]={k:"brk"};
+  for(let p=1;p<=PERIODS;p++){ const lb=blow(periodLabel(p)); if(lb && !(lb in map)) map[lb]={k:"per",n:p}; }
+  return map;
+}
+function classifyHeader(t){
+  const s=blow(t);
+  const isSub=/subj/.test(s);
+  const core=s.replace(/subject|subj|class/g,"").trim();
+  const live=liveHeaderMap(); const hit=live[core]||live[s];
+  if(hit) return (hit.k==="per")?{k:(isSub?"sub":"per"),n:hit.n}:(isSub?null:hit);
+  if(s.indexOf("assembly")>=0) return {k:"assembly"};
+  if(s.indexOf("extended")>=0) return {k:"ext"};
+  if(s.indexOf("break")>=0) return {k:"brk"};
+  if(s==="ct") return {k:"ct"};
+  const n=periodOfHeader(core);
+  return n?{k:(isSub?"sub":"per"),n}:null;
+}
 const _classRe=/^\d{1,2}[A-Za-z]{1,2}$/;
 function isClassCode(t){ return _classRe.test(String(t||"").replace(/\s+/g,"")); }
 function normClass(t){ return String(t||"").replace(/\s+/g,"").toUpperCase(); }
@@ -2841,13 +2859,59 @@ function applyBulkRows(rows){
   const parsed = gridish ? parseBulkGrid(rows) : parseBulkFlat(rows);
   return commitBulkGroups(parsed.groups||{}, parsed.unknown||new Set());
 }
-function mgDownloadBulkTemplate(){
+function bulkHeaderRow(){
+  const dutyHint={assembly:" (duty)", ext:" (clubs)"};
+  const headers=["Day"];
+  BELL_PRE.forEach(b=>headers.push(b.r+(dutyHint[b.id]||"")));
+  const bk=BELLCFG.brk||{};
+  for(let p=1;p<=PERIODS;p++){
+    if(p===BREAK_AFTER+1) headers.push((bk.r||"Break")+" (duty)");
+    headers.push(periodLabel(p));
+  }
+  return headers;
+}
+async function buildDynamicBulkTemplate(){
+  const XLSX=await loadXLSX();
+  const bin=atob(BULK_TEMPLATE_B64), len=bin.length, bytes=new Uint8Array(len);
+  for(let i=0;i<len;i++) bytes[i]=bin.charCodeAt(i);
+  const wb=XLSX.read(bytes,{type:"array"});
+  const sheetName=wb.SheetNames.find(n=>/teacher/i.test(n))||wb.SheetNames[0];
+  const ws=wb.Sheets[sheetName];
+  if(!ws||!ws["!ref"]) return null;
+  const headers=bulkHeaderRow();
+  const range=XLSX.utils.decode_range(ws["!ref"]);
+  let patched=0;
+  for(let r=range.s.r;r<=range.e.r;r++){
+    const aCell=ws[XLSX.utils.encode_cell({r,c:0})];
+    if(!aCell||String(aCell.v).trim()!=="Day") continue;
+    headers.forEach((val,ci)=>{
+      if(ci===0) return;
+      const addr=XLSX.utils.encode_cell({r,c:ci});
+      const existing=ws[addr];
+      if(existing){ existing.v=val; existing.w=val; delete existing.f; }
+      else ws[addr]={t:"s",v:val,w:val};
+    });
+    patched++;
+  }
+  if(!patched) return null;
+  ws["!dataValidation"]=[
+    {sqref:"B5 B19 B33 B47 B61 B75",type:"list",formula1:'"Mr,Mrs,Ms,Dr"',allowBlank:true},
+    {sqref:"B9 B23 B37 B51 B65 B79",type:"list",formula1:'"Teacher,HOD,Leader,Admin"',allowBlank:true}
+  ];
+  return XLSX.write(wb,{type:"array",bookType:"xlsx"});
+}
+async function mgDownloadBulkTemplate(){
+  let bytes=null, dynamic=false;
+  try{ const out=await buildDynamicBulkTemplate(); if(out){ bytes=out; dynamic=true; } }catch(e){ /* falls back to the static copy below */ }
   try{
-    const bin=atob(BULK_TEMPLATE_B64), len=bin.length, bytes=new Uint8Array(len);
-    for(let i=0;i<len;i++) bytes[i]=bin.charCodeAt(i);
+    if(!bytes){
+      const bin=atob(BULK_TEMPLATE_B64), len=bin.length, arr=new Uint8Array(len);
+      for(let i=0;i<len;i++) arr[i]=bin.charCodeAt(i);
+      bytes=arr;
+    }
     const blob=new Blob([bytes],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="Bulk_upload_template.xlsx"; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},600);
-    toast("Template downloaded","↓");
+    toast(dynamic?"Template downloaded — matches your current bell timings":"Template downloaded (default bell timings — couldn't load the current ones)","↓");
   }catch(e){ toast("Couldn't build the template","⚠"); }
 }
 let _xlsxP=null;
