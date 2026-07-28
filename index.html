@@ -1320,13 +1320,13 @@ async function calSubItems(id){
 }
 async function syncWeekToCalendar(){
   const id=state.teacherId; if(!id){ toast("Pick a teacher first","⚠"); return; }
-  let items=calWeekItems(id);
-  try{ items=items.concat(await calSubItems(id)); }catch(e){}
-  if(!items.length){ toast("Nothing to sync for this week","⚠"); return; }
   let token;
   try{ token=await getCalToken(); }
   catch(err){ const m=(err&&err.message)||""; toast(m==="no-client-id"?"Google sign-in isn't set up yet":(m==="gis-not-loaded"?"Google is still loading — try again in a moment":"Calendar access was declined"),"⚠"); return; }
   if(!token){ toast("Couldn't get Calendar access","⚠"); return; }
+  let items=calWeekItems(id);
+  try{ items=items.concat(await calSubItems(id)); }catch(e){}
+  if(!items.length){ toast("Nothing to sync for this week","⚠"); return; }
   const total=items.length;
   calBar("Adding to Calendar… 0/"+total, "run");
   let ok=0, fail=0;
