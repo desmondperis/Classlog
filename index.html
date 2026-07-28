@@ -88,7 +88,8 @@ a{color:var(--blue)}
 .ctl{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-top:18px}
 .field{display:flex; flex-direction:column; gap:5px}
 .field label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
-select, input[type=text], input[type=email], input[type=date]{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:500; min-height:42px; box-shadow:var(--shs)}
+select, input[type=text], input[type=email], input[type=date], textarea{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:500; min-height:42px; box-shadow:var(--shs)}
+textarea{width:100%; resize:vertical; font-family:inherit; line-height:1.4}
 select{cursor:pointer; padding-right:30px}
 input:focus, select:focus{outline:2px solid var(--blue); outline-offset:-1px; border-color:var(--blue)}
 .pill{margin-left:auto; display:inline-flex; align-items:center; gap:8px; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:8px 14px; font-size:13px; font-weight:700; box-shadow:var(--shs); align-self:center}
@@ -286,12 +287,24 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .tt-sub{font-weight:800; font-size:13px; margin:6px 0}
 .danger-btn{color:var(--err,#c0392b)}
 .danger-btn:hover{background:#fdeeec; border-color:#e6a89f}
-.be-grid{min-width:420px}
-.be-grid tbody th{width:auto; min-width:96px}
+.be-grid{min-width:520px}
+.be-grid tbody th{width:auto; min-width:190px}
 .be-grid td{padding:4px 6px; text-align:center}
 .be-grid input[type=time]{width:118px; border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:13px; font-weight:700; background:var(--surface); box-shadow:none}
 .be-grid input[type=time]:focus{outline:2px solid var(--blue); outline-offset:-2px}
 .be-dur{font-weight:800; font-size:12.5px; color:var(--blue-d); white-space:nowrap}
+.be-slotcell{display:flex; align-items:center; gap:6px}
+.be-mvgrp{display:flex; flex-direction:column; gap:2px; flex:0 0 auto}
+.be-mv{appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--blue-d); width:20px; height:16px; border-radius:4px; cursor:pointer; font-size:9px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0}
+.be-mv:hover{background:var(--blue-l); border-color:var(--blue)}
+.be-mv:disabled{opacity:.25; cursor:default}
+.be-prefix{font-size:11px; font-weight:700; color:var(--muted); white-space:nowrap; flex:0 0 auto}
+.be-label{flex:1 1 auto; min-width:70px; min-height:0; padding:6px 8px; font-size:12.5px; font-weight:800; box-shadow:none}
+.be-label:focus{outline:2px solid var(--blue); outline-offset:-2px}
+.be-hint{font-size:11.5px; margin:8px 2px 0}
+.mg-bulkwrap{margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:var(--rs); background:#fbfcfe}
+.mg-bulkwrap textarea{min-height:100px; font-size:13px}
+.mg-bulkwrap .mg-note{margin-bottom:8px}
 .mg-details summary{font-size:15px; font-weight:800; cursor:pointer}
 .mg-grouptitle{font-size:11.5px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:var(--blue-d); margin:10px 2px -6px; padding-bottom:2px}
 .mg-grouptitle:first-child{margin-top:0}
@@ -741,13 +754,14 @@ const saveDeptsCfg    = ()=> saveCfg("cfg:depts",DEPTS,"Departments saved");
 const savePlacesCfg   = ()=> saveCfg("cfg:places",PLACES,"Rooms saved");
 const saveSubjectsCfg = ()=> saveCfg("cfg:subjects",SUBJECTS,"Subjects saved");
 const saveBellCfg     = ()=> saveCfg("cfg:bell",BELLCFG,"Bell timings saved");
-function isKnownRoom(sel){ return (PLACES||[]).indexOf(sel)>=0 || CLASSES.some(c=>(c+" · Room "+ROOMS[c])===sel); }
+function roomLabel(c){ const r=ROOMS[c]; return (r!==undefined && r!=="") ? (c+" · Room "+r) : c; }
+function isKnownRoom(sel){ return (PLACES||[]).indexOf(sel)>=0 || CLASSES.some(c=>roomLabel(c)===sel); }
 function roomOptions(sel){
   sel=sel||"";
   const custom = sel && !isKnownRoom(sel);
   let o=`<option value=""${sel?"":" selected"}>Room / place…</option>`;
   if(PLACES&&PLACES.length){ o+=`<optgroup label="Rooms &amp; labs">`; PLACES.forEach(p=>{ o+=`<option${sel===p?" selected":""}>${esc(p)}</option>`; }); o+=`</optgroup>`; }
-  if(CLASSES.length){ o+=`<optgroup label="Classrooms">`; CLASSES.forEach(c=>{ const lb=c+" · Room "+ROOMS[c]; o+=`<option value="${esc(lb)}"${sel===lb?" selected":""}>${esc(lb)}</option>`; }); o+=`</optgroup>`; }
+  if(CLASSES.length){ o+=`<optgroup label="Classrooms">`; CLASSES.forEach(c=>{ const lb=roomLabel(c); o+=`<option value="${esc(lb)}"${sel===lb?" selected":""}>${esc(lb)}</option>`; }); o+=`</optgroup>`; }
   o+=`<option value="__other__"${custom?" selected":""}>Other…</option>`;
   return o;
 }
@@ -2159,11 +2173,7 @@ function mountManage(){
 
   // Bell timings
   html+=`<section class="card"><details class="mg-details"><summary>Bell timings</summary>
-    ${bellRefHTML()}
-    <p class="muted mg-note">Edit the start and end time of each slot (24-hour picker). Duration updates as you type. These drive the times shown across the app.</p>
-    ${bellEditorHTML()}
-    <div class="mg-actions"><button class="btn primary" onclick="beSave()">Save bell timings</button>
-      <button class="btn danger-btn" onclick="beReset()">Reset to default</button></div>
+    <div id="bellPanelBody">${bellPanelBodyHTML()}</div>
   </details></section>`;
 
   // Departments
@@ -2178,11 +2188,17 @@ function mountManage(){
 
   // Rooms, places & subjects
   html+=`<section class="card"><details class="mg-details"><summary>Rooms, places &amp; subjects</summary>
-    <p class="muted mg-note">Classrooms (class → room number) drive the room shown beside each class. Places are non-class rooms (labs, library, etc.). Subjects fill the timetable's subject dropdown.</p>
+    <p class="muted mg-note">Classrooms (class → room number) drive the room shown beside each class — the room is optional, so you can register a class before its room is decided. Places are non-class rooms (labs, library, etc.). Subjects fill the timetable's subject dropdown.</p>
     <div class="mg-subhead">Classrooms</div>
-    <div class="mg-inline"><input id="room-code" type="text" placeholder="Class e.g. 8A" style="max-width:130px"><input id="room-num" type="text" placeholder="Room e.g. 102" style="max-width:130px"><button class="btn" onclick="mgSaveRoom()">Add / update</button></div>
+    <div class="mg-inline"><input id="room-code" type="text" placeholder="Class e.g. 8A" style="max-width:130px"><input id="room-num" type="text" placeholder="Room e.g. 102 (optional)" style="max-width:160px"><button class="btn" onclick="mgSaveRoom()">Add / update</button><button class="btn" type="button" onclick="mgToggleRoomBulk()">Bulk add</button></div>
+    <div id="roomBulkWrap" class="mg-bulkwrap" style="display:none">
+      <p class="muted mg-note">One class per line — room is optional. e.g. <code>8A, 102</code> or just <code>8A</code>. Pasting two columns straight from a spreadsheet also works.</p>
+      <textarea id="room-bulk-text" rows="5" placeholder="8A, 102&#10;8B, 103&#10;9A"></textarea>
+      <div class="mg-actions"><button class="btn primary" type="button" onclick="mgAddRoomBulk()">Add all</button><button class="btn" type="button" onclick="mgToggleRoomBulk()">Cancel</button></div>
+    </div>
     <div class="mg-chiprow mg-rooms">`;
-  CLASSES.forEach(c=>{ html+=`<span class="mg-chip">${esc(c)} <small>${esc(String(ROOMS[c]))}</small><button class="chip-x" title="Remove" onclick="mgDelRoom('${esc(c)}')">×</button></span>`; });
+  CLASSES.forEach(c=>{ const rv=ROOMS[c]; const rt=(rv!==undefined&&rv!=="")?esc(String(rv)):"no room"; html+=`<span class="mg-chip">${esc(c)} <small>${rt}</small><button class="chip-x" title="Remove" onclick="mgDelRoom('${esc(c)}')">×</button></span>`; });
+  if(!CLASSES.length) html+=`<span class="muted">No classes yet.</span>`;
   html+=`</div>
     <div class="mg-subhead">Places (non-class rooms)</div>
     <div class="mg-inline"><input id="place-new" type="text" placeholder="e.g. Physics Lab" style="max-width:220px"><button class="btn" onclick="mgAddPlace()">Add place</button></div>
@@ -2265,16 +2281,49 @@ async function mgDelDept(name){
 async function mgSaveRoom(){
   const c=(document.getElementById("room-code").value||"").trim().toUpperCase();
   const n=(document.getElementById("room-num").value||"").trim();
-  if(!c||!n){ toast("Enter both a class and a room","⚠"); return; }
-  ROOMS[c]=/^\d+$/.test(n)?parseInt(n,10):n;
+  if(!c){ toast("Enter a class name","⚠"); return; }
+  ROOMS[c]=n?(/^\d+$/.test(n)?parseInt(n,10):n):"";
   await saveRoomsCfg();
   mountManage();
 }
 async function mgDelRoom(c){
-  if(!confirm("Remove room mapping for "+c+"?")) return;
+  if(!confirm("Remove "+c+" from classrooms? This unregisters the class.")) return;
   delete ROOMS[c];
   await saveRoomsCfg();
   mountManage();
+}
+function mgToggleRoomBulk(){
+  const el=document.getElementById("roomBulkWrap"); if(!el) return;
+  if(el.style.display==="none"){ el.style.display=""; const ta=document.getElementById("room-bulk-text"); if(ta) ta.focus(); }
+  else el.style.display="none";
+}
+function bulkLineParts(line){
+  let parts;
+  if(line.indexOf("\t")>=0) parts=line.split("\t");
+  else if(line.indexOf(",")>=0) parts=line.split(",");
+  else { const m=line.match(/^(\S+)\s+(\S.*)$/); parts=m?[m[1],m[2]]:[line]; }
+  return parts.map(s=>(s||"").trim());
+}
+async function mgAddRoomBulk(){
+  const ta=document.getElementById("room-bulk-text");
+  const lines=String((ta&&ta.value)||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  if(!lines.length){ toast("Paste at least one class","⚠"); return; }
+  let added=0, updated=0, skipped=0;
+  lines.forEach(line=>{
+    const parts=bulkLineParts(line);
+    const c=(parts[0]||"").trim().toUpperCase();
+    const n=(parts[1]||"").trim();
+    if(!c){ skipped++; return; }
+    const existed=ROOMS[c]!==undefined;
+    ROOMS[c]=n?(/^\d+$/.test(n)?parseInt(n,10):n):"";
+    existed?updated++:added++;
+  });
+  if(!added&&!updated){ toast("No valid class names found","⚠"); return; }
+  await saveRoomsCfg();
+  mountManage();
+  let msg="Added "+added+(updated?(", updated "+updated):"")+" class"+((added+updated)===1?"":"es");
+  if(skipped) msg+=" · "+skipped+" line(s) skipped";
+  setTimeout(()=>toast(msg,"✓"),300);
 }
 
 /* ----- Timetable CSV ----- */
@@ -2512,7 +2561,7 @@ async function mgSaveClassGrid(C){
   const ok=a&&b;
   toast(ok?"Class timetable saved":"Couldn't save — admins only / check connection", ok?"✓":"⚠");
   mountManage();
-  if(ok && ROOMS[C]===undefined) setTimeout(()=>toast("Saved. No room set for "+C+" — add one under Rooms, places & subjects",""),500);
+  if(ok && (ROOMS[C]===undefined||ROOMS[C]==="")) setTimeout(()=>toast("Saved. No room set for "+C+" — add one under Rooms, places & subjects",""),500);
 }
 async function mgClearClassGrid(C){
   if(!C) return;
@@ -2574,21 +2623,62 @@ function mgClassBulkUpload(files){
 }
 
 /* bell timings editor */
+function bellPanelBodyHTML(){
+  return bellRefHTML()
+    +`<p class="muted mg-note">Edit each slot's name, start and end time (24-hour picker), or use ▲▼ to reorder. Duration updates as you type. These drive the times shown across the app.</p>`
+    +bellEditorHTML()
+    +`<div class="mg-actions"><button class="btn primary" onclick="beSave()">Save bell timings</button>
+      <button class="btn danger-btn" onclick="beReset()">Reset to default</button></div>`;
+}
+function refreshBellPanel(){
+  const el=document.getElementById("bellPanelBody");
+  if(el) el.innerHTML=bellPanelBodyHTML(); else mountManage();
+}
 function bellEditorHTML(){
-  const row=(key,idx,label,s,e)=>{ const d=durMin(s,e); return `<tr><th>${esc(label)}</th><td><input type="time" id="be-s-${key}-${idx}" value="${esc(norm24(s))}" oninput="beDur('${key}',${idx})"></td><td><input type="time" id="be-e-${key}-${idx}" value="${esc(norm24(e))}" oninput="beDur('${key}',${idx})"></td><td class="be-dur" id="be-d-${key}-${idx}">${d!=null?d+" min":"—"}</td></tr>`; };
+  const row=(key,idx,label,s,e,opts)=>{
+    opts=opts||{};
+    const d=durMin(s,e);
+    const prefix=opts.prefix?`<span class="be-prefix">${esc(opts.prefix)}</span>`:"";
+    return `<tr><th><div class="be-slotcell"><span class="be-mvgrp"><button type="button" class="be-mv" title="Move up"${opts.first?" disabled":""} onclick="beMove('${key}',${idx},-1)">▲</button><button type="button" class="be-mv" title="Move down"${opts.last?" disabled":""} onclick="beMove('${key}',${idx},1)">▼</button></span>${prefix}<input type="text" class="be-label" id="be-r-${key}-${idx}" value="${esc(label)}"></div></th><td><input type="time" id="be-s-${key}-${idx}" value="${esc(norm24(s))}" oninput="beDur('${key}',${idx})"></td><td><input type="time" id="be-e-${key}-${idx}" value="${esc(norm24(e))}" oninput="beDur('${key}',${idx})"></td><td class="be-dur" id="be-d-${key}-${idx}">${d!=null?d+" min":"—"}</td></tr>`;
+  };
+  const preArr=BELLCFG.pre||[], perArr=BELLCFG.periods||[];
+  const ba=(typeof BELLCFG.breakAfter==="number")?BELLCFG.breakAfter:3;
+  const brkMax=Math.max(0,perArr.length-1);
   let h=`<div class="tt-grid-wrap"><table class="tt-grid be-grid"><thead><tr><th>Slot</th><th>Start</th><th>End</th><th>Duration</th></tr></thead><tbody>`;
-  (BELLCFG.pre||[]).forEach((b,i)=> h+=row("pre",i,b.r,b.s,b.e));
-  const ba=BELLCFG.breakAfter||3;
-  (BELLCFG.periods||[]).forEach((p,i)=>{ if(i===ba){ const bk=BELLCFG.brk||{}; h+=row("brk",0,bk.r||"Break",bk.s,bk.e); } h+=row("per",i,"Period "+p.r,p.s,p.e); });
-  h+=`</tbody></table></div>`;
+  preArr.forEach((b,i)=> h+=row("pre",i,b.r,b.s,b.e,{first:i===0,last:i===preArr.length-1}));
+  perArr.forEach((p,i)=>{
+    if(i===ba){ const bk=BELLCFG.brk||{}; h+=row("brk",0,bk.r||"Break",bk.s,bk.e,{first:ba<=0,last:ba>=brkMax}); }
+    h+=row("per",i,p.r,p.s,p.e,{prefix:"Period",first:i===0,last:i===perArr.length-1});
+  });
+  h+=`</tbody></table></div>
+  <p class="muted be-hint">Reordering a period changes what time it falls at — classes stay logged against the same period number, so double-check the timetable after a big reshuffle.</p>`;
   return h;
 }
 function beVal(id){ const el=document.getElementById(id); return el?el.value:""; }
 function beDur(key,idx){ const d=durMin(beVal("be-s-"+key+"-"+idx),beVal("be-e-"+key+"-"+idx)); const el=document.getElementById("be-d-"+key+"-"+idx); if(el) el.textContent=(d!=null?d+" min":"—"); }
+function beSyncFromDOM(){
+  (BELLCFG.pre||[]).forEach((b,i)=>{ const r=(beVal("be-r-pre-"+i)||"").trim(); if(r) b.r=r; b.s=norm24(beVal("be-s-pre-"+i)); b.e=norm24(beVal("be-e-pre-"+i)); });
+  (BELLCFG.periods||[]).forEach((p,i)=>{ const r=(beVal("be-r-per-"+i)||"").trim(); if(r) p.r=r; p.s=norm24(beVal("be-s-per-"+i)); p.e=norm24(beVal("be-e-per-"+i)); });
+  if(BELLCFG.brk){ const r=(beVal("be-r-brk-0")||"").trim(); if(r) BELLCFG.brk.r=r; BELLCFG.brk.s=norm24(beVal("be-s-brk-0")); BELLCFG.brk.e=norm24(beVal("be-e-brk-0")); }
+}
+function beMove(key,idx,dir){
+  beSyncFromDOM();
+  let moved=false;
+  if(key==="pre"||key==="per"){
+    const arr=(key==="pre"?BELLCFG.pre:BELLCFG.periods)||[]; const j=idx+dir;
+    if(j>=0 && j<arr.length){ const t=arr[idx]; arr[idx]=arr[j]; arr[j]=t; moved=true; }
+  } else if(key==="brk"){
+    const max=Math.max(0,(BELLCFG.periods||[]).length-1);
+    const cur=(typeof BELLCFG.breakAfter==="number")?BELLCFG.breakAfter:3;
+    const nb=Math.max(0,Math.min(max,cur+dir));
+    if(nb!==cur){ BELLCFG.breakAfter=nb; moved=true; }
+  }
+  if(!moved) return;
+  applyBell();
+  refreshBellPanel();
+}
 async function beSave(){
-  (BELLCFG.pre||[]).forEach((b,i)=>{ b.s=norm24(beVal("be-s-pre-"+i)); b.e=norm24(beVal("be-e-pre-"+i)); });
-  (BELLCFG.periods||[]).forEach((p,i)=>{ p.s=norm24(beVal("be-s-per-"+i)); p.e=norm24(beVal("be-e-per-"+i)); });
-  if(BELLCFG.brk){ BELLCFG.brk.s=norm24(beVal("be-s-brk-0")); BELLCFG.brk.e=norm24(beVal("be-e-brk-0")); }
+  beSyncFromDOM();
   await saveBellCfg(); mountManage();
 }
 async function beReset(){ if(!confirm("Reset all bell timings to the default schedule?")) return; BELLCFG=JSON.parse(JSON.stringify(DEFAULT_BELL)); await saveBellCfg(); mountManage(); }
