@@ -76,3 +76,5 @@ subject update automatically.
 Because the app needs a backend, it can't fully run in a no-backend preview (e.g. an
 in-chat artifact preview) — it will show the sign-in screen but can't sign in there.
 Use your deployed URL to actually use it.
+
+<!-- Deploy trigger: 2026-08-05 01:50 IST -->
