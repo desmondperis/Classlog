@@ -525,6 +525,19 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .ce-dates{display:flex; gap:12px; margin-top:2px}
 .ce-dcol{flex:1; min-width:0}
 
+.ask-wrap{display:flex; flex-direction:column; gap:14px; max-width:720px; margin:0 auto}
+.ask-log{display:flex; flex-direction:column; gap:12px; min-height:100px}
+.ask-empty{color:var(--muted); font-size:13.5px; text-align:center; padding:34px 16px; border:1px dashed var(--line); border-radius:var(--r)}
+.ask-empty b{display:block; color:var(--ink); font-size:14px; margin-bottom:6px}
+.ask-empty ul{margin:10px 0 0; padding-left:18px; text-align:left; display:inline-block}
+.ask-q{align-self:flex-end; max-width:88%; background:var(--blue); color:#fff; border-radius:14px 14px 4px 14px; padding:10px 14px; font-size:13.5px; font-weight:600; white-space:pre-wrap}
+.ask-a{align-self:flex-start; max-width:92%; background:var(--surface); border:1px solid var(--line); box-shadow:var(--shs); border-radius:14px 14px 14px 4px; padding:10px 14px; font-size:13.5px; line-height:1.55; white-space:pre-wrap}
+.ask-a.err{border-color:#e6a89f; color:var(--err,#c0392b); background:#fdeeec}
+.ask-a.loading{color:var(--muted); font-style:italic}
+.ask-bar{display:flex; gap:8px; align-items:flex-end; position:sticky; bottom:10px}
+.ask-bar textarea{flex:1; resize:none; min-height:44px; max-height:120px; line-height:1.35}
+.ask-note{font-size:11.5px; color:var(--muted); text-align:center}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important }
 }
@@ -544,6 +557,7 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
     <div class="tabs" id="tabs" role="tablist" hidden>
       <button class="tab" id="tab-teacher" role="tab" aria-selected="true" onclick="setMode('teacher')">Log a class</button>
       <button class="tab" id="tab-admin" role="tab" aria-selected="false" onclick="setMode('admin')">Dashboard</button>
+      <button class="tab" id="tab-ask" role="tab" aria-selected="false" hidden onclick="setMode('ask')">Ask AI</button>
       <button class="tab" id="tab-sub" role="tab" aria-selected="false" hidden onclick="setMode('sub')">Substitution</button>
       <button class="tab" id="tab-manage" role="tab" aria-selected="false" hidden onclick="setMode('manage')">Admin</button>
     </div>
@@ -802,7 +816,8 @@ const today=ymd(new Date());
 
 /* ---------- State ---------- */
 const state={mode:"teacher", user:null, teacherId:null, isAdmin:false, role:"teacher", myTeacherId:null, dept:"", email:"", bootstrapAdmin:false, date:today, blob:{},
-  admin:{mode:"week", date:today, dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"date",sortDir:1}};
+  admin:{mode:"week", date:today, dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"date",sortDir:1},
+  ask:{log:[], busy:false}};
 function curWeek(){return ymd(mondayOf(parseYmd(state.date)));}
 let saveTimer=null, pollTimer=null, lastCfgSync=0;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -927,6 +942,7 @@ function showApp(){
   const top=document.querySelector(".top"); if(top) top.style.display="";
   document.getElementById("tabs").hidden=false;
   const dash=document.getElementById("tab-admin"); if(dash) dash.hidden=!canSeeDashboard();
+  const ak=document.getElementById("tab-ask"); if(ak) ak.hidden=!canSeeDashboard();
   const st=document.getElementById("tab-sub"); if(st) st.hidden=!canSeeSub();
   const mt=document.getElementById("tab-manage"); if(mt) mt.hidden=!state.isAdmin;
   if(state.mode==="manage" && !state.isAdmin) state.mode="teacher";
@@ -939,9 +955,11 @@ async function setMode(m){
   if(m==="manage" && !state.isAdmin) m="teacher";
   if(m==="sub" && !canSeeSub()) m="teacher";
   if(m==="admin" && !canSeeDashboard()) m="teacher";
+  if(m==="ask" && !canSeeDashboard()) m="teacher";
   state.mode=m;
   document.getElementById("tab-teacher").setAttribute("aria-selected",m==="teacher");
   document.getElementById("tab-admin").setAttribute("aria-selected",m==="admin");
+  const ta=document.getElementById("tab-ask"); if(ta) ta.setAttribute("aria-selected",m==="ask");
   const ts=document.getElementById("tab-sub"); if(ts) ts.setAttribute("aria-selected",m==="sub");
   const tm=document.getElementById("tab-manage"); if(tm) tm.setAttribute("aria-selected",m==="manage");
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
@@ -949,7 +967,7 @@ async function setMode(m){
   await syncConfig(false);
   mountView();
 }
-function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="manage"){ if(!state.isAdmin){ state.mode="teacher"; return mountTeacher(); } return mountManage(); } if(state.mode==="sub"){ if(!canSeeSub()){ state.mode="teacher"; return mountTeacher(); } return mountSub(); } if(state.mode==="teacher")mountTeacher(); else mountAdmin(); }
+function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="manage"){ if(!state.isAdmin){ state.mode="teacher"; return mountTeacher(); } return mountManage(); } if(state.mode==="sub"){ if(!canSeeSub()){ state.mode="teacher"; return mountTeacher(); } return mountSub(); } if(state.mode==="ask"){ if(!canSeeDashboard()){ state.mode="teacher"; return mountTeacher(); } return mountAsk(); } if(state.mode==="teacher")mountTeacher(); else mountAdmin(); }
 
 /* ---------- Teacher view ---------- */
 async function mountTeacher(){
@@ -1196,6 +1214,92 @@ function openBulkPlan(){
     if(futFail) toast("Saved this week; some later weeks didn't save — check your connection","⚠");
     else if(maxWeeks>1) toast("Plan saved across "+maxWeeks+" weeks","✓");
   };
+}
+/* ---------- Ask AI (Q&A over recent class-log data) ---------- */
+function askVisibleIds(){
+  const deptLocked = state.role==="hod" || state.role==="teacher";
+  return (deptLocked ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS).map(t=>t.id);
+}
+async function buildAiContext(){
+  const ids=askVisibleIds();
+  const thisMon=ymd(mondayOf(new Date()));
+  const weeks=[ymd(addDays(parseYmd(thisMon),-7)), thisMon];
+  const blobs={};
+  await Promise.all(weeks.map(wk=>Promise.all(ids.map(async id=>{
+    const raw=await store.get(wkey(wk,id),true);
+    blobs[wk+"|"+id]=raw?JSON.parse(raw):{};
+  }))));
+  const lines=[];
+  weeks.forEach(wk=>{
+    ids.forEach(id=>{
+      const blob=blobs[wk+"|"+id]||{}; const dept=deptOf(id);
+      DAYS.forEach(day=>{
+        const dateStr=dateOf(wk,day);
+        ((SCHEDULE[id]&&SCHEDULE[id][day])||[]).forEach(e=>{
+          const cls=e.group?e.group.join(", "):(e.code||"");
+          if(!cls) return;
+          const rec=blob[dkeyOf(day,e.slug)]||{};
+          const planned=(rec.p||"").trim(), topic=(rec.t||"").trim(), remark=(rec.r||"").trim();
+          lines.push([dateStr,day,NAME(id),dept||"—",cls,e.subject||"—",planned||"—",topic||"—",remark||"—"].join(" | "));
+        });
+      });
+    });
+  });
+  let text="Date | Day | Teacher | Dept | Class | Subject | Planned topic | Topic covered | Remark\n"+lines.join("\n");
+  if(!lines.length) text+="\n(no classes scheduled in the last 2 weeks for the classes you can see)";
+  if(text.length>45000) text=text.slice(0,45000)+"\n…(truncated — try asking about a narrower class or date range)";
+  return text;
+}
+function askEmptyHTML(){
+  const scope = (state.role==="admin"||state.role==="leader") ? "the whole school" : "your department";
+  return `<div class="ask-empty"><b>Ask about recent class logs</b>Answers use the last two weeks of topics, plans and remarks for ${scope}.<ul>
+    <li>"What topic is going on in 6E for Value Education?"</li>
+    <li>"Which class in grade 7 hasn't logged anything this week?"</li>
+    <li>"Summarise what Mrs Sharma covered this week"</li>
+  </ul></div>`;
+}
+function askLogHTML(){
+  if(!state.ask.log.length) return askEmptyHTML();
+  return state.ask.log.map(item=>{
+    const a = item.busy ? `<div class="ask-a loading">Thinking…</div>`
+      : item.error ? `<div class="ask-a err">${esc(item.error)}</div>`
+      : `<div class="ask-a">${esc(item.answer)}</div>`;
+    return `<div class="ask-q">${esc(item.q)}</div>${a}`;
+  }).join("");
+}
+function mountAsk(){
+  const html=`<div class="ask-wrap">
+    <div class="ask-log" id="askLog">${askLogHTML()}</div>
+    <div class="ask-bar">
+      <textarea id="askInput" rows="1" placeholder="Ask about recent topics, plans or coverage…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();askSubmit();}"></textarea>
+      <button class="btn primary" id="askBtn" onclick="askSubmit()">Ask</button>
+    </div>
+    <p class="ask-note">Uses the last 2 weeks of logged data. Answers can be wrong — check anything important against the Dashboard.</p>
+  </div>`;
+  view().innerHTML=html;
+  const log=document.getElementById("askLog"); if(log) log.scrollTop=log.scrollHeight;
+}
+async function askSubmit(){
+  if(state.ask.busy) return;
+  const ta=document.getElementById("askInput"); const q=(ta&&ta.value||"").trim();
+  if(!q) return;
+  if(ta) ta.value="";
+  const item={q,busy:true,answer:"",error:""};
+  state.ask.log.push(item);
+  state.ask.busy=true;
+  const btn=document.getElementById("askBtn"); if(btn) btn.disabled=true;
+  const log=document.getElementById("askLog"); if(log){ log.innerHTML=askLogHTML(); log.scrollTop=log.scrollHeight; }
+  try{
+    const context=await buildAiContext();
+    const res=await fetch(API_BASE+"/api/ask",{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify({question:q,context})});
+    let j={}; try{ j=await res.json(); }catch(e){}
+    if(res.ok && j.answer) item.answer=j.answer;
+    else item.error = j.error==="no_key" ? "AI isn't set up yet — add OPENROUTER_API_KEY in Cloudflare settings." : ("Couldn't get an answer — "+(j.error||("HTTP "+res.status)));
+  }catch(e){ item.error="Couldn't reach the AI — check your connection."; }
+  item.busy=false;
+  state.ask.busy=false;
+  if(btn) btn.disabled=false;
+  const log2=document.getElementById("askLog"); if(log2){ log2.innerHTML=askLogHTML(); log2.scrollTop=log2.scrollHeight; }
 }
 /* ---------- Google Calendar sync (client-side token, primary calendar, idempotent) ---------- */
 let CAL_TC=null, CAL_TOKEN="", CAL_EXP=0, _calResolve=null, _calReject=null;
