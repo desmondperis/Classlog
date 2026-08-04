@@ -3,7 +3,7 @@
 //   The client builds `context` from data it has already loaded and is already permitted to see
 //   (respecting the same admin/hod/teacher department scoping used everywhere else in the app), so
 //   this endpoint doesn't need its own data-access logic — it's a thin, session-gated proxy whose
-//   only job is to keep the OpenRouter key server-side and call a free model.
+//   only job is to keep the OpenRouter key server-side and call NVIDIA Nemotron 3 Ultra.
 // Requires OPENROUTER_API_KEY as a Cloudflare Pages environment variable (Settings → Environment
 // variables → add as a secret). Get a key at openrouter.ai — never commit it to source; this file
 // only ever reads it from env.
@@ -59,7 +59,7 @@ export async function onRequestPost(context) {
         "X-Title": "Class Log"
       },
       body: JSON.stringify({
-        model: "openrouter/free",
+        model: "nvidia/nemotron-3-ultra-550b-a55b:free",
         messages: [
           { role: "system", content: system },
           { role: "user", content: question }
