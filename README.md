@@ -10,9 +10,9 @@ The app is two independent halves:
 1. **Frontend** — `index.html` plus the PWA assets. It calls the JSON endpoints under `/api/`.
 2. **Backend** — Cloudflare Pages Functions for configuration, login, identity, data,
    logout, and Ask AI, backed by a KV namespace. The API can be ported to another
-   platform, but a separately hosted frontend also requires CORS configuration. Any platform that can serve the four
-   endpoints and store key/values works (Node/Express, Netlify, Vercel, Deno
-   Deploy, Firebase, Supabase, a VPS, …).
+   platform, but a separately hosted frontend also requires CORS configuration.
+   A replacement backend must implement the documented API contract and persistent storage
+   (for example Node/Express, Netlify, Vercel, Deno Deploy, Firebase, Supabase, or a VPS).
 
 Frontend and backend can live together (simplest) or apart. In `index.html`:
 ```
