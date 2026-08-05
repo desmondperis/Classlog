@@ -542,7 +542,7 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .ask-top-btn:hover{background:var(--blue-l);border-color:var(--blue);transform:translateY(-1px)}
 .ask-top-btn:active{transform:scale(.96)}
 .ask-top-btn[aria-pressed="true"]{background:var(--blue);color:#fff;border-color:var(--blue-d)}
-.ask-ico{font-size:14px;line-height:1}
+.ask-ico{width:16px;height:16px;display:block;flex:0 0 auto}
 .install-btn:not([hidden]) + .ask-top-btn{margin-left:0}
 .ask-top-btn:not([hidden]) ~ .user{margin-left:10px}
 @media (max-width:720px){.ask-top-btn{padding:6px 9px}.ask-top-btn .ask-label{display:none}}
@@ -561,7 +561,7 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
         <span class="yr">Mount Carmel School · 2026–27</span>
       </div>
       <button class="install-btn" id="installBtn" hidden onclick="promptInstall()" title="Install Class Log on this device">Install app</button>
-      <button class="ask-top-btn" id="askTopBtn" hidden onclick="openAskAI()" title="Ask AI" aria-label="Ask AI" aria-pressed="false"><span class="ask-ico" aria-hidden="true">🔬</span><span class="ask-label">Ask AI</span></button>
+      <button class="ask-top-btn" id="askTopBtn" hidden onclick="openAskAI()" title="Ask AI" aria-label="Ask AI" aria-pressed="false"><svg class="ask-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16.5 16.5 4 4"></path></svg><span class="ask-label">Ask AI</span></button>
       <div class="user" id="userchip" hidden></div>
     </div>
     <div class="tabs" id="tabs" role="tablist" hidden>
