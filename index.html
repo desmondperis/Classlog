@@ -538,6 +538,15 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .ask-bar textarea{flex:1; resize:none; min-height:44px; max-height:120px; line-height:1.35}
 .ask-note{font-size:11.5px; color:var(--muted); text-align:center}
 
+.ask-top-btn{margin-left:auto;appearance:none;border:1px solid var(--blue);background:var(--surface);color:var(--blue-d);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;box-shadow:var(--shs);transition:transform .12s var(--ease),box-shadow .2s var(--ease),background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
+.ask-top-btn:hover{background:var(--blue-l);border-color:var(--blue);transform:translateY(-1px)}
+.ask-top-btn:active{transform:scale(.96)}
+.ask-top-btn[aria-pressed="true"]{background:var(--blue);color:#fff;border-color:var(--blue-d)}
+.ask-ico{font-size:14px;line-height:1}
+.install-btn:not([hidden]) + .ask-top-btn{margin-left:0}
+.ask-top-btn:not([hidden]) ~ .user{margin-left:10px}
+@media (max-width:720px){.ask-top-btn{padding:6px 9px}.ask-top-btn .ask-label{display:none}}
+
 @media (prefers-reduced-motion: reduce){
   *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important }
 }
@@ -552,12 +561,12 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
         <span class="yr">Mount Carmel School · 2026–27</span>
       </div>
       <button class="install-btn" id="installBtn" hidden onclick="promptInstall()" title="Install Class Log on this device">Install app</button>
+      <button class="ask-top-btn" id="askTopBtn" hidden onclick="openAskAI()" title="Ask AI" aria-label="Ask AI" aria-pressed="false"><span class="ask-ico" aria-hidden="true">🔬</span><span class="ask-label">Ask AI</span></button>
       <div class="user" id="userchip" hidden></div>
     </div>
     <div class="tabs" id="tabs" role="tablist" hidden>
       <button class="tab" id="tab-teacher" role="tab" aria-selected="true" onclick="setMode('teacher')">Log a class</button>
       <button class="tab" id="tab-admin" role="tab" aria-selected="false" onclick="setMode('admin')">Dashboard</button>
-      <button class="tab" id="tab-ask" role="tab" aria-selected="false" hidden onclick="setMode('ask')">Ask AI</button>
       <button class="tab" id="tab-sub" role="tab" aria-selected="false" hidden onclick="setMode('sub')">Substitution</button>
       <button class="tab" id="tab-manage" role="tab" aria-selected="false" hidden onclick="setMode('manage')">Admin</button>
     </div>
@@ -618,8 +627,6 @@ let RAWX = {};
 let CLASSSUBJ = {};
 let SUBDUTY = "";
 let CALENDAR = [];
-let HOLIDAYS = [];
-let holidaysLoaded = false;
 let DEPTS = [...new Set(DEFAULT_TEACHERS.map(t=>t.dept))];
 let SCHEDULE={}, CLASSES=[], DEPARTMENTS=[];
 
@@ -698,6 +705,7 @@ const prefSet = (k,v) => { try{ if(v===""||v==null) localStorage.removeItem(k); 
 function authHeaders(extra){ const h=Object.assign({},extra||{}); if(SID) h["Authorization"]="Bearer "+SID; return h; }
 async function apiGet(key){ try{ const r=await fetch(API_BASE+"/api/data?key="+encodeURIComponent(key),{headers:authHeaders()}); if(r.status===401){onAuthLost();return null;} if(!r.ok) return null; return (await r.json()).value; }catch(e){ return null; } }
 async function apiSet(key,value){ try{ const r=await fetch(API_BASE+"/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,value})}); if(r.status===401){onAuthLost();return false;} return r.ok; }catch(e){ return false; } }
+async function apiSetEntry(key,entryKey,entryValue){ try{ const r=await fetch(API_BASE+"/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,entryKey,entryValue})}); if(r.status===401){onAuthLost();return false;} return r.ok; }catch(e){ return false; } }
 const store={ ok:true,
   async get(k,shared){ return shared ? await apiGet(k) : prefGet(k); },
   async set(k,v,shared){ if(shared) return await apiSet(k,v); prefSet(k,v); return true; } };
@@ -720,7 +728,7 @@ function setBranch(v){ prefSet("pref:branch", (v && BRANCHES.indexOf(v)>=0)?v:DE
 function applyBranchHeader(){ const y=document.querySelector(".brand-txt .yr"); if(y) y.textContent=getBranch()+" · 2026–27"; }
 function onBranchChange(v){ setBranch(v); applyBranchHeader(); }
 async function loadConfig(){ try{ const r=await fetch(API_BASE+"/api/config"); if(r.ok){ const d=await r.json(); if(d.clientId) GOOGLE_CLIENT_ID=d.clientId; } }catch(e){} }
-function onAuthLost(){ SID=""; prefSet("sid",""); prefSet("session:user",""); state.user=null; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} try{ if(document.getElementById("toast")) toast("Session expired — please sign in again","⚠"); }catch(e){} showGate(); }
+function onAuthLost(){ SID=""; prefSet("sid",""); prefSet("session:user",""); state.user=null; state.approved=false; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} try{ if(document.getElementById("toast")) toast("Session expired — please sign in again","⚠"); }catch(e){} showGate(); }
 async function whoami(){
   if(!SID) return {ok:false};
   try{
@@ -728,7 +736,7 @@ async function whoami(){
     if(r.status===401){ SID=""; prefSet("sid",""); prefSet("session:user",""); return {ok:false}; }
     if(!r.ok) return {ok:false};
     const d=await r.json();
-    return {ok:true, email:d.email||"", role:d.role||"teacher", teacherId:d.teacherId||null, dept:d.dept||"", admin:!!d.admin, bootstrap:!!d.bootstrap, branch:d.branch||DEFAULT_BRANCH};
+    return {ok:true, email:d.email||"", role:d.role||"teacher", teacherId:d.teacherId||null, dept:d.dept||"", admin:!!d.admin, approved:!!d.approved, bootstrap:!!d.bootstrap, branch:d.branch||DEFAULT_BRANCH};
   }catch(e){ return {ok:false}; }
 }
 async function apiGetMany(keys){
@@ -815,11 +823,11 @@ const thisWeek=ymd(mondayOf(new Date()));
 const today=ymd(new Date());
 
 /* ---------- State ---------- */
-const state={mode:"teacher", user:null, teacherId:null, isAdmin:false, role:"teacher", myTeacherId:null, dept:"", email:"", bootstrapAdmin:false, date:today, blob:{},
+const state={mode:"teacher", user:null, approved:false, teacherId:null, isAdmin:false, role:"teacher", myTeacherId:null, dept:"", email:"", bootstrapAdmin:false, date:today, blob:{},
   admin:{mode:"week", date:today, dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"date",sortDir:1},
   ask:{log:[], busy:false}};
 function curWeek(){return ymd(mondayOf(parseYmd(state.date)));}
-let saveTimer=null, pollTimer=null, lastCfgSync=0;
+let saveTimer=null, saveChain=Promise.resolve(), pollTimer=null, lastCfgSync=0;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const dkeyOf=(day,slug)=>day+"|"+slug;
 const view=()=>document.getElementById("view");
@@ -910,9 +918,9 @@ async function signIn(user){
   const who=await whoami();
   if(who.ok && who.branch) setBranch(who.branch);
   state.role=(who.ok&&who.role)||((who.ok&&who.admin)?"admin":"teacher"); state.isAdmin=(who.ok&&!!who.admin)||state.role==="admin";
-  state.email=(who.ok&&who.email)||user.email||""; state.myTeacherId=(who.ok&&who.teacherId)||null; state.dept=(who.ok&&who.dept)||""; state.bootstrapAdmin=who.ok&&who.bootstrap;
+  state.email=(who.ok&&who.email)||user.email||""; state.myTeacherId=(who.ok&&who.teacherId)||null; state.dept=(who.ok&&who.dept)||""; state.approved=!!(who.ok&&who.approved); state.bootstrapAdmin=false;
+  if(!state.approved){ renderUser(); showApp(); return; }
   await loadAppConfig();
-  if(!holidaysLoaded){ loadHolidays().then(()=>{ try{ mountView(); }catch(e){} }); }
   if(state.isAdmin){
     const last=await store.get("device:lastTeacher",false);
     if(last && TEACHERS.some(t=>t.id===last)) state.teacherId=last;
@@ -926,7 +934,7 @@ async function signOut(){
   await flushTeacherSave();
   try{ await fetch(API_BASE+"/api/logout",{method:"POST",headers:authHeaders()}); }catch(e){}
   SID=""; prefSet("sid",""); prefSet("session:user","");
-  state.user=null; clearCalToken();
+  state.user=null; state.approved=false; clearCalToken();
   try{ if(window.google&&window.google.accounts&&window.google.accounts.id) window.google.accounts.id.disableAutoSelect(); }catch(e){}
   showGate();
 }
@@ -938,11 +946,12 @@ function renderUser(){
   const av=u.picture?`<img src="${esc(u.picture)}" alt="" referrerpolicy="no-referrer">`:`<span class="av">${esc((u.name||"?").trim()[0]||"?")}</span>`;
   chip.innerHTML=`${av}<span class="uname">${esc(firstName(u.name))}</span><button class="signout" onclick="signOut()">Sign out</button>`;
 }
+function openAskAI(){ setMode("ask"); }
 function showApp(){
   const top=document.querySelector(".top"); if(top) top.style.display="";
   document.getElementById("tabs").hidden=false;
   const dash=document.getElementById("tab-admin"); if(dash) dash.hidden=!canSeeDashboard();
-  const ak=document.getElementById("tab-ask"); if(ak) ak.hidden=!canSeeDashboard();
+  const ak=document.getElementById("askTopBtn"); if(ak){ ak.hidden=!canSeeDashboard(); ak.setAttribute("aria-pressed",state.mode==="ask"?"true":"false"); }
   const st=document.getElementById("tab-sub"); if(st) st.hidden=!canSeeSub();
   const mt=document.getElementById("tab-manage"); if(mt) mt.hidden=!state.isAdmin;
   if(state.mode==="manage" && !state.isAdmin) state.mode="teacher";
@@ -959,7 +968,7 @@ async function setMode(m){
   state.mode=m;
   document.getElementById("tab-teacher").setAttribute("aria-selected",m==="teacher");
   document.getElementById("tab-admin").setAttribute("aria-selected",m==="admin");
-  const ta=document.getElementById("tab-ask"); if(ta) ta.setAttribute("aria-selected",m==="ask");
+  const ta=document.getElementById("askTopBtn"); if(ta) ta.setAttribute("aria-pressed",m==="ask"?"true":"false");
   const ts=document.getElementById("tab-sub"); if(ts) ts.setAttribute("aria-selected",m==="sub");
   const tm=document.getElementById("tab-manage"); if(tm) tm.setAttribute("aria-selected",m==="manage");
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
@@ -971,6 +980,10 @@ function mountView(){ if(!state.user){ showGate(); return; } if(state.mode==="ma
 
 /* ---------- Teacher view ---------- */
 async function mountTeacher(){
+  if(!state.approved){
+    view().innerHTML=`<div class="prompt"><b>Waiting for administrator approval</b>You're signed in as ${esc(state.email||"your account")}, but this account has not been added to this school branch yet. Ask an administrator to add your email, then refresh this page.</div>`;
+    return;
+  }
   const canPick = state.isAdmin || state.role==="hod";
   if(!canPick && !state.teacherId){
     view().innerHTML=`<div class="prompt"><b>Your account isn't linked to a teacher yet</b>You're signed in as ${esc(state.email||"your account")}. Ask an admin to add you with this email in the Admin tab — then your classes will appear here.</div>`;
@@ -1013,7 +1026,20 @@ function updateDateCap(){ const el=document.getElementById("dcap"); if(el)el.tex
 async function pickDate(v){ if(!v)return; const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(v))); if(state.teacherId && !sameWk) await flushTeacherSave(); state.date=v; updateDateCap(); if(!state.teacherId){ return; } if(sameWk){ await showDay(); } else { await loadTeacher(); } }
 async function dayStep(n){ const nv=ymd(addDays(parseYmd(state.date),n)); const sameWk = state.teacherId && curWeek()===ymd(mondayOf(parseYmd(nv))); if(state.teacherId && !sameWk) await flushTeacherSave(); state.date=nv; updateDateCap(); if(!state.teacherId) return; if(sameWk){ await showDay(); } else { await loadTeacher(); } }
 let dayEnter=false;
-async function loadTeacher(){ const raw=await store.get(wkey(curWeek(),state.teacherId),true); state.blob=raw?JSON.parse(raw):{}; await showDay(); }
+function newEntryId(){ try{ if(window.crypto&&crypto.randomUUID) return crypto.randomUUID(); }catch(e){} return "x-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2); }
+function parseLogBlob(raw){ try{ const blob=raw?JSON.parse(raw):{}; return (blob&&typeof blob==="object"&&!Array.isArray(blob))?blob:{}; }catch(e){ return {}; } }
+function normaliseLogBlob(blob){
+  if(!blob||typeof blob!=="object"||Array.isArray(blob)) blob={};
+  if(blob._x&&typeof blob._x==="object"){
+    Object.keys(blob._x).forEach(day=>{ if(Array.isArray(blob._x[day])) blob._x[day].forEach(x=>{ if(x&&typeof x==="object"&&!x.id) x.id=newEntryId(); }); });
+  }
+  return blob;
+}
+async function loadTeacher(){
+  const raw=await store.get(wkey(curWeek(),state.teacherId),true);
+  state.blob=normaliseLogBlob(parseLogBlob(raw));
+  await showDay();
+}
 async function showDay(){ dayEnter=true; await loadSubForDay(); renderDay(); }
 async function loadSubForDay(){
   const d=state.date; let sched=null, resp={}, absentMap={};
@@ -1085,13 +1111,12 @@ function renderDay(){
   const absent = !!absentRec;
   const absentWhy = absent ? (absentRec.reason==="Other" ? (absentRec.note||"Other") : (absentRec.reason||"Absent")) : "";
   const calItems = calendarFor(state.date);
-  const autoItems = autoHolFor(state.date);
-  const calClosed = calItems.some(e=>e.noClasses) || autoItems.some(h=>h.noClass);
+  const calClosed = calItems.some(e=>e.noClasses);
   const closedEntry = calItems.find(e=>e.noClasses) || null;
   const closedName = closedEntry ? (closedEntry.name || calTypeLabel(closedEntry.type||"holiday")) : ((autoItems.find(h=>h.noClass)||{}).name || "");
   const muted = absent || calClosed;
   const cnt = absent ? "marked absent" : (calClosed ? closedName : (list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend")));
-  const allX=(state.blob._x && state.blob._x[dName]) || [];
+  const allX=((state.blob._x && state.blob._x[dName]) || []).filter(x=>x&&!x._deleted);
   const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
   const en = dayEnter; dayEnter=false;
   const canPlan = true; // everyone can set planned topics for their own classes; server still guards who can write which teacher
@@ -1227,7 +1252,7 @@ async function buildAiContext(){
   const blobs={};
   await Promise.all(weeks.map(wk=>Promise.all(ids.map(async id=>{
     const raw=await store.get(wkey(wk,id),true);
-    blobs[wk+"|"+id]=raw?JSON.parse(raw):{};
+    blobs[wk+"|"+id]=parseLogBlob(raw);
   }))));
   const lines=[];
   weeks.forEach(wk=>{
@@ -1385,7 +1410,7 @@ function calWeekItems(id){
         items.push({key:id+"|"+dateStr+"|brk", date:dateStr, s:bk.s, e:bk.e, title:"Break duty: "+s.note, loc:"", desc:"Class Log duty"});
       }
     });
-    const xs=(state.blob._x && state.blob._x[day]) || [];
+    const xs=((state.blob._x && state.blob._x[day]) || []).filter(x=>x&&!x._deleted);
     xs.forEach((x,xi)=>{
       const c=((x&&x.c)||"").trim(); if(!c) return;
       const tm=xSlotTime(x.slot);
@@ -1492,11 +1517,13 @@ function editX(day,idx,field,val){
 function addX(day,slot){
   if(!state.blob._x) state.blob._x={};
   if(!state.blob._x[day]) state.blob._x[day]=[];
-  state.blob._x[day].push({c:"",r:"",rm:"",slot:slot||"",u:new Date().toISOString()});
+  state.blob._x[day].push({id:newEntryId(),c:"",r:"",rm:"",slot:slot||"",u:new Date().toISOString()});
   renderDay();
 }
 function removeX(day,idx){
-  if(state.blob._x && state.blob._x[day]){ state.blob._x[day].splice(idx,1); if(!state.blob._x[day].length) delete state.blob._x[day]; }
+  if(state.blob._x && state.blob._x[day] && state.blob._x[day][idx]){
+    const entry=state.blob._x[day][idx]; if(!entry.id) entry.id=newEntryId(); entry._deleted=true; entry.u=new Date().toISOString();
+  }
   renderDay();
   clearTimeout(saveTimer); saveTimer=setTimeout(saveTeacher,300);
 }
@@ -1504,17 +1531,24 @@ function cssq(s){return s.replace(/["\\]/g,"\\$&");}
 function edit(day,slug,field,val){
   const dk=dkeyOf(day,slug); const rec=state.blob[dk]||{};
   rec[field]=val; rec.u=new Date().toISOString();
-  if(!(rec.t||"").trim() && !(rec.r||"").trim() && !(rec.p||"").trim()) delete state.blob[dk]; else state.blob[dk]=rec;
+  if(!(rec.t||"").trim() && !(rec.r||"").trim() && !(rec.p||"").trim()){ rec._deleted=true; state.blob[dk]=rec; } else { delete rec._deleted; state.blob[dk]=rec; }
   if(field==="t"){const box=document.querySelector('[data-lg="'+cssq(dk)+'"]'); if(box) box.classList.toggle("has",!!val.trim());}
   updateProg(); clearTimeout(saveTimer); saveTimer=setTimeout(saveTeacher,550);
 }
 async function saveTeacher(){
   const payload=JSON.parse(JSON.stringify(state.blob));
-  if(payload._x){ for(const d in payload._x){ payload._x[d]=payload._x[d].filter(x=>(x.c||"").trim()||(x.r||"").trim()||(x.rm||"").trim()||(x.t||"").trim()); if(!payload._x[d].length) delete payload._x[d]; } if(!Object.keys(payload._x).length) delete payload._x; }
-  const okr=await store.set(wkey(curWeek(),state.teacherId),JSON.stringify(payload),true);
+  if(payload._x){ for(const d in payload._x){ payload._x[d]=payload._x[d].filter(x=>x&&((x._deleted)||((x.c||"").trim()||(x.r||"").trim()||(x.rm||"").trim()||(x.t||"").trim()))); payload._x[d].forEach(x=>{ if(!x.id) x.id=newEntryId(); }); if(!payload._x[d].length) delete payload._x[d]; } if(!Object.keys(payload._x).length) delete payload._x; }
+  const key=wkey(curWeek(),state.teacherId), value=JSON.stringify(payload);
+  const write=async()=>await store.set(key,value,true);
+  saveChain=saveChain.then(write,write);
+  const okr=await saveChain;
   toast(okr?"Saved":"Couldn't save — check connection", okr?"✓":"⚠");
+  return okr;
 }
-async function flushTeacherSave(){ if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; if(state.teacherId){ try{ await saveTeacher(); }catch(e){} } } }
+async function flushTeacherSave(){
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; if(state.teacherId){ try{ await saveTeacher(); }catch(e){} } }
+  try{ await saveChain; }catch(e){}
+}
 async function saveX(day,idx){
   const arr=(state.blob._x&&state.blob._x[day])||[]; const x=arr[idx]; if(!x) return;
   const hasContent=(x.c||"").trim()||(x.rm||"").trim()||(x.r||"").trim();
@@ -1545,9 +1579,8 @@ async function toggleAbsent(day){
   const id=state.teacherId, d=state.date; if(!id) return;
   const isAbsent = !!(state.absentDay && state.absentDay.date===d && (state.absentDay.map||{})[id]);
   if(isAbsent){
-    let map={}; try{ const raw=await apiGet("absent:"+d); if(raw){ const o=JSON.parse(raw); if(o&&typeof o==="object") map=o; } }catch(e){}
-    delete map[id];
-    const ok=await apiSet("absent:"+d, JSON.stringify(map));
+    const ok=await apiSetEntry("absent:"+d,id,null);
+    const map=Object.assign({},(state.absentDay&&state.absentDay.map)||{}); delete map[id];
     if(ok){ state.absentDay={date:d, map}; renderDay(); toast("Marked present","✓"); } else toast("Couldn't save — check connection","⚠");
   } else { openAbsentModal(day); }
 }
@@ -1584,16 +1617,16 @@ async function confirmAbsent(day){
   const note=r==="Other"?(((document.getElementById("am-note")||{}).value||"").trim()):"";
   if(r==="Other" && !note){ toast("Add a reason","⚠"); return; }
   const d=state.date;
-  let map={}; try{ const raw=await apiGet("absent:"+d); if(raw){ const o=JSON.parse(raw); if(o&&typeof o==="object") map=o; } }catch(e){}
-  map[id]={ reason:r, note, u:new Date().toISOString() };
-  const ok=await apiSet("absent:"+d, JSON.stringify(map));
+  const entry={ reason:r, note, u:new Date().toISOString() };
+  const ok=await apiSetEntry("absent:"+d,id,entry);
+  const map=Object.assign({},(state.absentDay&&state.absentDay.map)||{}); map[id]=entry;
   if(ok){ state.absentDay={date:d, map}; closeAbsentModal(); renderDay(); toast("Marked absent","✓"); }
   else toast("Couldn't save — check connection","⚠");
 }
 async function syncConfig(force){ if(!state.user) return; const now=Date.now(); if(!force && now-lastCfgSync<10000) return; try{ await loadAppConfig(); }catch(e){} }
 
 /* ---------- Substitution ---------- */
-let subState={ date:null, dept:"", rows:[], resp:{} };
+let subState={ date:null, dept:"", rows:[], deletedRows:[], resp:{} };
 let subSaveTimer=null;
 function subDeptList(){ return (DEPARTMENTS&&DEPARTMENTS.length)?DEPARTMENTS.slice():(DEPTS||[]).slice(); }
 function subBusyAt(tid, day, period){ const list=(SCHEDULE[tid]&&SCHEDULE[tid][day])||[]; return list.some(e=> (e.period||0)<=period && period<=((e.periodEnd||e.period)||0)); }
@@ -1637,11 +1670,12 @@ async function loadSub(date){
   subState.resp = resp;
   subState.absent = absentMap;
   // merged rows: teachers who marked themselves absent first, then any extra rows added manually
-  const schedRows=(sched&&Array.isArray(sched.rows))?sched.rows:[];
+  const schedRows=(sched&&Array.isArray(sched.rows))?sched.rows.filter(r=>r&&!r._deleted):[];
+  subState.deletedRows=[];
   const byTid={}; schedRows.forEach(r=>{ if(r&&r.absent) byTid[r.absent]=r; });
   const rows=[]; const seen={};
-  Object.keys(absentMap).forEach(tid=>{ const r=byTid[tid]; rows.push({absent:tid, subs:(r&&r.subs)?r.subs:{}, auto:true, reason:absentMap[tid]}); seen[tid]=1; });
-  schedRows.forEach(r=>{ if(r&&r.absent && !seen[r.absent]){ rows.push({absent:r.absent, subs:r.subs||{}, auto:false}); seen[r.absent]=1; } });
+  Object.keys(absentMap).forEach(tid=>{ const r=byTid[tid]; rows.push({absent:tid, subs:(r&&r.subs)?r.subs:{}, u:(r&&r.u)||"", auto:true, reason:absentMap[tid]}); seen[tid]=1; });
+  schedRows.forEach(r=>{ if(r&&r.absent && !seen[r.absent]){ rows.push({absent:r.absent, subs:r.subs||{}, u:r.u||"", auto:false}); seen[r.absent]=1; } });
   subState.rows=rows;
 }
 async function mountSub(){ if(!subState.date) subState.date=ymd(new Date()); await loadSub(subState.date); renderSub(); }
@@ -1705,11 +1739,11 @@ function renderSub(){
 }
 function subSetDept(d){ if(!canSetDuty()) return; subState.dept=d||""; SUBDUTY=d||""; renderSub(); scheduleSubSave(); apiSet("sub:duty", d||""); }
 function subAddAbsent(){ if(!canEditSub()) return; subState.rows=subState.rows||[]; subState.rows.push({absent:"",subs:{},auto:false}); renderSub(); }
-function subRemoveAbsent(i){ if(!canEditSub()) return; subState.rows.splice(i,1); renderSub(); scheduleSubSave(); }
-function subSetAbsent(i,tid){ if(!canEditSub()) return; subState.rows[i].absent=tid; subState.rows[i].subs={}; renderSub(); scheduleSubSave(); }
-function subSetSub(i,p,tid){ if(!canEditSub()) return; if(!subState.rows[i].subs) subState.rows[i].subs={}; if(tid) subState.rows[i].subs[p]=tid; else delete subState.rows[i].subs[p]; renderSub(); scheduleSubSave(); }
+function subRemoveAbsent(i){ if(!canEditSub()) return; const row=subState.rows[i]; if(row&&row.absent) subState.deletedRows.push({absent:row.absent,_deleted:true,u:new Date().toISOString()}); subState.rows.splice(i,1); renderSub(); scheduleSubSave(); }
+function subSetAbsent(i,tid){ if(!canEditSub()) return; const row=subState.rows[i]; if(row.absent&&row.absent!==tid) subState.deletedRows.push({absent:row.absent,_deleted:true,u:new Date().toISOString()}); row.absent=tid; row.subs={}; row.u=new Date().toISOString(); renderSub(); scheduleSubSave(); }
+function subSetSub(i,p,tid){ if(!canEditSub()) return; if(!subState.rows[i].subs) subState.rows[i].subs={}; if(tid) subState.rows[i].subs[p]=tid; else delete subState.rows[i].subs[p]; subState.rows[i].u=new Date().toISOString(); renderSub(); scheduleSubSave(); }
 function scheduleSubSave(){ clearTimeout(subSaveTimer); subSaveTimer=setTimeout(saveSubSched,500); }
-async function saveSubSched(){ if(!canEditSub()) return; const rows=(subState.rows||[]).filter(r=> r.absent && (!r.auto || Object.keys(r.subs||{}).length)).map(r=>({absent:r.absent, subs:r.subs||{}})); const blob={ dept:subState.dept||"", rows }; const ok=await apiSet("sub:"+subState.date, JSON.stringify(blob)); toast(ok?"Substitution saved":"Couldn't save — you’re not on duty", ok?"✓":"⚠"); }
+async function saveSubSched(){ if(!canEditSub()) return; const rows=(subState.rows||[]).filter(r=> r.absent && (!r.auto || Object.keys(r.subs||{}).length)).map(r=>({absent:r.absent,subs:r.subs||{},u:r.u||"1970-01-01T00:00:00.000Z"})).concat(subState.deletedRows||[]); const blob={ dept:subState.dept||"", rows }; const ok=await apiSet("sub:"+subState.date, JSON.stringify(blob)); if(ok) subState.deletedRows=[]; toast(ok?"Substitution saved":"Couldn't save — you’re not on duty", ok?"✓":"⚠"); }
 async function subDayStep(n){ subState.date=ymd(addDays(parseYmd(subState.date),n)); await loadSub(subState.date); renderSub(); }
 async function subPickDate(v){ if(!v) return; subState.date=v; await loadSub(subState.date); renderSub(); }
 function openSubByTeacher(){
@@ -1756,8 +1790,8 @@ function renderSubByTeacherGrid(tid){
 }
 function subAssignByTeacher(tid,p,idx){
   if(!canEditSub()) return;
-  (subState.rows||[]).forEach(r=>{ if(r.subs && r.subs[p]===tid) delete r.subs[p]; });
-  if(idx!==""&&idx!=null){ const i=+idx; if(subState.rows[i]){ if(!subState.rows[i].subs) subState.rows[i].subs={}; subState.rows[i].subs[p]=tid; } }
+  (subState.rows||[]).forEach(r=>{ if(r.subs && r.subs[p]===tid){ delete r.subs[p]; r.u=new Date().toISOString(); } });
+  if(idx!==""&&idx!=null){ const i=+idx; if(subState.rows[i]){ if(!subState.rows[i].subs) subState.rows[i].subs={}; subState.rows[i].subs[p]=tid; subState.rows[i].u=new Date().toISOString(); } }
   scheduleSubSave();
   renderSubByTeacherGrid(tid);
   renderSub();
@@ -1787,9 +1821,9 @@ async function subRespond(period, status){
   let reason="";
   if(status==="rejected"){ reason=(prompt("Reason for rejecting this substitution (required):")||"").trim(); if(!reason){ toast("A reason is required to reject","⚠"); return; } }
   const d=state.date;
-  let resp={}; try{ const r=await apiGet("subresp:"+d); if(r){ const o=JSON.parse(r); if(o&&typeof o==="object") resp=o; } }catch(e){}
-  resp[meId+"|"+period]={ s:status, r:reason, u:new Date().toISOString() };
-  const ok=await apiSet("subresp:"+d, JSON.stringify(resp));
+  const entry={ s:status, r:reason, u:new Date().toISOString() };
+  const ok=await apiSetEntry("subresp:"+d,meId+"|"+period,entry);
+  const resp=Object.assign({},(state.mySubDay&&state.mySubDay.resp)||{}); resp[meId+"|"+period]=entry;
   if(ok){ state.mySubDay={ date:d, sched:(state.mySubDay&&state.mySubDay.sched)||null, resp }; renderDay(); toast(status==="accepted"?"Accepted":"Rejected","✓"); }
   else toast("Couldn't save — check connection","⚠");
 }
@@ -1817,42 +1851,15 @@ function calNorm(e){
 }
 function calSortEntries(a,b){ return (a.start<b.start?-1:a.start>b.start?1:0); }
 function calendarFor(dateStr){ return (CALENDAR||[]).filter(e=> e && e.start && dateStr>=e.start && dateStr<=(e.end||e.start)); }
-// Only the festivals this school observes (from the almanac) — the live feed is filtered to these,
-// so it never brings in extras like Makar Sankranti, Pongal, Onam, Karva Chauth, etc.
-const OBSERVED_HOLIDAYS = ["good friday","easter","ambedkar","buddha purnima","vesak","eid","ramzan id","bakrid","id-ul","milad","mawlid","muharram","ashura","islamic new year","independence day","raksha","rakhi","janmashtami","gandhi jayanti","dussehra","dasara","vijayadashami","vijaya dashami","valmiki","diwali","deepavali","bhai duj","bhai dooj","bhaiya","guru nanak","shivratri","shivaratri","holi","christmas","new year's day","republic day"];
-function isObservedHoliday(name){ const n=String(name||"").toLowerCase(); return OBSERVED_HOLIDAYS.some(k=> n.indexOf(k)>=0); }
-function holidaysFor(dateStr){ return (HOLIDAYS||[]).filter(h=> h && h.date===dateStr); }
-function autoHolFor(dateStr){
-  // a manual entry on that day — or within a day — wins, so the almanac's exact dates show and nothing doubles up
-  const d=parseYmd(dateStr);
-  for(let off=-1; off<=1; off++){ if(calendarFor(ymd(addDays(d,off))).length) return []; }
-  return holidaysFor(dateStr);
-}
+// Only administrator-entered dates and the built-in school diary are used.
+// Generic public-holiday feeds are intentionally excluded because the school does not close on every public holiday.
 function calBannerHTML(dateStr){
-  const manual=calendarFor(dateStr);
-  const auto=autoHolFor(dateStr).map(h=>({name:h.name, type:"holiday", noClasses:h.noClass, auto:true}));
-  const items=auto.concat(manual); if(!items.length) return "";
+  const items=calendarFor(dateStr); if(!items.length) return "";
   const rows=items.map(e=>{
-    const range = (!e.auto && e.end && e.end!==e.start) ? `<span class="cal-range">${esc(niceDate(e.start))} – ${esc(niceDate(e.end))}</span>` : "";
-    const tag = e.auto ? "Public holiday" : calTypeLabel(e.type);
-    return `<div class="cal-item${e.noClasses?" closed":""}"><span class="cal-type">${esc(tag)}</span><span class="cal-name">${esc(e.name||calTypeLabel(e.type))}</span>${range}</div>`;
+    const range = (e.end && e.end!==e.start) ? `<span class="cal-range">${esc(niceDate(e.start))} – ${esc(niceDate(e.end))}</span>` : "";
+    return `<div class="cal-item${e.noClasses?" closed":""}"><span class="cal-type">${esc(calTypeLabel(e.type))}</span><span class="cal-name">${esc(e.name||calTypeLabel(e.type))}</span>${range}</div>`;
   }).join("");
   return `<div class="cal-banner">${rows}</div>`;
-}
-async function loadHolidays(){
-  const ty=new Date().getFullYear(); const yrs=[ty, ty+1]; let all=[];
-  for(const y of yrs){ try{ const r=await fetch(API_BASE+"/api/holidays?year="+y,{headers:authHeaders()}); if(r.ok){ const j=await r.json(); if(Array.isArray(j.holidays)) all=all.concat(j.holidays); } }catch(e){} }
-  HOLIDAYS=all.filter(h=> h && isObservedHoliday(h.name)); holidaysLoaded=true;
-}
-async function syncHolidays(){
-  if(!state.isAdmin) return;
-  toast("Syncing public holidays…","↻");
-  const ty=new Date().getFullYear(); const yrs=[ty, ty+1]; let synced=0, err="";
-  for(const y of yrs){ try{ const r=await fetch(API_BASE+"/api/holidays?year="+y+"&sync=1",{headers:authHeaders()}); let j={}; try{ j=await r.json(); }catch(e){} if(r.ok && Array.isArray(j.holidays)) synced++; else err=(j&&j.error)||("HTTP "+r.status); }catch(e){ err="network"; } }
-  await loadHolidays(); renderCalEditor();
-  if(err==="no_key") toast("Add CALENDARIFIC_KEY in Cloudflare settings first","⚠");
-  else if(synced) toast("Public holidays updated","✓");
-  else toast("Couldn't sync — "+err,"⚠");
 }
 /* calendar admin editor (Admin tab) */
 let calSaveTimer=null;
@@ -1874,7 +1881,7 @@ function renderCalEditor(){
   let cells=""; for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell pad"></div>`;
   for(let d=1;d<=daysInMonth;d++){
     const ds=ymd(new Date(y,m,d)); const items=calendarFor(ds);
-    const autoChips=autoHolFor(ds).map(h=>`<span class="cal-chip auto${h.noClass?" closed":""}" title="${esc(h.name)} · public holiday">${esc(h.name)}</span>`).join("");
+    const autoChips="";
     const chips=items.map(e=>{ const gi=CALENDAR.indexOf(e); return `<button class="cal-chip${e.noClasses?" closed":""}" onclick="event.stopPropagation();openCalEntry(${gi})" title="${esc(e.name||calTypeLabel(e.type))}">${esc(e.name||calTypeLabel(e.type))}</button>`; }).join("");
     const dow=new Date(y,m,d).getDay(); const wknd=(dow===0||dow===6);
     cells+=`<div class="cal-cell${ds===todayY?" today":""}${wknd?" wknd":""}${(items.length||autoChips)?" has":""}" onclick="openCalEntry(null,'${ds}')"><span class="cal-dnum">${d}</span>${autoChips}${chips}</div>`;
@@ -1888,8 +1895,8 @@ function renderCalEditor(){
     </div>
     <div class="cal-wdrow">${wd.map(w=>`<div class="cal-wd">${w}</div>`).join("")}</div>
     <div class="cal-grid">${cells}</div>
-    <p class="muted cal-hint">Tap a day to add an entry, or tap an entry to edit it.${(holidaysLoaded && HOLIDAYS.length) ? " Public holidays are pulled in automatically." : ""}</p>
-    <div class="cal-actions"><button class="btn ghost" onclick="syncHolidays()">Sync public holidays</button>${(CALENDAR||[]).length ? "" : `<button class="btn primary" onclick="calLoadAlmanac()">Load 2026–27 almanac</button>`}</div>`;
+    <p class="muted cal-hint">Tap a day to add an entry, or tap an entry to edit it. Only dates entered here or loaded from the school diary affect the timetable.</p>
+    <div class="cal-actions">${(CALENDAR||[]).length ? "" : `<button class="btn primary" onclick="calLoadAlmanac()">Load 2026–27 school diary</button>`}</div>`;
 }
 function openCalEntry(idx, defDate){
   if(!state.isAdmin) return;
@@ -1938,7 +1945,7 @@ function calSaveEntry(idx){
 function calLoadAlmanac(){
   if(!state.isAdmin) return;
   const br=getBranch();
-  if(!confirm("Add the 2026–27 school almanac dates for "+br+"? Dates for other branches are skipped. You can edit or remove anything afterwards, and breaks need their end date set.")) return;
+  if(!confirm("Add the 2026–27 school diary dates for "+br+"? Dates for other branches are skipped. You can edit or remove anything afterwards, and breaks need their end date set.")) return;
   let added=0;
   ALMANAC_2627.filter(a=> !a.br || a.br===br).forEach(a=>{
     const e=calNorm(a); if(!e) return;
@@ -1946,7 +1953,7 @@ function calLoadAlmanac(){
     if(dup) return; CALENDAR.push(e); added++;
   });
   renderCalEditor(); if(added) saveCalendar();
-  toast(added?("Added "+added+" dates for "+br):"Almanac already loaded","✓");
+  toast(added?("Added "+added+" diary dates for "+br):"School diary already loaded","✓");
 }
 const ALMANAC_2627=[
   {name:"Good Friday",type:"holiday",start:"2026-04-03"},
@@ -2075,7 +2082,7 @@ function updateAdminNav(){ const a=state.admin; const r=document.getElementById(
 async function adminStep(n){ const a=state.admin; if(a.mode==="day")a.date=ymd(addDays(parseYmd(a.date),n)); else if(a.mode==="week")a.date=ymd(addDays(parseYmd(a.date),n*7)); else{const d=parseYmd(a.date);a.date=ymd(new Date(d.getFullYear(),d.getMonth()+n,1));} updateAdminNav(); await refreshAdmin(false); }
 async function pickAdminDate(v){ if(!v)return; state.admin.date=v; updateAdminNav(); await refreshAdmin(false); }
 async function pickAdminMonth(v){ if(!v)return; state.admin.date=v+"-01"; updateAdminNav(); await refreshAdmin(false); }
-async function refreshAdmin(manual){ const weeks=rangeWeeks(); const ids=visibleTeacherIds(); const nb={}; await Promise.all(weeks.map(wk=>Promise.all(ids.map(async id=>{const raw=await store.get(wkey(wk,id),true);nb[wk+"|"+id]=raw?JSON.parse(raw):{};})))); adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻"); }
+async function refreshAdmin(manual){ const weeks=rangeWeeks(); const ids=visibleTeacherIds(); const nb={}; await Promise.all(weeks.map(wk=>Promise.all(ids.map(async id=>{const raw=await store.get(wkey(wk,id),true);nb[wk+"|"+id]=parseLogBlob(raw);})))); adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻"); }
 function scopeTeachers(){
   const deptLocked = state.role==="hod" || state.role==="teacher";
   let base = deptLocked ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS.slice();
@@ -2110,6 +2117,7 @@ function buildRows(){
         if(!inRange(dateStr))continue;
         if(a.day!=="all"&&dName!==a.day)continue;
         (xd[dName]||[]).forEach(x=>{
+          if(!x||x._deleted) return;
           const desc=(x.c||""), remark=(x.r||""), room=(x.rm||""), slot=(x.slot||"");
           if(!desc.trim() && !remark.trim() && !room.trim()) return;
           if(a.cls!=="all") return;
@@ -2318,7 +2326,7 @@ function mountManage(){
 
   // School calendar
   html+=`<section class="card"><details class="mg-details"><summary>School calendar <small class="sum-count">${(CALENDAR||[]).length}</small></summary>
-    <p class="muted mg-note">National and religious public holidays are pulled in automatically (shown with a dashed outline) and shared across all branches. Add your school-specific dates here — breaks, exams, PTMs and function days. Each appears as a banner on Log a class, and anything marked “No classes” greys out that day’s timetable. For a range like a break, set both dates; leave the second blank for a single day. Put a branch note in the name if needed, e.g. “Sports Day (AN)”.</p>
+    <p class="muted mg-note">Only dates from your school diary or dates added here are used — generic public holidays are not imported. Add holidays, breaks, exams, PTMs and function days for this branch. Each appears as a banner on Log a class, and anything marked “No classes” greys out that day’s timetable. For a range like a break, set both dates; leave the second blank for a single day.</p>
     <div id="calEditor"></div>
   </details></section>`;
 
@@ -2543,7 +2551,7 @@ async function ttApplyOneDay(teacherId, day, period, cls, sel){
   const key=wkey(wk, teacherId);
   let blob={}; try{ const v=await apiGet(key); if(v){ const b=JSON.parse(v); if(b&&typeof b==="object") blob=b; } }catch(err){}
   if(!blob._x) blob._x={}; if(!Array.isArray(blob._x[day])) blob._x[day]=[];
-  blob._x[day].push({c:labelTxt, r:"", rm:room, slot:"p"+period, u:new Date().toISOString()});
+  blob._x[day].push({id:newEntryId(),c:labelTxt, r:"", rm:room, slot:"p"+period, u:new Date().toISOString()});
   const ok=await apiSet(key, JSON.stringify(blob));
   revertTTCell(sel);
   toast(ok?("Added "+(e.code||labelTxt)+" for "+nice+" only — weekly timetable unchanged"):"Couldn't save — check connection", ok?"✓":"⚠");
@@ -3062,7 +3070,8 @@ function mgBulkUpload(files){
     if(!who.ok){ state.user=null; showGate(); return; }
     if(who.branch) setBranch(who.branch);
     state.role=who.role||(who.admin?"admin":"teacher"); state.isAdmin=!!who.admin||state.role==="admin";
-    state.email=who.email; state.myTeacherId=who.teacherId||null; state.dept=who.dept||""; state.bootstrapAdmin=who.bootstrap;
+    state.email=who.email; state.myTeacherId=who.teacherId||null; state.dept=who.dept||""; state.approved=!!who.approved; state.bootstrapAdmin=false;
+    if(!state.approved){ renderUser(); showApp(); return; }
     await loadAppConfig();
     if(state.isAdmin){
       const last=prefGet("device:lastTeacher");
