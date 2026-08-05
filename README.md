@@ -64,6 +64,34 @@ where `_x` holds the out-of-timetable entries.
 5. Commit → Pages auto-deploys. `wrangler.toml` is Cloudflare-specific — other hosts
    ignore or remove it.
 
+## Google OAuth branding and verification
+Class Log now exposes a public, descriptive homepage and dedicated HTML legal pages:
+
+- Homepage: `https://classlog.pages.dev/`
+- Privacy Policy: `https://classlog.pages.dev/privacy`
+- Terms of Service: `https://classlog.pages.dev/terms`
+- Support contact: `desmondperis@gmail.com`
+
+Before submitting an external production app for Google verification:
+
+1. Attach a custom domain owned by the school or app operator. Google requires the
+   homepage and legal pages to be hosted on a verified domain you own; the shared
+   `pages.dev` domain should be treated as a deployment URL, not the final verified brand domain.
+2. Verify that custom domain in Google Search Console using an account that is also
+   an owner or editor of the Google Cloud project, then add it under OAuth
+   **Authorized domains**.
+3. In Google Auth Platform → Branding, set the exact matching app name **Class Log**,
+   the matching school/app logo, user-support email, developer-contact email,
+   homepage URL, Privacy Policy URL and Terms of Service URL.
+4. Add the custom production origin under the OAuth client’s authorised JavaScript
+   origins. Keep requested scopes minimal: identity information for sign-in and
+   `https://www.googleapis.com/auth/calendar.events` only for optional calendar sync.
+5. For Calendar scope verification, provide a justification and demonstration video
+   showing the complete English consent screen, the exact requested scope, sign-in,
+   Sync to Calendar, and Remove from Calendar.
+6. Test all public URLs without signing in, submit branding for verification, and
+   publish the verified branding within Google’s stated validity window.
+
 ## Moving to another host later
 - Keep `index.html` + `logo.png` as-is (set `API_BASE` if the backend is on another origin).
 - Re-implement the four endpoints above on the new platform, backed by its key-value

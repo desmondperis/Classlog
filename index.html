@@ -61,7 +61,7 @@ a{color:var(--blue)}
 .banner b{font-weight:700}
 
 /* Login gate */
-.gate{min-height:66vh; display:flex; align-items:center; justify-content:center; padding:36px 0}
+.gate{min-height:66vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; padding:36px 0}
 .gate-card{position:relative; overflow:hidden; background:var(--surface); border:1px solid var(--line); border-radius:20px; box-shadow:0 8px 44px rgba(23,35,59,.11); padding:38px 34px 34px; max-width:400px; width:100%; text-align:center}
 .gate-card::before{content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--blue),var(--orange))}
 .gate-logo{width:104px; height:104px; object-fit:contain; margin:2px auto 12px; display:block}
@@ -75,6 +75,19 @@ a{color:var(--blue)}
 .gbtn:focus-visible{outline:2px solid var(--blue); outline-offset:2px}
 .gbtn svg{width:19px; height:19px; flex:0 0 auto}
 .gnote{margin:16px 0 0; font-size:11.5px; color:var(--muted); line-height:1.5}
+.gate-legal{margin:18px 0 0; display:flex; justify-content:center; gap:8px 14px; flex-wrap:wrap; font-size:12px}
+.gate-legal a,.site-legal a{color:var(--blue-d); font-weight:700; text-decoration:none}
+.gate-legal a:hover,.site-legal a:hover{text-decoration:underline}
+.gate-about{max-width:720px; width:100%; background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shs); padding:24px 26px; text-align:left}
+.gate-about h2{margin:0 0 8px; color:var(--ink); font-size:19px}
+.gate-about>p{margin:0 0 16px; color:var(--muted); line-height:1.55}
+.gate-points{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
+.gate-point{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:13px}
+.gate-point b{display:block; color:var(--blue-d); font-size:13px; margin-bottom:4px}
+.gate-point span{display:block; color:var(--muted); font-size:12.5px; line-height:1.45}
+.gate-data{margin:16px 0 0!important; font-size:12.5px}
+.site-legal{max-width:1040px; margin:0 auto; padding:8px 20px 30px; display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--muted); font-size:12px}
+.site-legal nav{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px 16px}
 .gate-branch{display:flex; flex-direction:column; gap:6px; text-align:left; max-width:280px; margin:0 auto 18px}
 .gate-branch label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
 .gate-branch select{width:100%}
@@ -346,6 +359,10 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .toast .c{color:#7fe3b0}
 
 @media (max-width:720px){
+  .gate-points{grid-template-columns:1fr}
+  .gate-about{padding:20px}
+  .site-legal{flex-direction:column; text-align:center}
+  .site-legal nav{justify-content:center}
   .row{grid-template-columns:1fr; gap:7px; padding:12px 6px}
   .row.extra{grid-template-columns:1fr}
   .row.cls,.row.cls.saved{grid-template-columns:1fr}
@@ -574,6 +591,7 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 </div>
 
 <div class="wrap" id="view"></div>
+<footer class="site-legal"><span>Class Log · Mount Carmel School</span><nav aria-label="Legal and support"><a href="/about">About</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="mailto:desmondperis@gmail.com">Contact</a></nav></footer>
 <div class="toast" id="toast"><span class="c">✓</span><span id="toast-msg">Saved</span></div>
 
 <script>
@@ -863,8 +881,8 @@ function showGate(){
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
   view().innerHTML=`
     <div class="gate"><div class="gate-card">
-      <button class="gate-gear" id="gateGear" type="button" title="About & privacy" aria-label="About and privacy" onclick="toggleGateMenu(event)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
-      <div class="gate-menu" id="gateMenu" hidden><a href="/about" target="_blank" rel="noopener" onclick="hideGateMenu()">About the tool</a><a href="/privacy" target="_blank" rel="noopener" onclick="hideGateMenu()">Privacy policy</a></div>
+      <button class="gate-gear" id="gateGear" type="button" title="About, privacy and terms" aria-label="About, privacy and terms" onclick="toggleGateMenu(event)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
+      <div class="gate-menu" id="gateMenu" hidden><a href="/about" target="_blank" rel="noopener" onclick="hideGateMenu()">About Class Log</a><a href="/privacy" target="_blank" rel="noopener" onclick="hideGateMenu()">Privacy Policy</a><a href="/terms" target="_blank" rel="noopener" onclick="hideGateMenu()">Terms of Service</a><a href="mailto:desmondperis@gmail.com" onclick="hideGateMenu()">Contact support</a></div>
       <img class="gate-logo" src="logo.png" alt="Mount Carmel School">
       <div class="motto">“Overcome evil with good”</div>
       <div class="gate-div"></div>
@@ -878,7 +896,19 @@ function showGate(){
       </div>
       <div class="gbtn-wrap" id="gbtn"></div>
       ${GOOGLE_CLIENT_ID?"":`<p class="gnote">Sign-in is required to use this app. Google sign-in switches on once you publish it with your own Google Client ID — follow the setup steps to enable it.</p>`}
-    </div></div>`;
+      <div class="gate-legal" aria-label="Legal and support"><a href="/about">About</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="mailto:desmondperis@gmail.com">Contact</a></div>
+    </div>
+    <section class="gate-about" aria-labelledby="publicAboutTitle">
+      <h2 id="publicAboutTitle">Class coverage for Mount Carmel School</h2>
+      <p>Class Log helps approved school staff record lesson coverage, continue topics across teachers, coordinate substitutions and review progress by class and department.</p>
+      <div class="gate-points">
+        <div class="gate-point"><b>Lesson continuity</b><span>Teachers can see their department’s plans, covered topics and remarks while editing remains permission-controlled.</span></div>
+        <div class="gate-point"><b>School coordination</b><span>Authorised staff can manage timetables, absences, substitutions and school-diary dates.</span></div>
+        <div class="gate-point"><b>Optional Calendar sync</b><span>When a teacher chooses Sync to Calendar, Class Log creates or removes only Class Log-tagged events in that teacher’s Google Calendar.</span></div>
+      </div>
+      <p class="gate-data"><b>Why Google data is requested:</b> name, email and profile information are used for sign-in and account approval. Google Calendar access is requested separately and only when a teacher chooses calendar sync. See the <a href="/privacy">Privacy Policy</a> for full details.</p>
+    </section>
+    </div>`;
   applyBranchHeader();
   initGoogle();
 }
