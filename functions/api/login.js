@@ -15,6 +15,7 @@ function normBranch(b) { b = (b || "").trim(); return BRANCHES.indexOf(b) >= 0 ?
 export async function onRequestPost(context) {
   const { request, env } = context;
   if (!env.LOG_KV) return json({ error: "KV not bound (add a LOG_KV binding)" }, 500);
+  if (!env.GOOGLE_CLIENT_ID) return json({ error: "Google sign-in is not configured" }, 500);
 
   let body;
   try { body = await request.json(); } catch (e) { return json({ error: "bad json" }, 400); }
@@ -35,8 +36,11 @@ export async function onRequestPost(context) {
   }
 
   // The token must have been issued for THIS app.
-  if (env.GOOGLE_CLIENT_ID && info.aud !== env.GOOGLE_CLIENT_ID) {
+  if (info.aud !== env.GOOGLE_CLIENT_ID) {
     return json({ error: "aud mismatch" }, 401);
+  }
+  if (String(info.email_verified) !== "true") {
+    return json({ error: "email not verified" }, 401);
   }
   // Optional lock-downs (set as env vars if you want them):
   if (env.ALLOWED_DOMAIN && info.hd !== env.ALLOWED_DOMAIN) {
