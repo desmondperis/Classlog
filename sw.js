@@ -2,7 +2,7 @@
 // API requests are never cached. Navigation pages keep their own cache keys.
 const CACHE = "classlog-v3";
 const SHELL = [
-  "/", "/index.html", "/manifest.json", "/about", "/privacy",
+  "/", "/index.html", "/manifest.json", "/about", "/privacy", "/terms",
   "/logo.png", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png", "/apple-touch-icon.png"
 ];
 
