@@ -1113,7 +1113,7 @@ function renderDay(){
   const calItems = calendarFor(state.date);
   const calClosed = calItems.some(e=>e.noClasses);
   const closedEntry = calItems.find(e=>e.noClasses) || null;
-  const closedName = closedEntry ? (closedEntry.name || calTypeLabel(closedEntry.type||"holiday")) : ((autoItems.find(h=>h.noClass)||{}).name || "");
+  const closedName = closedEntry ? (closedEntry.name || calTypeLabel(closedEntry.type||"holiday")) : "";
   const muted = absent || calClosed;
   const cnt = absent ? "marked absent" : (calClosed ? closedName : (list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend")));
   const allX=((state.blob._x && state.blob._x[dName]) || []).filter(x=>x&&!x._deleted);
