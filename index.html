@@ -78,14 +78,6 @@ a{color:var(--blue)}
 .gate-legal{margin:18px 0 0; display:flex; justify-content:center; gap:8px 14px; flex-wrap:wrap; font-size:12px}
 .gate-legal a,.site-legal a{color:var(--blue-d); font-weight:700; text-decoration:none}
 .gate-legal a:hover,.site-legal a:hover{text-decoration:underline}
-.gate-about{max-width:720px; width:100%; background:var(--surface); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shs); padding:24px 26px; text-align:left}
-.gate-about h2{margin:0 0 8px; color:var(--ink); font-size:19px}
-.gate-about>p{margin:0 0 16px; color:var(--muted); line-height:1.55}
-.gate-points{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px}
-.gate-point{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:13px}
-.gate-point b{display:block; color:var(--blue-d); font-size:13px; margin-bottom:4px}
-.gate-point span{display:block; color:var(--muted); font-size:12.5px; line-height:1.45}
-.gate-data{margin:16px 0 0!important; font-size:12.5px}
 .site-legal{max-width:1040px; margin:0 auto; padding:8px 20px 30px; display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--muted); font-size:12px}
 .site-legal nav{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px 16px}
 .gate-branch{display:flex; flex-direction:column; gap:6px; text-align:left; max-width:280px; margin:0 auto 18px}
@@ -318,6 +310,7 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .mg-bulkwrap{margin-top:10px; padding:10px; border:1px solid var(--line); border-radius:var(--rs); background:#fbfcfe}
 .mg-bulkwrap textarea{min-height:100px; font-size:13px}
 .mg-bulkwrap .mg-note{margin-bottom:8px}
+.bk-status{font-size:13px; color:var(--muted); margin:2px 0 12px}
 .mg-details summary{font-size:15px; font-weight:800; cursor:pointer}
 .mg-grouptitle{font-size:11.5px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:var(--blue-d); margin:10px 2px -6px; padding-bottom:2px}
 .mg-grouptitle:first-child{margin-top:0}
@@ -359,8 +352,6 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .toast .c{color:#7fe3b0}
 
 @media (max-width:720px){
-  .gate-points{grid-template-columns:1fr}
-  .gate-about{padding:20px}
   .site-legal{flex-direction:column; text-align:center}
   .site-legal nav{justify-content:center}
   .row{grid-template-columns:1fr; gap:7px; padding:12px 6px}
@@ -898,16 +889,6 @@ function showGate(){
       ${GOOGLE_CLIENT_ID?"":`<p class="gnote">Sign-in is required to use this app. Google sign-in switches on once you publish it with your own Google Client ID — follow the setup steps to enable it.</p>`}
       <div class="gate-legal" aria-label="Legal and support"><a href="/about">About</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="mailto:desmondperis@gmail.com">Contact</a></div>
     </div>
-    <section class="gate-about" aria-labelledby="publicAboutTitle">
-      <h2 id="publicAboutTitle">Class coverage for Mount Carmel School</h2>
-      <p>Class Log helps approved school staff record lesson coverage, continue topics across teachers, coordinate substitutions and review progress by class and department.</p>
-      <div class="gate-points">
-        <div class="gate-point"><b>Lesson continuity</b><span>Teachers can see their department’s plans, covered topics and remarks while editing remains permission-controlled.</span></div>
-        <div class="gate-point"><b>School coordination</b><span>Authorised staff can manage timetables, absences, substitutions and school-diary dates.</span></div>
-        <div class="gate-point"><b>Optional Calendar sync</b><span>When a teacher chooses Sync to Calendar, Class Log creates or removes only Class Log-tagged events in that teacher’s Google Calendar.</span></div>
-      </div>
-      <p class="gate-data"><b>Why Google data is requested:</b> name, email and profile information are used for sign-in and account approval. Google Calendar access is requested separately and only when a teacher chooses calendar sync. See the <a href="/privacy">Privacy Policy</a> for full details.</p>
-    </section>
     </div>`;
   applyBranchHeader();
   initGoogle();
@@ -1371,7 +1352,7 @@ function getCalToken(){
     if(!CAL_TC){
       CAL_TC=google.accounts.oauth2.initTokenClient({
         client_id:GOOGLE_CLIENT_ID,
-        scope:"https://www.googleapis.com/auth/calendar.events",
+        scope:"https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file",
         callback:(resp)=>{ if(resp&&resp.access_token){ CAL_TOKEN=resp.access_token; CAL_EXP=Date.now()+((resp.expires_in||3600)*1000); saveCalToken(); if(_calResolve)_calResolve(CAL_TOKEN); } else if(_calReject){ _calReject(new Error("no-token")); } _calResolve=_calReject=null; },
         error_callback:(err)=>{ if(_calReject)_calReject(err||new Error("token-error")); _calResolve=_calReject=null; }
       });
@@ -2360,9 +2341,184 @@ function mountManage(){
     <div id="calEditor"></div>
   </details></section>`;
 
+  html+=`<section class="card"><details class="mg-details"><summary>Backup &amp; restore</summary>
+    <div id="backupPanelBody">${backupPanelBodyHTML()}</div>
+  </details></section>`;
+
   html+=`</div>`;
   view().innerHTML=html;
   renderCalEditor();
+  loadBackupMeta();
+}
+/* ---------- Backup & restore ---------- */
+let BACKUP_STATE={lastBackup:null, busy:false};
+let BK_RESTORE=null;
+function niceDateTime(iso){
+  if(!iso) return "—";
+  const d=new Date(iso); if(isNaN(d)) return "—";
+  return d.getDate()+" "+MON[d.getMonth()]+" "+d.getFullYear()+", "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+}
+function backupPanelBodyHTML(){
+  const lb=BACKUP_STATE.lastBackup;
+  const lastLine=lb ? ("Last backup: "+niceDateTime(lb.at)+" · "+lb.keys+" key"+(lb.keys===1?"":"s")) : "No backup has been made yet for this branch.";
+  return `<p class="muted mg-note">Saves everything stored for the branch you're signed into — schedules, class logs, substitutions, settings — directly to your Google Drive as a JSON file. One click, it's done. Keep your Drive organized. Restoring puts that file's data back, overwriting what's here now.</p>
+    <p class="bk-status">${esc(lastLine)}</p>
+    <div class="mg-actions"><button class="btn primary" id="bkDownloadBtn" onclick="mgDownloadBackup()">Backup to Google Drive</button></div>
+    <div id="bkProgress"></div>
+    <div class="mg-subhead" style="margin-top:16px">Restore from a backup file</div>
+    <p class="muted mg-note">In Drive, open the backup file and download it to your device first — this picker reads a local file, not Drive directly. Only for recovering from real data loss: it overwrites current data for every key in the file, and only ever writes into the branch you're signed into now, regardless of which branch the file was made for.</p>
+    <input type="file" id="bkFile" accept="application/json" onchange="mgPrepRestore(this.files[0])">
+    <div id="bkRestoreConfirm"></div>`;
+}
+function refreshBackupPanel(){
+  const el=document.getElementById("backupPanelBody");
+  if(el) el.innerHTML=backupPanelBodyHTML(); else mountManage();
+}
+async function loadBackupMeta(){
+  try{
+    const res=await fetch(API_BASE+"/api/backup?meta=1",{headers:authHeaders()});
+    const j=await res.json();
+    if(res.ok){ BACKUP_STATE.lastBackup=j.lastBackup||null; refreshBackupPanel(); }
+  }catch(e){}
+}
+async function mgDownloadBackup(){
+  if(BACKUP_STATE.busy) return;
+  BACKUP_STATE.busy=true;
+  const btn=document.getElementById("bkDownloadBtn"); if(btn) btn.disabled=true;
+  const prog=document.getElementById("bkProgress");
+  const setProg=(msg)=>{ if(prog) prog.innerHTML=msg?`<p class="muted">${esc(msg)}</p>`:""; };
+  let token;
+  try{
+    setProg("Requesting Drive access…");
+    token=await getCalToken();
+  }catch(err){
+    const m=(err&&err.message)||"";
+    setProg("");
+    toast(m==="no-client-id"?"Google sign-in isn't set up yet":(m==="gis-not-loaded"?"Google is still loading — try again in a moment":"Drive access was declined"),"⚠");
+    BACKUP_STATE.busy=false;
+    if(btn) btn.disabled=false;
+    return;
+  }
+  try{
+    setProg("Gathering data… 0 keys so far");
+    const all={};
+    let cursor;
+    for(;;){
+      const qs=cursor?("?cursor="+encodeURIComponent(cursor)):"";
+      const res=await fetch(API_BASE+"/api/backup"+qs,{headers:authHeaders()});
+      const j=await res.json();
+      if(!res.ok) throw new Error(j.error||("HTTP "+res.status));
+      Object.assign(all, j.values||{});
+      setProg("Gathering data… "+Object.keys(all).length+" keys so far");
+      if(j.done || !j.cursor) break;
+      cursor=j.cursor;
+    }
+    const exportedAt=new Date().toISOString();
+    const count=Object.keys(all).length;
+    const payload={app:"classlog", exportedAt, branch:getBranch(), keys:all};
+    const jsonStr=JSON.stringify(payload);
+    const filename="classlog-backup-"+ymd(new Date())+".json";
+    setProg("Creating file in Drive…");
+    const createRes=await fetch("https://www.googleapis.com/drive/v3/files",{
+      method:"POST",
+      headers:{Authorization:"Bearer "+token, "Content-Type":"application/json"},
+      body:JSON.stringify({name:filename, mimeType:"application/json"})
+    });
+    if(!createRes.ok){
+      const err=await createRes.json().catch(()=>({}));
+      throw new Error((err.error&&err.error.message)||("Drive create failed — HTTP "+createRes.status));
+    }
+    const created=await createRes.json();
+    setProg("Uploading data to Drive…");
+    const uploadRes=await fetch("https://www.googleapis.com/upload/drive/v3/files/"+encodeURIComponent(created.id)+"?uploadType=media",{
+      method:"PATCH",
+      headers:{Authorization:"Bearer "+token, "Content-Type":"application/json"},
+      body:jsonStr
+    });
+    if(!uploadRes.ok){
+      const err=await uploadRes.json().catch(()=>({}));
+      throw new Error((err.error&&err.error.message)||("Drive upload failed — HTTP "+uploadRes.status));
+    }
+    const driveResp=await uploadRes.json();
+    try{ await fetch(API_BASE+"/api/backup",{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify({meta:{at:exportedAt,keys:count}})}); }catch(e){}
+    BACKUP_STATE.lastBackup={at:exportedAt, keys:count};
+    const driveLink=driveResp.id?("https://drive.google.com/file/d/"+driveResp.id+"/view"):"";
+    setProg("Done — "+count+" keys backed up to Drive"+(driveLink?". <a href=\""+driveLink+"\" target=\"_blank\" style=\"color:var(--blue)\">Open file</a>":""));
+    toast("Backup saved to Google Drive — "+count+" keys","✓");
+  }catch(e){
+    setProg("");
+    toast("Backup failed — "+((e&&e.message)||"check your connection"),"⚠");
+  }
+  BACKUP_STATE.busy=false;
+  if(btn) btn.disabled=false;
+  refreshBackupPanel();
+}
+function mgPrepRestore(file){
+  const box=document.getElementById("bkRestoreConfirm");
+  BK_RESTORE=null;
+  if(!file){ if(box) box.innerHTML=""; return; }
+  const reader=new FileReader();
+  reader.onload=()=>{
+    let parsed=null;
+    try{ parsed=JSON.parse(reader.result); }catch(e){}
+    if(!parsed || typeof parsed!=="object" || !parsed.keys || typeof parsed.keys!=="object" || Array.isArray(parsed.keys)){
+      if(box) box.innerHTML=`<p class="ask-a err" style="margin-top:10px">That doesn't look like a Class Log backup file.</p>`;
+      return;
+    }
+    const count=Object.keys(parsed.keys).length;
+    if(!count){
+      if(box) box.innerHTML=`<p class="ask-a err" style="margin-top:10px">That backup file is empty.</p>`;
+      return;
+    }
+    BK_RESTORE=parsed;
+    const cur=getBranch();
+    const branchNote=(parsed.branch && parsed.branch!==cur)
+      ? `<p class="sub-note warn">This backup was made for <b>${esc(parsed.branch)}</b> — you're signed into <b>${esc(cur)}</b>. Restoring now writes into ${esc(cur)}'s data, not ${esc(parsed.branch)}'s. Sign out and back in under the right branch first if that's not what you meant.</p>`
+      : "";
+    if(box) box.innerHTML=`<div class="mg-bulkwrap">
+      <p><b>${count}</b> key${count===1?"":"s"} in this file, exported ${esc(niceDateTime(parsed.exportedAt||""))}.</p>
+      ${branchNote}
+      <p class="muted mg-note">This overwrites current data for every one of those keys. Type <b>RESTORE</b> below to confirm.</p>
+      <input type="text" id="bkConfirmText" placeholder="Type RESTORE to confirm" oninput="document.getElementById('bkGo').disabled=(this.value.trim()!=='RESTORE')">
+      <div class="mg-actions"><button class="btn danger-btn" id="bkGo" disabled onclick="mgRunRestore()">Restore ${count} key${count===1?"":"s"}</button></div>
+      <div id="bkRestoreProgress"></div>
+    </div>`;
+  };
+  reader.readAsText(file);
+}
+async function mgRunRestore(){
+  if(!BK_RESTORE || BACKUP_STATE.busy) return;
+  const entries=BK_RESTORE.keys;
+  const allKeys=Object.keys(entries);
+  BACKUP_STATE.busy=true;
+  const go=document.getElementById("bkGo"); if(go) go.disabled=true;
+  const prog=document.getElementById("bkRestoreProgress");
+  const setProg=(msg)=>{ if(prog) prog.innerHTML=msg?`<p class="muted">${esc(msg)}</p>`:""; };
+  const CHUNK=350;
+  let done=0, failedTotal=0;
+  for(let i=0;i<allKeys.length;i+=CHUNK){
+    const slice=allKeys.slice(i,i+CHUNK);
+    const chunkEntries={}; slice.forEach(k=>{ chunkEntries[k]=entries[k]; });
+    setProg("Restoring… "+done+"/"+allKeys.length);
+    try{
+      const res=await fetch(API_BASE+"/api/backup",{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify({entries:chunkEntries})});
+      const j=await res.json();
+      if(!res.ok){
+        setProg("Stopped after "+done+"/"+allKeys.length+" — "+(j.error||("HTTP "+res.status))+". If this is today's write limit, it resets at midnight UTC — come back and click Restore again, it's safe to re-run.");
+        BACKUP_STATE.busy=false; if(go) go.disabled=false;
+        return;
+      }
+      done+=(j.written||0); failedTotal+=(j.failed||0);
+    }catch(e){
+      setProg("Stopped after "+done+"/"+allKeys.length+" — check your connection, then click Restore again, it's safe to re-run.");
+      BACKUP_STATE.busy=false; if(go) go.disabled=false;
+      return;
+    }
+  }
+  setProg("Done — "+done+" key"+(done===1?"":"s")+" restored"+(failedTotal?(" · "+failedTotal+" failed"):"")+". Reload the app to see the restored data.");
+  toast("Restore complete — reload to see the changes","✓");
+  BACKUP_STATE.busy=false;
+  BK_RESTORE=null;
 }
 
 /* ----- Teacher handlers ----- */
