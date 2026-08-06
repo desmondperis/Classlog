@@ -1146,8 +1146,8 @@ function renderDay(){
   const closedName = closedEntry ? (closedEntry.name || calTypeLabel(closedEntry.type||"holiday")) : "";
   const muted = absent || calClosed;
   const cnt = absent ? "marked absent" : (calClosed ? closedName : (list.length?(done+"/"+list.length+" logged"):(isWeekday?"no scheduled classes":"weekend")));
-  const allX=((state.blob._x && state.blob._x[dName]) || []).filter(x=>x&&!x._deleted);
-  const xFor=sid=>allX.map((x,xi)=>({x,xi})).filter(o=>((o.x.slot||"")===sid));
+  const rawX=(state.blob._x && state.blob._x[dName]) || [];
+  const xFor=sid=>rawX.map((x,xi)=>({x,xi})).filter(o=>o.x && !o.x._deleted && ((o.x.slot||"")===sid));
   const en = dayEnter; dayEnter=false;
   const canPlan = true; // everyone can set planned topics for their own classes; server still guards who can write which teacher
   const planBtn = canPlan ? `<button class="daytool-btn" onclick="openBulkPlan()">Bulk plan</button>` : "";
