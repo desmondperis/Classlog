@@ -351,13 +351,34 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
 .toast .c{color:#7fe3b0}
 
+@media (max-width:560px){
+  .row{grid-template-columns:1fr; gap:7px; padding:12px 6px}
+  .row.extra{grid-template-columns:1fr}
+  .row.extra.saved{grid-template-columns:1fr auto}
+  .row.cls,.row.cls.saved{grid-template-columns:1fr}
+  .chip{flex-direction:row; align-items:baseline; gap:7px}
+}
+/* Tablets, split-screen and narrow windows: keep the label beside the fields and
+   let the three text fields share two lines, instead of one field per line. */
+@media (min-width:561px) and (max-width:1000px){
+  .row{grid-template-columns:124px 1fr 1fr; gap:8px 10px; padding:10px 6px}
+  .row.cls:not(.saved){grid-template-columns:124px 1fr 1fr auto; align-items:start}
+  .row.cls:not(.saved)>.chip{grid-column:1; grid-row:1 / span 2; align-self:center}
+  .row.cls:not(.saved)>.pl{grid-column:2; grid-row:1}
+  .row.cls:not(.saved)>.lg{grid-column:3; grid-row:1}
+  .row.cls:not(.saved)>:nth-child(4){grid-column:2 / span 2; grid-row:2}
+  .row.cls:not(.saved)>.xacts{grid-column:4; grid-row:1 / span 2; align-self:center}
+  .row.cls.saved{grid-template-columns:124px 1fr auto}
+  .row.extra:not(.saved){grid-template-columns:1fr 1fr auto; align-items:start}
+  .row.extra:not(.saved)>:nth-child(1){grid-column:1; grid-row:1}
+  .row.extra:not(.saved)>:nth-child(2){grid-column:2; grid-row:1}
+  .row.extra:not(.saved)>:nth-child(3){grid-column:1 / span 2; grid-row:2}
+  .row.extra:not(.saved)>.xacts{grid-column:3; grid-row:1 / span 2; align-self:center}
+  .row.extra.saved{grid-template-columns:1fr auto}
+}
 @media (max-width:720px){
   .site-legal{flex-direction:column; text-align:center}
   .site-legal nav{justify-content:center}
-  .row{grid-template-columns:1fr; gap:7px; padding:12px 6px}
-  .row.extra{grid-template-columns:1fr}
-  .row.cls,.row.cls.saved{grid-template-columns:1fr}
-  .chip{flex-direction:row; align-items:baseline; gap:7px}
   .kpis{grid-template-columns:repeat(2,1fr)}
   .pill{margin-left:0; width:100%; justify-content:center}
   .brand-txt h1{font-size:16px}
@@ -533,18 +554,43 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .ce-dates{display:flex; gap:12px; margin-top:2px}
 .ce-dcol{flex:1; min-width:0}
 
-.ask-wrap{display:flex; flex-direction:column; gap:14px; max-width:720px; margin:0 auto}
-.ask-log{display:flex; flex-direction:column; gap:12px; min-height:100px}
-.ask-empty{color:var(--muted); font-size:13.5px; text-align:center; padding:34px 16px; border:1px dashed var(--line); border-radius:var(--r)}
-.ask-empty b{display:block; color:var(--ink); font-size:14px; margin-bottom:6px}
-.ask-empty ul{margin:10px 0 0; padding-left:18px; text-align:left; display:inline-block}
-.ask-q{align-self:flex-end; max-width:88%; background:var(--blue); color:#fff; border-radius:14px 14px 4px 14px; padding:10px 14px; font-size:13.5px; font-weight:600; white-space:pre-wrap}
-.ask-a{align-self:flex-start; max-width:92%; background:var(--surface); border:1px solid var(--line); box-shadow:var(--shs); border-radius:14px 14px 14px 4px; padding:10px 14px; font-size:13.5px; line-height:1.55; white-space:pre-wrap}
+.ask-wrap{display:flex; flex-direction:column; gap:12px; max-width:760px; margin:0 auto}
+.ask-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+.ask-range{display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--muted); font-weight:700}
+.ask-range select{min-height:34px; padding:5px 28px 5px 10px; font-size:12.5px; font-weight:700; box-shadow:none}
+.ask-clear{margin-left:auto; appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--muted); border-radius:999px; padding:6px 13px; font-size:12px; font-weight:700; cursor:pointer; transition:border-color .16s var(--ease), color .16s var(--ease), background .16s var(--ease)}
+.ask-clear:hover:not([disabled]){border-color:#d66; color:#c0392b; background:#fff5f5}
+.ask-clear[disabled]{opacity:.4; cursor:default}
+.ask-log{display:flex; flex-direction:column; gap:16px; min-height:120px}
+.ask-empty{padding:24px 18px; border:1px dashed var(--line); border-radius:var(--r); background:var(--surface)}
+.ask-empty b{display:block; color:var(--ink); font-size:14.5px; margin-bottom:5px}
+.ask-empty p{margin:0 0 14px; color:var(--muted); font-size:13px; line-height:1.5}
+.ask-chips{display:flex; flex-direction:column; gap:8px}
+.ask-chip{appearance:none; text-align:left; border:1px solid var(--line); background:var(--bg); color:var(--blue-d); border-radius:12px; padding:10px 13px; font-size:13px; font-weight:600; line-height:1.4; cursor:pointer; transition:border-color .16s var(--ease), background .16s var(--ease)}
+.ask-chip:hover{border-color:var(--blue); background:var(--blue-l)}
+.ask-turn{display:flex; flex-direction:column; gap:8px}
+.ask-q{align-self:flex-end; max-width:86%; background:var(--blue); color:#fff; border-radius:16px 16px 5px 16px; padding:10px 14px; font-size:13.5px; font-weight:600; line-height:1.5; white-space:pre-wrap; box-shadow:var(--shs)}
+.ask-a{align-self:flex-start; max-width:94%; background:var(--surface); border:1px solid var(--line); box-shadow:var(--shs); border-radius:16px 16px 16px 5px; padding:12px 15px; font-size:13.5px; line-height:1.6; color:var(--ink)}
+.ask-a p{margin:0 0 8px}
+.ask-a p:last-child{margin-bottom:0}
+.ask-a p.ask-h{font-weight:800; color:var(--blue-d); margin-top:11px}
+.ask-a p.ask-h:first-child{margin-top:0}
+.ask-a ul,.ask-a ol{margin:0 0 8px; padding-left:20px}
+.ask-a ul:last-child,.ask-a ol:last-child{margin-bottom:0}
+.ask-a li{margin:3px 0}
+.ask-a code{background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:1px 5px; font-size:12.5px}
 .ask-a.err{border-color:#e6a89f; color:var(--err,#c0392b); background:#fdeeec}
-.ask-a.loading{color:var(--muted); font-style:italic}
-.ask-bar{display:flex; gap:8px; align-items:flex-end; position:sticky; bottom:10px}
-.ask-bar textarea{flex:1; resize:none; min-height:44px; max-height:120px; line-height:1.35}
-.ask-note{font-size:11.5px; color:var(--muted); text-align:center}
+.ask-dots{display:inline-flex; gap:5px; align-items:center; padding:3px 2px}
+.ask-dots i{width:7px; height:7px; border-radius:50%; background:var(--blue); animation:askblink 1.1s infinite}
+.ask-dots i:nth-child(2){animation-delay:.18s}
+.ask-dots i:nth-child(3){animation-delay:.36s}
+@keyframes askblink{0%,80%,100%{opacity:.25; transform:translateY(0)} 40%{opacity:1; transform:translateY(-3px)}}
+.ask-acts{display:flex; gap:6px; align-self:flex-start}
+.ask-act{appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--muted); border-radius:999px; padding:4px 11px; font-size:11.5px; font-weight:700; cursor:pointer; transition:border-color .16s var(--ease), color .16s var(--ease)}
+.ask-act:hover{border-color:var(--blue); color:var(--blue-d)}
+.ask-bar{display:flex; gap:8px; align-items:flex-end; position:sticky; bottom:0; padding:10px 0 12px; background:linear-gradient(to bottom, rgba(238,242,247,0), var(--bg) 30%)}
+.ask-bar textarea{flex:1; resize:none; min-height:44px; max-height:140px; line-height:1.4}
+.ask-note{font-size:11.5px; color:var(--muted); text-align:center; margin:0; line-height:1.5}
 
 .ask-top-btn{margin-left:auto;appearance:none;border:1px solid var(--blue);background:var(--surface);color:var(--blue-d);border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:800;cursor:pointer;white-space:nowrap;flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;box-shadow:var(--shs);transition:transform .12s var(--ease),box-shadow .2s var(--ease),background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
 .ask-top-btn:hover{background:var(--blue-l);border-color:var(--blue);transform:translateY(-1px)}
@@ -834,7 +880,7 @@ const today=ymd(new Date());
 /* ---------- State ---------- */
 const state={mode:"teacher", user:null, approved:false, teacherId:null, isAdmin:false, role:"teacher", myTeacherId:null, dept:"", email:"", bootstrapAdmin:false, date:today, blob:{},
   admin:{mode:"week", date:today, dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"date",sortDir:1},
-  ask:{log:[], busy:false}};
+  ask:{log:[], busy:false, weeks:2}};
 function curWeek(){return ymd(mondayOf(parseYmd(state.date)));}
 let saveTimer=null, saveChain=Promise.resolve(), pollTimer=null, lastCfgSync=0;
 const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -1252,23 +1298,40 @@ function openBulkPlan(){
   };
 }
 /* ---------- Ask AI (Q&A over recent class-log data) ---------- */
+/* ---------- Ask AI ---------- */
+const ASK_RANGES=[2,4,6];
+const ASK_STARTERS=[
+  "What topic is going on in 6E for Value Education?",
+  "Which classes haven't logged anything this week?",
+  "Summarise what was covered in grade 7 this week",
+  "Where has the covered topic drifted from the planned one?"
+];
+let ASK_CTX={key:"",text:"",rows:0};
+
 function askVisibleIds(){
   const deptLocked = state.role==="hod" || state.role==="teacher";
   return (deptLocked ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS).map(t=>t.id);
 }
 async function buildAiContext(){
+  const weeksBack=state.ask.weeks||2;
   const ids=askVisibleIds();
   const thisMon=ymd(mondayOf(new Date()));
-  const weeks=[ymd(addDays(parseYmd(thisMon),-7)), thisMon];
-  const blobs={};
-  await Promise.all(weeks.map(wk=>Promise.all(ids.map(async id=>{
-    const raw=await store.get(wkey(wk,id),true);
-    blobs[wk+"|"+id]=parseLogBlob(raw);
-  }))));
+  const weeks=[];
+  for(let i=weeksBack-1;i>=0;i--) weeks.push(ymd(addDays(parseYmd(thisMon),-7*i)));
+  const cacheKey=weeksBack+"|"+ids.join(",")+"|"+ymd(new Date());
+  if(ASK_CTX.key===cacheKey && ASK_CTX.text) return ASK_CTX;
+  // Batch the week blobs — /api/data caps a request at 100 keys, so chunk to match.
+  const allKeys=[];
+  weeks.forEach(wk=> ids.forEach(id=> allKeys.push(wkey(wk,id))));
+  const raw={};
+  for(let i=0;i<allKeys.length;i+=100){
+    Object.assign(raw, await apiGetMany(allKeys.slice(i,i+100)));
+  }
   const lines=[];
   weeks.forEach(wk=>{
     ids.forEach(id=>{
-      const blob=blobs[wk+"|"+id]||{}; const dept=deptOf(id);
+      let blob={}; try{ blob=parseLogBlob(raw[wkey(wk,id)]||"")||{}; }catch(e){ blob={}; }
+      const dept=deptOf(id);
       DAYS.forEach(day=>{
         const dateStr=dateOf(wk,day);
         ((SCHEDULE[id]&&SCHEDULE[id][day])||[]).forEach(e=>{
@@ -1281,61 +1344,159 @@ async function buildAiContext(){
       });
     });
   });
-  let text="Date | Day | Teacher | Dept | Class | Subject | Planned topic | Topic covered | Remark\n"+lines.join("\n");
-  if(!lines.length) text+="\n(no classes scheduled in the last 2 weeks for the classes you can see)";
-  if(text.length>45000) text=text.slice(0,45000)+"\n…(truncated — try asking about a narrower class or date range)";
-  return text;
+  const head="Date | Day | Teacher | Dept | Class | Subject | Planned topic | Topic covered | Remark";
+  let text, rows=lines.length;
+  if(!rows){
+    text=head+"\n(no classes scheduled in this period for the classes you can see)";
+  } else {
+    text=head+"\n"+lines.join("\n");
+    if(text.length>44000){
+      // Keep the most recent rows rather than cutting the table mid-line.
+      const kept=[]; let size=head.length;
+      for(let i=lines.length-1;i>=0;i--){ size+=lines[i].length+1; if(size>44000) break; kept.unshift(lines[i]); }
+      text=head+"\n"+kept.join("\n")+"\n(older rows omitted — choose a shorter range for full coverage)";
+      rows=kept.length;
+    }
+  }
+  ASK_CTX={key:cacheKey,text,rows};
+  return ASK_CTX;
+}
+/* Minimal, safe markdown → HTML. Everything is escaped first, so no model output can inject HTML. */
+function askMD(src){
+  const inline=s=>s
+    .replace(/`([^`]+)`/g,"<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>")
+    .replace(/(^|[^*])\*([^*]+)\*(?!\*)/g,"$1<i>$2</i>");
+  const lines=esc(String(src||"")).split(/\r?\n/);
+  let out="", ul=false, ol=false;
+  const close=()=>{ if(ul){out+="</ul>";ul=false;} if(ol){out+="</ol>";ol=false;} };
+  lines.forEach(rawLine=>{
+    const line=rawLine.trim();
+    if(!line){ close(); return; }
+    let m;
+    if((m=/^#{1,6}\s+(.*)$/.exec(line))){ close(); out+='<p class="ask-h">'+inline(m[1])+"</p>"; return; }
+    if((m=/^[-*+•]\s+(.*)$/.exec(line))){ if(ol){out+="</ol>";ol=false;} if(!ul){out+="<ul>";ul=true;} out+="<li>"+inline(m[1])+"</li>"; return; }
+    if((m=/^\d+[.)]\s+(.*)$/.exec(line))){ if(ul){out+="</ul>";ul=false;} if(!ol){out+="<ol>";ol=true;} out+="<li>"+inline(m[1])+"</li>"; return; }
+    close(); out+="<p>"+inline(line)+"</p>";
+  });
+  close();
+  return out;
 }
 function askEmptyHTML(){
-  const scope = (state.role==="admin"||state.role==="leader") ? "the whole school" : "your department";
-  return `<div class="ask-empty"><b>Ask about recent class logs</b>Answers use the last two weeks of topics, plans and remarks for ${scope}.<ul>
-    <li>"What topic is going on in 6E for Value Education?"</li>
-    <li>"Which class in grade 7 hasn't logged anything this week?"</li>
-    <li>"Summarise what Mrs Sharma covered this week"</li>
-  </ul></div>`;
+  const scope=(state.role==="admin"||state.role==="leader")?"the whole school":"your department";
+  const chips=ASK_STARTERS.map(s=>`<button class="ask-chip" type="button" data-q="${esc(s)}" onclick="askUse(this)">${esc(s)}</button>`).join("");
+  return `<div class="ask-empty"><b>Ask about recent class logs</b>
+    <p>Answers come from planned topics, covered topics and remarks for ${esc(scope)} over the selected period. Try one of these:</p>
+    <div class="ask-chips">${chips}</div></div>`;
 }
 function askLogHTML(){
   if(!state.ask.log.length) return askEmptyHTML();
-  return state.ask.log.map(item=>{
-    const a = item.busy ? `<div class="ask-a loading">Thinking…</div>`
-      : item.error ? `<div class="ask-a err">${esc(item.error)}</div>`
-      : `<div class="ask-a">${esc(item.answer)}</div>`;
-    return `<div class="ask-q">${esc(item.q)}</div>${a}`;
+  return state.ask.log.map((item,i)=>{
+    let body;
+    if(item.busy) body=`<div class="ask-a"><span class="ask-dots"><i></i><i></i><i></i></span></div>`;
+    else if(item.error) body=`<div class="ask-a err">${esc(item.error)}</div><div class="ask-acts"><button class="ask-act" type="button" onclick="askRetry(${i})">Try again</button></div>`;
+    else body=`<div class="ask-a">${askMD(item.answer)}</div><div class="ask-acts"><button class="ask-act" type="button" onclick="askCopy(${i},this)">Copy</button></div>`;
+    return `<div class="ask-turn"><div class="ask-q">${esc(item.q)}</div>${body}</div>`;
   }).join("");
 }
+function askNoteHTML(){
+  const w=state.ask.weeks||2;
+  const seen=ASK_CTX.rows ? (" · "+ASK_CTX.rows+" class record"+(ASK_CTX.rows===1?"":"s")+" read") : "";
+  return "Using the last "+w+" weeks"+seen+". Answers can be wrong — check anything important against the Dashboard.";
+}
+function askGrow(ta){ if(!ta) return; ta.style.height="auto"; ta.style.height=Math.min(ta.scrollHeight,140)+"px"; }
+function askScroll(){
+  const l=document.getElementById("askLog"); if(!l) return;
+  const last=l.lastElementChild;
+  if(last && last.scrollIntoView) last.scrollIntoView({block:"end", behavior:prefersReduce()?"auto":"smooth"});
+}
+function askRepaint(){
+  const l=document.getElementById("askLog"); if(l) l.innerHTML=askLogHTML();
+  const b=document.getElementById("askBtn"); if(b) b.disabled=state.ask.busy;
+  const c=document.getElementById("askClearBtn"); if(c) c.disabled=state.ask.busy||!state.ask.log.length;
+  const n=document.getElementById("askNote"); if(n) n.textContent=askNoteHTML();
+  askScroll();
+}
 function mountAsk(){
-  const html=`<div class="ask-wrap">
+  const opts=ASK_RANGES.map(w=>`<option value="${w}"${(state.ask.weeks||2)===w?" selected":""}>Last ${w} weeks</option>`).join("");
+  view().innerHTML=`<div class="ask-wrap">
+    <div class="ask-head">
+      <span class="ask-range">Data range <select onchange="askSetRange(this.value)">${opts}</select></span>
+      <button class="ask-clear" type="button" id="askClearBtn" onclick="askClear()"${state.ask.log.length?"":" disabled"}>Clear chat</button>
+    </div>
     <div class="ask-log" id="askLog">${askLogHTML()}</div>
     <div class="ask-bar">
-      <textarea id="askInput" rows="1" placeholder="Ask about recent topics, plans or coverage…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();askSubmit();}"></textarea>
+      <textarea id="askInput" rows="1" placeholder="Ask about topics, plans or coverage…" oninput="askGrow(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();askSubmit();}"></textarea>
       <button class="btn primary" id="askBtn" onclick="askSubmit()">Ask</button>
     </div>
-    <p class="ask-note">Uses the last 2 weeks of logged data. Answers can be wrong — check anything important against the Dashboard.</p>
+    <p class="ask-note" id="askNote">${esc(askNoteHTML())}</p>
   </div>`;
-  view().innerHTML=html;
-  const log=document.getElementById("askLog"); if(log) log.scrollTop=log.scrollHeight;
+  askScroll();
 }
-async function askSubmit(){
+function askSetRange(v){
+  const w=parseInt(v,10)||2;
+  if(w===state.ask.weeks) return;
+  state.ask.weeks=w;
+  ASK_CTX={key:"",text:"",rows:0};
+  const n=document.getElementById("askNote"); if(n) n.textContent=askNoteHTML();
+}
+function askUse(btn){
+  const ta=document.getElementById("askInput"); if(!ta) return;
+  ta.value=btn.getAttribute("data-q")||"";
+  askGrow(ta);
+  askSubmit();
+}
+function askClear(){
   if(state.ask.busy) return;
-  const ta=document.getElementById("askInput"); const q=(ta&&ta.value||"").trim();
+  if(state.ask.log.length && !confirm("Clear this conversation?")) return;
+  state.ask.log=[];
+  mountAsk();
+}
+function askCopy(i,btn){
+  const it=state.ask.log[i]; if(!it||!it.answer) return;
+  const done=()=>{ const old=btn.textContent; btn.textContent="Copied"; setTimeout(()=>{ btn.textContent=old; },1400); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(it.answer).then(done).catch(()=>toast("Couldn't copy","⚠"));
+  } else {
+    const ta=document.createElement("textarea"); ta.value=it.answer; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); done(); }catch(e){ toast("Couldn't copy","⚠"); }
+    ta.remove();
+  }
+}
+function askRetry(i){
+  if(state.ask.busy) return;
+  const it=state.ask.log[i]; if(!it) return;
+  state.ask.log.splice(i,1);
+  askRun(it.q);
+}
+function askSubmit(){
+  const ta=document.getElementById("askInput");
+  const q=(ta&&ta.value||"").trim();
   if(!q) return;
-  if(ta) ta.value="";
+  if(ta){ ta.value=""; askGrow(ta); }
+  askRun(q);
+}
+async function askRun(q){
+  if(state.ask.busy) return;
   const item={q,busy:true,answer:"",error:""};
   state.ask.log.push(item);
   state.ask.busy=true;
-  const btn=document.getElementById("askBtn"); if(btn) btn.disabled=true;
-  const log=document.getElementById("askLog"); if(log){ log.innerHTML=askLogHTML(); log.scrollTop=log.scrollHeight; }
+  askRepaint();
   try{
-    const context=await buildAiContext();
-    const res=await fetch(API_BASE+"/api/ask",{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify({question:q,context})});
+    const ctx=await buildAiContext();
+    // Send the last few completed turns so follow-ups ("what about 7B?") make sense.
+    const history=state.ask.log.slice(0,-1).filter(t=>t.answer).slice(-3).map(t=>({q:t.q,a:t.answer}));
+    const res=await fetch(API_BASE+"/api/ask",{method:"POST",headers:authHeaders({"Content-Type":"application/json"}),body:JSON.stringify({question:q,context:ctx.text,history})});
     let j={}; try{ j=await res.json(); }catch(e){}
     if(res.ok && j.answer) item.answer=j.answer;
-    else item.error = j.error==="no_key" ? "AI isn't set up yet — add OPENROUTER_API_KEY in Cloudflare settings." : ("Couldn't get an answer — "+(j.error||("HTTP "+res.status)));
+    else if(res.status===429) item.error="You've reached the hourly limit for AI questions — try again a bit later.";
+    else if(j.error==="no_key") item.error="AI isn't set up yet — add OPENROUTER_API_KEY in Cloudflare settings.";
+    else if(j.error==="approval required") item.error="Your account isn't approved for this yet.";
+    else item.error="Couldn't get an answer — "+(j.error||("HTTP "+res.status));
   }catch(e){ item.error="Couldn't reach the AI — check your connection."; }
   item.busy=false;
   state.ask.busy=false;
-  if(btn) btn.disabled=false;
-  const log2=document.getElementById("askLog"); if(log2){ log2.innerHTML=askLogHTML(); log2.scrollTop=log2.scrollHeight; }
+  askRepaint();
 }
 /* ---------- Google Calendar sync (client-side token, primary calendar, idempotent) ---------- */
 let CAL_TC=null, CAL_TOKEN="", CAL_EXP=0, _calResolve=null, _calReject=null;
