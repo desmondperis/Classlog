@@ -75,19 +75,13 @@ a{color:var(--blue)}
 .gbtn:focus-visible{outline:2px solid var(--blue); outline-offset:2px}
 .gbtn svg{width:19px; height:19px; flex:0 0 auto}
 .gnote{margin:16px 0 0; font-size:11.5px; color:var(--muted); line-height:1.5}
-.gate-legal{margin:18px 0 0; display:flex; justify-content:center; gap:8px 14px; flex-wrap:wrap; font-size:12px}
-.gate-legal a,.site-legal a{color:var(--blue-d); font-weight:700; text-decoration:none}
-.gate-legal a:hover,.site-legal a:hover{text-decoration:underline}
+.site-legal a{color:var(--blue-d); font-weight:700; text-decoration:none}
+.site-legal a:hover{text-decoration:underline}
 .site-legal{max-width:1040px; margin:0 auto; padding:8px 20px 30px; display:flex; align-items:center; justify-content:space-between; gap:12px; color:var(--muted); font-size:12px}
 .site-legal nav{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px 16px}
 .gate-branch{display:flex; flex-direction:column; gap:6px; text-align:left; max-width:280px; margin:0 auto 18px}
 .gate-branch label{font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
 .gate-branch select{width:100%}
-.gate-gear{position:absolute; top:11px; right:11px; z-index:2; width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0}
-.gate-gear:hover{color:var(--blue-d); border-color:var(--blue)}
-.gate-menu{position:absolute; top:48px; right:11px; z-index:5; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 10px 30px rgba(23,35,59,.18); padding:6px; min-width:168px; text-align:left}
-.gate-menu a{display:block; width:100%; text-align:left; padding:9px 12px; font-size:13px; font-weight:600; color:var(--ink); border-radius:8px; text-decoration:none}
-.gate-menu a:hover{background:#f1f5fb; color:var(--blue-d)}
 
 /* Controls */
 .ctl{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; margin-top:18px}
@@ -323,6 +317,9 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 @media (max-width:560px){ .mg-grid{grid-template-columns:1fr} }
 .who-fixed{background:var(--surface); border:1px solid var(--line); border-radius:var(--rs); padding:10px 12px; font-size:14px; font-weight:800; min-height:42px; display:flex; align-items:center; box-shadow:var(--shs)}
 .wkbox{display:flex; align-items:center; justify-content:center; min-width:150px; height:42px; padding:0 12px; border:1px solid var(--line); border-radius:var(--rs); background:var(--surface); font-weight:800; font-size:13.5px; box-shadow:var(--shs); white-space:nowrap}
+.rangebox{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.rangebox input[type=date]{min-width:140px}
+.rangeto{font-size:12px; font-weight:700; color:var(--muted)}
 .sortwrap{display:flex; gap:6px; align-items:stretch}
 .sortwrap select{flex:1; min-width:0}
 .sortdir{appearance:none; border:1px solid var(--line); background:var(--surface); border-radius:var(--rs); width:42px; min-height:42px; flex:0 0 auto; cursor:pointer; font-size:16px; font-weight:800; color:var(--blue); box-shadow:var(--shs); display:flex; align-items:center; justify-content:center; transition:transform .12s var(--ease), background .18s var(--ease), border-color .18s var(--ease)}
@@ -515,6 +512,13 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
 .sub-absent-fixed{flex:1; min-width:0; font-weight:800}
 .sub-reason-chip{flex:0 0 auto; font-size:11px; font-weight:800; padding:2px 9px; border-radius:999px; background:#fdeceb; color:#b23b2e}
 .sub-auto-tag{flex:0 0 auto; font-size:11px; color:var(--muted)}
+.sub-card.duty{background:#fbfcfe; border-color:#cddcef}
+.sub-duty-tag{flex:0 0 auto; font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--blue-d); background:var(--blue-l); border-radius:999px; padding:3px 9px}
+.sub-duty-fields{display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 2px}
+.sub-duty-fields input{flex:1 1 180px; min-width:0; min-height:38px; padding:8px 10px; font-size:13px}
+.sub-duty-ro{margin:4px 0 2px; font-size:13.5px}
+.sub-duty-per{min-height:38px; padding:6px 26px 6px 10px; font-size:13px; font-weight:700}
+.subfill-btn{white-space:nowrap}
 .hide{display:none !important}
 .am-modal{max-width:420px}
 .am-lab{display:block; font-size:12px; font-weight:800; color:var(--muted); margin:12px 0 4px}
@@ -740,8 +744,14 @@ function canSeeDashboard(){ if(state.role==="admin"||state.role==="leader"||stat
 function canSeeSub(){ return state.isAdmin || state.role==="leader" || (!!state.dept && state.dept===SUBDUTY); }
 function canEditSub(){ return state.isAdmin || state.role==="leader" || (!!state.dept && state.dept===SUBDUTY); }
 function canSetDuty(){ return state.isAdmin || state.role==="leader"; }
+// Declared here rather than beside the substitution code because rebuildDerived() runs during
+// startup and clears this cache — a `let` further down the file would still be in its temporal
+// dead zone at that point and throw.
+let SUB_STATS=null;
+function subStatsInvalidate(){ SUB_STATS=null; }
 function rebuildDerived(){
   applyBell();
+  subStatsInvalidate();
   CLASSES=Object.keys(ROOMS).sort(classSort);
   DEPARTMENTS=[...new Set([...(DEPTS||[]), ...TEACHERS.map(t=>t.dept)])].filter(Boolean).sort();
   SCHEDULE={};
@@ -879,7 +889,7 @@ const today=ymd(new Date());
 
 /* ---------- State ---------- */
 const state={mode:"teacher", user:null, approved:false, teacherId:null, isAdmin:false, role:"teacher", myTeacherId:null, dept:"", email:"", bootstrapAdmin:false, date:today, blob:{},
-  admin:{mode:"week", date:today, dept:"all",teacher:"all",cls:"all",day:"all",q:"",sortKey:"date",sortDir:1},
+  admin:{mode:"week", date:today, from:"", to:"", dept:"all",teacher:"all",cls:"all",subject:"all",day:"all",q:"",sortKey:"date",sortDir:1},
   ask:{log:[], busy:false, weeks:2}};
 function curWeek(){return ymd(mondayOf(parseYmd(state.date)));}
 let saveTimer=null, saveChain=Promise.resolve(), pollTimer=null, lastCfgSync=0;
@@ -908,9 +918,6 @@ function dashSkeleton(){
 /* ---------- Auth / gate ---------- */
 const GOOGLE_G='<svg viewBox="0 0 48 48"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>';
 
-function toggleGateMenu(e){ if(e) e.stopPropagation(); const m=document.getElementById("gateMenu"); if(!m) return; const wasHidden=m.hidden; m.hidden=!wasHidden; if(wasHidden){ setTimeout(()=>document.addEventListener("click", closeGateMenu),0); } else { document.removeEventListener("click", closeGateMenu); } }
-function closeGateMenu(e){ const m=document.getElementById("gateMenu"), g=document.getElementById("gateGear"); if(m && !m.hidden && !m.contains(e.target) && !(g&&g.contains(e.target))){ m.hidden=true; document.removeEventListener("click", closeGateMenu); } }
-function hideGateMenu(){ const m=document.getElementById("gateMenu"); if(m) m.hidden=true; document.removeEventListener("click", closeGateMenu); }
 function showGate(){
   const top=document.querySelector(".top"); if(top) top.style.display="none";
   document.getElementById("tabs").hidden=true;
@@ -918,8 +925,6 @@ function showGate(){
   if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
   view().innerHTML=`
     <div class="gate"><div class="gate-card">
-      <button class="gate-gear" id="gateGear" type="button" title="About, privacy and terms" aria-label="About, privacy and terms" onclick="toggleGateMenu(event)"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></button>
-      <div class="gate-menu" id="gateMenu" hidden><a href="/about" target="_blank" rel="noopener" onclick="hideGateMenu()">About Class Log</a><a href="/privacy" target="_blank" rel="noopener" onclick="hideGateMenu()">Privacy Policy</a><a href="/terms" target="_blank" rel="noopener" onclick="hideGateMenu()">Terms of Service</a><a href="mailto:desmondperis@gmail.com" onclick="hideGateMenu()">Contact support</a></div>
       <img class="gate-logo" src="logo.png" alt="Mount Carmel School">
       <div class="motto">“Overcome evil with good”</div>
       <div class="gate-div"></div>
@@ -933,7 +938,6 @@ function showGate(){
       </div>
       <div class="gbtn-wrap" id="gbtn"></div>
       ${GOOGLE_CLIENT_ID?"":`<p class="gnote">Sign-in is required to use this app. Google sign-in switches on once you publish it with your own Google Client ID — follow the setup steps to enable it.</p>`}
-      <div class="gate-legal" aria-label="Legal and support"><a href="/about">About</a><a href="/privacy">Privacy Policy</a><a href="/terms">Terms of Service</a><a href="mailto:desmondperis@gmail.com">Contact</a></div>
     </div>
     </div>`;
   applyBranchHeader();
@@ -1605,11 +1609,16 @@ async function calSubItems(id){
     }catch(e){}
     if(!sched||!Array.isArray(sched.rows)) continue;
     sched.rows.forEach(row=>{
-      if(!row||!row.absent||!row.subs) return;
+      if(!row||!row.subs) return;
+      if(!row.absent && !row.duty) return;
       Object.keys(row.subs).forEach(pk=>{
         if(row.subs[pk]!==id) return;
         if(resp[id+"|"+pk] && resp[id+"|"+pk].s==="rejected") return; // don't add declined cover
         const p=parseInt(pk,10); if(!p||!BELL[p]) return;
+        if(!row.absent){
+          items.push({key:id+"|"+dateStr+"|sub"+p, date:dateStr, s:BELL[p].s, e:BELL[p].e, title:"Duty: "+(row.what||"Cover"), loc:row.where||"", desc:"Class Log duty"});
+          return;
+        }
         const own=((SCHEDULE[row.absent]&&SCHEDULE[row.absent][day])||[]).find(e=>(e.period||0)<=p && p<=((e.periodEnd||e.period)||0));
         let cls="class";
         if(own){ cls = own.act==="SDP" ? ("SDP"+(own.group?(" — "+own.group.join(", ")):"")) : (own.code+(own.subject?(" "+own.subject):"")); }
@@ -1817,16 +1826,139 @@ function freeSubsFor(day, period, dutyDept, absentSet, taken){
   // dutyDept only controls who can see/manage the tab, not who is eligible to cover
   return TEACHERS.filter(t=> !subBusyAt(t.id,day,period) && !absentSet.has(t.id) && !(taken&&taken.has(t.id))).map(t=>t.id);
 }
+/* ---------- Substitution fairness ranking ----------
+   Deterministic scoring rather than AI: assignment has to be instant, repeatable, explainable
+   to staff, and structurally incapable of double-booking anyone. Higher score = better pick.
+   Weights are ordered so that on a fresh day the teacher with the most non-teaching periods
+   wins, and as covers get handed out the fairness penalties push later work elsewhere. */
+const SUB_W={ freePeriod:10, subToday:100, subWeek:7, adjacent:14, sameSubject:6, sameGrade:3, longRun:5, declined:60 };
+const SUB_MAX_OPTIONS=20; // dropdown shows this many best picks; the ranking is the point, not scrolling
+function subStats(day){
+  // Per-teacher figures are identical for every slot on a given day, so compute them once per
+  // render instead of re-scanning each teacher's whole timetable for every candidate.
+  if(SUB_STATS && SUB_STATS.day===day && SUB_STATS.n===TEACHERS.length) return SUB_STATS;
+  const teaching={}, subj={}, grades={};
+  TEACHERS.forEach(t=>{
+    const id=t.id;
+    let n=0; for(let p=1;p<=PERIODS;p++) if(subBusyAt(id,day,p)) n++;
+    teaching[id]=n;
+    const s={}, g={};
+    DAYS.forEach(d=>((SCHEDULE[id]&&SCHEDULE[id][d])||[]).forEach(e=>{
+      if(e.subject) s[String(e.subject).trim().toLowerCase()]=1;
+      if(e.code){ const gr=gradeOf(e.code); if(gr) g[gr]=1; }
+    }));
+    subj[id]=s; grades[id]=g;
+  });
+  SUB_STATS={day, n:TEACHERS.length, teaching, subj, grades};
+  return SUB_STATS;
+}
+function subTeachingCount(tid, day){ const st=subStats(day); return st.teaching[tid]||0; }
+function subTakenAt(period, exceptRow){
+  const taken=new Set();
+  (subState.rows||[]).forEach((r,j)=>{ if(j===exceptRow) return; const a=r.subs&&r.subs[period]; if(a) taken.add(a); });
+  return taken;
+}
+function subLoadToday(){
+  const m={};
+  (subState.rows||[]).forEach(r=>{ const s=r.subs||{}; Object.keys(s).forEach(p=>{ const t=s[p]; if(t) m[t]=(m[t]||0)+1; }); });
+  return m;
+}
+function subTeachesSubject(tid, subject, day){
+  const want=String(subject||"").trim().toLowerCase(); if(!want) return false;
+  const st=subStats(day||dayName(subState.date));
+  return !!(st.subj[tid] && st.subj[tid][want]);
+}
+function subTeachesGrade(tid, code, day){
+  const g=gradeOf(code||""); if(!g) return false;
+  const st=subStats(day||dayName(subState.date));
+  return !!(st.grades[tid] && st.grades[tid][g]);
+}
+function subRunIfAssigned(tid, day, period){
+  let run=1;
+  for(let p=period-1;p>=1;p--){ if(subBusyAt(tid,day,p)) run++; else break; }
+  for(let p=period+1;p<=PERIODS;p++){ if(subBusyAt(tid,day,p)) run++; else break; }
+  return run;
+}
+function subAdjacentFree(tid, day, period){
+  const before = period>1 && !subBusyAt(tid,day,period-1);
+  const after  = period<PERIODS && !subBusyAt(tid,day,period+1);
+  return before||after;
+}
+function subCandidateScore(tid, day, period, cls, loadToday){
+  const load=loadToday||subState.loadToday||{};
+  const free=Math.max(0, PERIODS - subTeachingCount(tid,day));
+  let s = free*SUB_W.freePeriod;
+  s -= (load[tid]||0)*SUB_W.subToday;
+  s -= ((subState.loadWeek&&subState.loadWeek[tid])||0)*SUB_W.subWeek;
+  if(subAdjacentFree(tid,day,period)) s += SUB_W.adjacent;
+  if(cls){
+    if(cls.subject && subTeachesSubject(tid,cls.subject,day)) s += SUB_W.sameSubject;
+    if(cls.code && subTeachesGrade(tid,cls.code,day)) s += SUB_W.sameGrade;
+  }
+  const run=subRunIfAssigned(tid,day,period);
+  if(run>3) s -= (run-3)*SUB_W.longRun;
+  const st=subState.resp && subState.resp[tid+"|"+period];
+  if(st && st.s==="rejected") s -= SUB_W.declined;
+  return s;
+}
+function subCandidateWhy(tid, day, period, cls, loadToday){
+  const load=loadToday||subState.loadToday||{};
+  const bits=[];
+  bits.push(Math.max(0,PERIODS-subTeachingCount(tid,day))+" free");
+  const today=load[tid]||0; if(today) bits.push(today+" cover"+(today>1?"s":"")+" today");
+  const wk=(subState.loadWeek&&subState.loadWeek[tid])||0; if(wk) bits.push(wk+" this week");
+  if(subAdjacentFree(tid,day,period)) bits.push("free nearby");
+  if(cls&&cls.subject&&subTeachesSubject(tid,cls.subject,day)) bits.push("teaches "+cls.subject);
+  else if(cls&&cls.code&&subTeachesGrade(tid,cls.code,day)) bits.push("knows grade "+gradeOf(cls.code));
+  const st=subState.resp && subState.resp[tid+"|"+period];
+  if(st && st.s==="rejected") bits.push("declined earlier");
+  return bits.join(" · ");
+}
+function subRankedCandidates(day, period, absentSet, taken, cls, loadToday){
+  // Scores only — the explanation text is built later, for just the few options actually rendered.
+  return freeSubsFor(day,period,null,absentSet,taken)
+    .map(id=>({id, score:subCandidateScore(id,day,period,cls,loadToday)}))
+    .sort((a,b)=> b.score-a.score || String(NAME(a.id)).localeCompare(String(NAME(b.id))));
+}
 function subAbsentOptions(cur, used){
   let o=`<option value=""${cur?"":" selected"}>Absent teacher…</option>`;
   TEACHERS.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).forEach(t=>{ if(t.id!==cur && used.has(t.id)) return; o+=`<option value="${esc(t.id)}"${t.id===cur?" selected":""}>${esc(t.name)}${t.dept?(" · "+esc(t.dept)):""}</option>`; });
   return o;
 }
-function subFreeOptions(cur, free){
-  let o=`<option value=""${cur?"":" selected"}>— free teacher —</option>`;
-  const ids=free.slice(); const notFree = cur && ids.indexOf(cur)<0; if(notFree) ids.unshift(cur);
-  ids.forEach(id=>{ const d=deptOf(id); o+=`<option value="${esc(id)}"${id===cur?" selected":""}>${esc(NAME(id))}${d?(" · "+esc(d)):""}${(id===cur&&notFree)?" (busy)":""}</option>`; });
+function subFreeOptions(cur, ranked, day, period, cls, loadToday){
+  let o=`<option value=""${cur?"":" selected"}>— best free teacher —</option>`;
+  const all=ranked.slice();
+  const curRank=cur?all.findIndex(c=>c.id===cur):-1;
+  // Only render the top slice: the whole point of ranking is that nobody scrolls hundreds of names.
+  let list=all.slice(0,SUB_MAX_OPTIONS);
+  if(cur && curRank>=SUB_MAX_OPTIONS) list.push(all[curRank]);
+  const notFree = cur && curRank<0;
+  if(notFree) list.unshift({id:cur, score:0, busy:true});
+  list.forEach((c,i)=>{
+    const d=deptOf(c.id);
+    const tag = (i===0 && !notFree) ? " ⭐" : "";
+    const why = c.busy ? " — currently busy" : (" — "+subCandidateWhy(c.id,day,period,cls,loadToday));
+    o+=`<option value="${esc(c.id)}"${c.id===cur?" selected":""}>${esc(NAME(c.id))}${d?(" · "+esc(d)):""}${tag}${esc(why)}</option>`;
+  });
+  const hidden=all.length-Math.min(all.length,SUB_MAX_OPTIONS);
+  if(hidden>0) o+=`<option value="" disabled>… ${hidden} more free teacher${hidden===1?"":"s"} (lower priority)</option>`;
   return o;
+}
+async function subWeekLoad(date){
+  // How many covers each teacher has already taken on the preceding school days — feeds the
+  // fairness penalty so the same people aren't picked repeatedly.
+  const keys=[]; const d=parseYmd(date);
+  for(let i=1;i<=5;i++) keys.push("sub:"+ymd(addDays(d,-i)));
+  const load={};
+  try{
+    const v=await apiGetMany(keys);
+    keys.forEach(k=>{
+      let o=null; try{ o=v[k]?JSON.parse(v[k]):null; }catch(e){}
+      if(!o||!Array.isArray(o.rows)) return;
+      o.rows.forEach(r=>{ if(!r||r._deleted||!r.subs) return; Object.keys(r.subs).forEach(p=>{ const t=r.subs[p]; if(t) load[t]=(load[t]||0)+1; }); });
+    });
+  }catch(e){}
+  return load;
 }
 async function loadSub(date){
   subState.date=date;
@@ -1848,7 +1980,16 @@ async function loadSub(date){
   const rows=[]; const seen={};
   Object.keys(absentMap).forEach(tid=>{ const r=byTid[tid]; rows.push({absent:tid, subs:(r&&r.subs)?r.subs:{}, u:(r&&r.u)||"", auto:true, reason:absentMap[tid]}); seen[tid]=1; });
   schedRows.forEach(r=>{ if(r&&r.absent && !seen[r.absent]){ rows.push({absent:r.absent, subs:r.subs||{}, u:r.u||"", auto:false}); seen[r.absent]=1; } });
+  // standalone duty rows — cover or duty that isn't tied to anyone being absent
+  schedRows.forEach(r=>{
+    if(!r||!r.duty) return;
+    const subs=r.subs||{};
+    const per=r.period||parseInt(Object.keys(subs)[0]||"0",10)||0;
+    rows.push({duty:r.duty, subs, period:per, what:r.what||"", where:r.where||"", u:r.u||""});
+  });
   subState.rows=rows;
+  subState.loadToday=subLoadToday();
+  subState.loadWeek=await subWeekLoad(date);
 }
 async function mountSub(){ if(!subState.date) subState.date=ymd(new Date()); await loadSub(subState.date); renderSub(); }
 function subCardHTML(row,i,day,absentSet,ro){
@@ -1866,17 +2007,42 @@ function subCardHTML(row,i,day,absentSet,ro){
     if(!list.length){ slots=`<div class="sub-empty">No classes for ${esc(NAME(row.absent))} on ${esc(day)}.</div>`; }
     else list.forEach(sl=>{
       const p=sl.period;
-      const taken=new Set(); (subState.rows||[]).forEach((r2,j)=>{ if(j===i) return; const a=r2.subs&&r2.subs[p]; if(a) taken.add(a); });
+      const taken=subTakenAt(p,i);
       const cur=(row.subs&&row.subs[p])||"";
-      const free=freeSubsFor(day,p,null,absentSet,taken);
+      const ranked=subRankedCandidates(day,p,absentSet,taken,sl,subState.loadToday);
       const picker = ro ? `<span class="sub-assigned">${cur?esc(NAME(cur)):`<span class="muted">— none —</span>`}</span>`
-                        : `<select class="sub-pick" onchange="subSetSub(${i},${p},this.value)">${subFreeOptions(cur,free)}</select>`;
+                        : `<select class="sub-pick" onchange="subSetSub(${i},${p},this.value)">${subFreeOptions(cur,ranked,day,p,sl,subState.loadToday)}</select>`;
       let badge="";
       if(cur){ const st=subState.resp&&subState.resp[cur+"|"+p]; const s=st?st.s:"pending"; badge=`<span class="sub-badge ${s}">${s==="accepted"?"Accepted":s==="rejected"?"Rejected":"Pending"}</span>`; if(s==="rejected"&&st&&st.r) badge+=`<span class="sub-rreason" title="${esc(st.r)}">“${esc(st.r)}”</span>`; }
       slots+=`<div class="sub-slot"><span class="sub-per">${esc(periodLabel(p))}</span><span class="sub-cls"><b>${esc(sl.code)}</b>${sl.subject?` <span class="muted">${esc(sl.subject)}</span>`:""}</span><span class="sub-arrow">→</span>${picker}${badge}</div>`;
     });
   } else { slots=`<div class="sub-empty">Choose the absent teacher to see their periods.</div>`; }
   return `<div class="sub-card${isAuto?" auto":""}">${header}<div class="sub-slots">${slots}</div></div>`;
+}
+function subDutyCardHTML(row,i,day,absentSet,ro){
+  const p=row.period||0;
+  const cur=(p&&row.subs&&row.subs[p])||"";
+  const perOpts=[`<option value="0"${p?"":" selected"}>Period…</option>`]
+    .concat(Array.from({length:PERIODS},(_,k)=>k+1).map(n=>`<option value="${n}"${n===p?" selected":""}>${esc(periodLabel(n))}</option>`)).join("");
+  let picker;
+  if(!p) picker=`<span class="muted">Pick a period first</span>`;
+  else if(ro) picker=`<span class="sub-assigned">${cur?esc(NAME(cur)):`<span class="muted">— none —</span>`}</span>`;
+  else {
+    const ranked=subRankedCandidates(day,p,absentSet,subTakenAt(p,i),null,subState.loadToday);
+    picker=`<select class="sub-pick" onchange="subSetDutyWho(${i},this.value)">${subFreeOptions(cur,ranked,day,p,null,subState.loadToday)}</select>`;
+  }
+  let badge="";
+  if(cur&&p){ const st=subState.resp&&subState.resp[cur+"|"+p]; const s=st?st.s:"pending"; badge=`<span class="sub-badge ${s}">${s==="accepted"?"Accepted":s==="rejected"?"Rejected":"Pending"}</span>`; if(s==="rejected"&&st&&st.r) badge+=`<span class="sub-rreason" title="${esc(st.r)}">“${esc(st.r)}”</span>`; }
+  const header=`<div class="sub-card-h"><span class="sub-duty-tag">Duty / cover</span>${ro?"":`<button class="sub-x" title="Remove" onclick="subRemoveDuty(${i})">×</button>`}</div>`;
+  const fields = ro
+    ? `<div class="sub-duty-ro"><b>${esc(row.what||"Duty")}</b>${row.where?` <span class="muted">· ${esc(row.where)}</span>`:""}</div>`
+    : `<div class="sub-duty-fields">
+        <input type="text" placeholder="What (e.g. Exam invigilation)" value="${esc(row.what||"")}" oninput="subSetDutyField(${i},'what',this.value)">
+        <input type="text" placeholder="Where (optional)" value="${esc(row.where||"")}" oninput="subSetDutyField(${i},'where',this.value)">
+      </div>`;
+  const perCtl = ro ? `<span class="sub-per">${p?esc(periodLabel(p)):"—"}</span>`
+                    : `<select class="sub-duty-per" onchange="subSetDutyPeriod(${i},this.value)">${perOpts}</select>`;
+  return `<div class="sub-card duty">${header}${fields}<div class="sub-slots"><div class="sub-slot">${perCtl}<span class="sub-arrow">→</span>${picker}${badge}</div></div></div>`;
 }
 function renderSub(){
   const day=dayName(subState.date); const isWeekday=DAYS.indexOf(day)>=0;
@@ -1887,9 +2053,12 @@ function renderSub(){
     deptCtl=`<label for="subdept">Department on duty</label><select id="subdept" onchange="subSetDept(this.value)"><option value=""${dutyDept?"":" selected"} disabled>Select department…</option>${opts}</select>`;
   } else { deptCtl=`<label>Department on duty</label><div class="who-fixed">${esc(dutyDept||"—")}</div>`; }
   const absentSet=new Set((subState.rows||[]).map(r=>r.absent).filter(Boolean));
-  let cards=""; (subState.rows||[]).forEach((row,i)=>{ cards+=subCardHTML(row,i,day,absentSet,ro); });
-  if(!(subState.rows||[]).length){ cards=`<div class="prompt sub-none"><b>No substitutions yet</b>${ro?"When a teacher marks themselves absent, or the department on duty adds someone, they’ll appear here.":"Absent teachers appear here automatically. Use “Add absent teacher” for anyone who didn’t mark it themselves."}</div>`; }
+  subState.loadToday=subLoadToday();
+  let cards=""; (subState.rows||[]).forEach((row,i)=>{ cards+= row.duty ? subDutyCardHTML(row,i,day,absentSet,ro) : subCardHTML(row,i,day,absentSet,ro); });
+  if(!(subState.rows||[]).length){ cards=`<div class="prompt sub-none"><b>Nothing scheduled yet</b>${ro?"When a teacher marks themselves absent, or the department on duty adds someone, they’ll appear here.":"Absent teachers appear here automatically. Use “Add absent teacher” for anyone who didn’t mark it themselves, or “Add duty / cover” for a duty that isn’t linked to an absence."}</div>`; }
   const addBtn = ro?"":`<button class="btn subadd-btn" onclick="subAddAbsent()">+ Add absent teacher</button>`;
+  const dutyBtn = ro?"":`<button class="btn subadd-btn" onclick="subAddDuty()">+ Add duty / cover</button>`;
+  const fillBtn = (ro||!subOpenSlots().length)?"":`<button class="btn primary subfill-btn" onclick="subAutofill()">Auto-assign ${subOpenSlots().length} open slot${subOpenSlots().length===1?"":"s"}</button>`;
   const byBtn = ro?"":`<button class="btn subby-btn" onclick="openSubByTeacher()">Search by present teacher</button>`;
   const dutyWarn = (canSetDuty() && !dutyDept) ? `<div class="sub-note warn">Set the department on duty so its teachers can see and edit this tab.</div>` : "";
   const dayWarn = isWeekday?"":`<div class="sub-note warn">${esc(day)} isn’t a teaching day.</div>`;
@@ -1907,15 +2076,105 @@ function renderSub(){
     </div>
     ${dutyWarn}${dayWarn}
     <div class="sub-wrap">${cards}</div>
-    <div class="sub-add">${addBtn}${byBtn}</div>`;
+    <div class="sub-add">${addBtn}${dutyBtn}${byBtn}${fillBtn}</div>`;
 }
 function subSetDept(d){ if(!canSetDuty()) return; subState.dept=d||""; SUBDUTY=d||""; renderSub(); scheduleSubSave(); apiSet("sub:duty", d||""); }
 function subAddAbsent(){ if(!canEditSub()) return; subState.rows=subState.rows||[]; subState.rows.push({absent:"",subs:{},auto:false}); renderSub(); }
 function subRemoveAbsent(i){ if(!canEditSub()) return; const row=subState.rows[i]; if(row&&row.absent) subState.deletedRows.push({absent:row.absent,_deleted:true,u:new Date().toISOString()}); subState.rows.splice(i,1); renderSub(); scheduleSubSave(); }
 function subSetAbsent(i,tid){ if(!canEditSub()) return; const row=subState.rows[i]; if(row.absent&&row.absent!==tid) subState.deletedRows.push({absent:row.absent,_deleted:true,u:new Date().toISOString()}); row.absent=tid; row.subs={}; row.u=new Date().toISOString(); renderSub(); scheduleSubSave(); }
 function subSetSub(i,p,tid){ if(!canEditSub()) return; if(!subState.rows[i].subs) subState.rows[i].subs={}; if(tid) subState.rows[i].subs[p]=tid; else delete subState.rows[i].subs[p]; subState.rows[i].u=new Date().toISOString(); renderSub(); scheduleSubSave(); }
+function subAddDuty(){
+  if(!canEditSub()) return;
+  subState.rows=subState.rows||[];
+  const id="d"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  subState.rows.push({duty:id, subs:{}, period:0, what:"", where:"", u:new Date().toISOString()});
+  renderSub();
+}
+function subRemoveDuty(i){
+  if(!canEditSub()) return;
+  const row=subState.rows[i];
+  if(row&&row.duty) subState.deletedRows.push({duty:row.duty,_deleted:true,u:new Date().toISOString()});
+  subState.rows.splice(i,1);
+  renderSub(); scheduleSubSave();
+}
+function subSetDutyPeriod(i,v){
+  if(!canEditSub()) return;
+  const row=subState.rows[i]; if(!row) return;
+  const p=parseInt(v,10)||0;
+  const who=row.period&&row.subs?row.subs[row.period]:"";
+  row.subs={}; row.period=p;
+  // keep the chosen teacher only if they're still free at the new period
+  if(p&&who&&!subBusyAt(who,dayName(subState.date),p)) row.subs[p]=who;
+  row.u=new Date().toISOString();
+  renderSub(); scheduleSubSave();
+}
+function subSetDutyWho(i,tid){
+  if(!canEditSub()) return;
+  const row=subState.rows[i]; if(!row||!row.period) return;
+  row.subs={}; if(tid) row.subs[row.period]=tid;
+  row.u=new Date().toISOString();
+  renderSub(); scheduleSubSave();
+}
+function subSetDutyField(i,field,val){
+  if(!canEditSub()) return;
+  const row=subState.rows[i]; if(!row) return;
+  row[field]=String(val||"").slice(0,120);
+  row.u=new Date().toISOString();
+  scheduleSubSave();
+}
+function subOpenSlots(){
+  const day=dayName(subState.date);
+  const open=[];
+  (subState.rows||[]).forEach((row,i)=>{
+    if(row.duty){ if(row.period && !(row.subs&&row.subs[row.period])) open.push({i, period:row.period, cls:null}); return; }
+    if(!row.absent) return;
+    absentDaySlots(row.absent,day).forEach(sl=>{ if(!(row.subs&&row.subs[sl.period])) open.push({i, period:sl.period, cls:sl}); });
+  });
+  return open;
+}
+function subAutofill(){
+  if(!canEditSub()) return;
+  const day=dayName(subState.date);
+  const open=subOpenSlots();
+  if(!open.length){ toast("Nothing left to assign","✓"); return; }
+  if(!confirm("Auto-assign "+open.length+" open slot"+(open.length===1?"":"s")+"?\n\nCover is spread by free periods and recent workload. Nothing already assigned is changed, and every teacher still has to accept.")) return;
+  const absentSet=new Set((subState.rows||[]).map(r=>r.absent).filter(Boolean));
+  // Work through the hardest slots first — the ones with fewest eligible teachers — so scarce
+  // cover isn't used up on slots that had plenty of alternatives.
+  const load=Object.assign({},subLoadToday());
+  open.forEach(o=>{ o.n=freeSubsFor(day,o.period,null,absentSet,subTakenAt(o.period,o.i)).length; });
+  open.sort((a,b)=> a.n-b.n || a.period-b.period);
+  let filled=0, stuck=0;
+  open.forEach(o=>{
+    const ranked=subRankedCandidates(day,o.period,absentSet,subTakenAt(o.period,o.i),o.cls,load);
+    if(!ranked.length){ stuck++; return; }
+    const pick=ranked[0].id;
+    const row=subState.rows[o.i]; if(!row) return;
+    if(!row.subs) row.subs={};
+    row.subs[o.period]=pick;
+    row.u=new Date().toISOString();
+    load[pick]=(load[pick]||0)+1; // count it immediately so the next slot spreads the load
+    filled++;
+  });
+  subState.loadToday=subLoadToday();
+  renderSub(); scheduleSubSave();
+  if(filled) toast("Assigned "+filled+" slot"+(filled===1?"":"s")+(stuck?(" · "+stuck+" had nobody free"):"")+" — awaiting teacher acceptance","✓");
+  else toast("Nobody was free for those slots","⚠");
+}
 function scheduleSubSave(){ clearTimeout(subSaveTimer); subSaveTimer=setTimeout(saveSubSched,500); }
-async function saveSubSched(){ if(!canEditSub()) return; const rows=(subState.rows||[]).filter(r=> r.absent && (!r.auto || Object.keys(r.subs||{}).length)).map(r=>({absent:r.absent,subs:r.subs||{},u:r.u||"1970-01-01T00:00:00.000Z"})).concat(subState.deletedRows||[]); const blob={ dept:subState.dept||"", rows }; const ok=await apiSet("sub:"+subState.date, JSON.stringify(blob)); if(ok) subState.deletedRows=[]; toast(ok?"Substitution saved":"Couldn't save — you’re not on duty", ok?"✓":"⚠"); }
+async function saveSubSched(){
+  if(!canEditSub()) return;
+  const rows=(subState.rows||[])
+    .filter(r=> r.duty ? (r.period && (r.what||Object.keys(r.subs||{}).length)) : (r.absent && (!r.auto || Object.keys(r.subs||{}).length)))
+    .map(r=> r.duty
+      ? {duty:r.duty, subs:r.subs||{}, period:r.period||0, what:r.what||"", where:r.where||"", u:r.u||"1970-01-01T00:00:00.000Z"}
+      : {absent:r.absent, subs:r.subs||{}, u:r.u||"1970-01-01T00:00:00.000Z"})
+    .concat(subState.deletedRows||[]);
+  const blob={ dept:subState.dept||"", rows };
+  const ok=await apiSet("sub:"+subState.date, JSON.stringify(blob));
+  if(ok) subState.deletedRows=[];
+  toast(ok?"Substitution saved":"Couldn't save — you’re not on duty", ok?"✓":"⚠");
+}
 async function subDayStep(n){ subState.date=ymd(addDays(parseYmd(subState.date),n)); await loadSub(subState.date); renderSub(); }
 async function subPickDate(v){ if(!v) return; subState.date=v; await loadSub(subState.date); renderSub(); }
 function openSubByTeacher(){
@@ -1942,7 +2201,6 @@ function renderSubByTeacherGrid(tid){
   const host=document.getElementById("subby-grid"); if(!host) return;
   if(!tid){ host.innerHTML=""; return; }
   const day=dayName(subState.date);
-  if(!(subState.rows||[]).some(r=>r.absent)){ host.innerHTML=`<div class="subby-hint">No one is marked absent yet. Add an absent teacher first, then you can assign cover here.</div>`; return; }
   let rows="";
   for(let p=1;p<=PERIODS;p++){
     if(subBusyAt(tid,day,p)){
@@ -1952,18 +2210,32 @@ function renderSubByTeacherGrid(tid){
       continue;
     }
     const opts=[]; (subState.rows||[]).forEach((r,i)=>{ if(!r.absent) return; const sl=absentDaySlots(r.absent,day).find(s=>s.period===p); if(!sl) return; opts.push({i, label:NAME(r.absent)+" · "+sl.code+(sl.subject?(" ("+sl.subject+")"):""), cur:(r.subs&&r.subs[p])||""}); });
-    if(!opts.length){ rows+=`<div class="subby-row"><span class="subby-per">${esc(periodLabel(p))}</span><span class="subby-free muted">Free · no absent classes</span></div>`; continue; }
     let sel=""; (subState.rows||[]).forEach((r,i)=>{ if(r.subs&&r.subs[p]===tid) sel=String(i); });
     let o=`<option value="">Free — not assigned</option>`;
     opts.forEach(op=>{ const takenByOther=op.cur && op.cur!==tid; o+=`<option value="${op.i}"${String(op.i)===sel?" selected":""}${takenByOther?" disabled":""}>${esc(op.label)}${takenByOther?(" — taken by "+esc(NAME(op.cur))):""}</option>`; });
+    // A present teacher can always pick up a duty in a free period, whether or not anyone is absent.
+    o+=`<option value="duty">Other duty / cover…</option>`;
     rows+=`<div class="subby-row"><span class="subby-per">${esc(periodLabel(p))}</span><select class="subby-sel" onchange="subAssignByTeacher('${esc(tid)}',${p},this.value)">${o}</select></div>`;
   }
   host.innerHTML=rows;
 }
 function subAssignByTeacher(tid,p,idx){
   if(!canEditSub()) return;
+  if(idx==="duty"){
+    const what=(prompt("What is this duty or cover for? (e.g. Exam invigilation, Library supervision)")||"").trim();
+    if(!what){ renderSubByTeacherGrid(tid); return; }
+    const where=(prompt("Where? (optional)")||"").trim();
+    (subState.rows||[]).forEach(r=>{ if(r.subs && r.subs[p]===tid){ delete r.subs[p]; r.u=new Date().toISOString(); } });
+    const id="d"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+    const subs={}; subs[p]=tid;
+    subState.rows.push({duty:id, subs, period:p, what:what.slice(0,120), where:where.slice(0,120), u:new Date().toISOString()});
+    subState.loadToday=subLoadToday();
+    scheduleSubSave(); renderSubByTeacherGrid(tid); renderSub();
+    return;
+  }
   (subState.rows||[]).forEach(r=>{ if(r.subs && r.subs[p]===tid){ delete r.subs[p]; r.u=new Date().toISOString(); } });
   if(idx!==""&&idx!=null){ const i=+idx; if(subState.rows[i]){ if(!subState.rows[i].subs) subState.rows[i].subs={}; subState.rows[i].subs[p]=tid; subState.rows[i].u=new Date().toISOString(); } }
+  subState.loadToday=subLoadToday();
   scheduleSubSave();
   renderSubByTeacherGrid(tid);
   renderSub();
@@ -1974,7 +2246,21 @@ function mySubsHTML(){
   const sd=state.mySubDay; if(!sd || sd.date!==state.date || !sd.sched) return "";
   const day=dayName(state.date), meId=state.teacherId; if(!meId) return "";
   const items=[];
-  (sd.sched.rows||[]).forEach(row=>{ if(!row.absent||!row.subs) return; Object.keys(row.subs).forEach(p=>{ if(row.subs[p]!==meId) return; const period=parseInt(p,10); const sl=absentDaySlots(row.absent, day).find(x=>x.period===period); const cls=sl?(sl.code+(sl.subject?(" · "+sl.subject):"")):""; const st=(sd.resp&&sd.resp[meId+"|"+p])||null; items.push({ period, absent:row.absent, cls, s:st?st.s:"pending", reason:st?st.r:"" }); }); });
+  (sd.sched.rows||[]).forEach(row=>{
+    if(!row||!row.subs) return;
+    Object.keys(row.subs).forEach(p=>{
+      if(row.subs[p]!==meId) return;
+      const period=parseInt(p,10);
+      const st=(sd.resp&&sd.resp[meId+"|"+p])||null;
+      if(row.absent){
+        const sl=absentDaySlots(row.absent, day).find(x=>x.period===period);
+        const cls=sl?(sl.code+(sl.subject?(" · "+sl.subject):"")):"";
+        items.push({ period, absent:row.absent, cls, s:st?st.s:"pending", reason:st?st.r:"" });
+      } else if(row.duty){
+        items.push({ period, absent:"", cls:row.what||"Duty", where:row.where||"", s:st?st.s:"pending", reason:st?st.r:"" });
+      }
+    });
+  });
   if(!items.length) return "";
   items.sort((a,b)=>a.period-b.period);
   const canAct = state.myTeacherId && state.teacherId===state.myTeacherId;
@@ -1984,7 +2270,10 @@ function mySubsHTML(){
     if(it.s==="accepted"){ action=`<span class="sub-badge accepted">Accepted</span>`+(canAct?` <button class="linkbtn" onclick="subRespond(${it.period},'rejected')">change</button>`:""); }
     else if(it.s==="rejected"){ action=`<span class="sub-badge rejected">Rejected</span>`+(it.reason?`<span class="sub-rreason">“${esc(it.reason)}”</span>`:"")+(canAct?` <button class="linkbtn" onclick="subRespond(${it.period},'accepted')">accept instead</button>`:""); }
     else { action = canAct ? `<span class="mysub-acts"><button class="btn tiny ok" onclick="subRespond(${it.period},'accepted')">Accept</button><button class="btn tiny no" onclick="subRespond(${it.period},'rejected')">Reject</button></span>` : `<span class="sub-badge pending">Pending</span>`; }
-    rows+=`<div class="mysub-row"><span class="sub-per">${esc(periodLabel(it.period))}</span><span class="mysub-txt">Cover <b>${esc(it.cls||"class")}</b> for <b>${esc(NAME(it.absent))}</b></span>${action}</div>`;
+    const what = it.absent
+      ? `Cover <b>${esc(it.cls||"class")}</b> for <b>${esc(NAME(it.absent))}</b>`
+      : `<b>${esc(it.cls||"Duty")}</b>${it.where?` <span class="muted">· ${esc(it.where)}</span>`:""}`;
+    rows+=`<div class="mysub-row"><span class="sub-per">${esc(periodLabel(it.period))}</span><span class="mysub-txt">${what}</span>${action}</div>`;
   });
   return `<div class="mysub"><div class="mysub-h">Substitution ${items.length>1?"duties":"duty"} today</div>${rows}</div>`;
 }
@@ -2185,9 +2474,48 @@ const ALMANAC_2627=[
 
 /* ---------- Admin view ---------- */
 let adminBlobs={};
-function rangeWeeks(){ const a=state.admin; if(a.mode==="month") return weeksInMonth(a.date); return [ymd(mondayOf(parseYmd(a.date)))]; }
-function inRange(dateStr){ const a=state.admin; if(a.mode==="day") return dateStr===a.date; if(a.mode==="month") return monthOf(dateStr)===monthOf(a.date); return ymd(mondayOf(parseYmd(dateStr)))===ymd(mondayOf(parseYmd(a.date))); }
-function rangeLabel(){ const a=state.admin; if(a.mode==="day") return dayName(a.date)+", "+niceDate(a.date); if(a.mode==="month") return monthLabel(a.date); const wk=ymd(mondayOf(parseYmd(a.date))); return "Week "+isoWeek(wk)+" · "+weekRange(wk); }
+const ADMIN_MAX_DAYS=120; // keeps a custom range from fanning out into thousands of key reads
+function adminCustomFrom(){ const a=state.admin; return a.from||a.date; }
+function adminCustomTo(){ const a=state.admin; return a.to||a.date; }
+function adminCustomSpanDays(){
+  const f=parseYmd(adminCustomFrom()), t=parseYmd(adminCustomTo());
+  return Math.floor((t-f)/86400000)+1;
+}
+function rangeWeeks(){
+  const a=state.admin;
+  if(a.mode==="month") return weeksInMonth(a.date);
+  if(a.mode==="custom"){
+    let f=parseYmd(adminCustomFrom()), t=parseYmd(adminCustomTo());
+    if(t<f){ const tmp=f; f=t; t=tmp; }
+    const out=[]; let mon=mondayOf(f); let guard=0;
+    while(mon<=t && guard++<200){ out.push(ymd(mon)); mon=addDays(mon,7); }
+    return out.length?out:[ymd(mondayOf(f))];
+  }
+  return [ymd(mondayOf(parseYmd(a.date)))];
+}
+function inRange(dateStr){
+  const a=state.admin;
+  if(a.mode==="day") return dateStr===a.date;
+  if(a.mode==="month") return monthOf(dateStr)===monthOf(a.date);
+  if(a.mode==="custom"){
+    let f=adminCustomFrom(), t=adminCustomTo();
+    if(t<f){ const tmp=f; f=t; t=tmp; }
+    return dateStr>=f && dateStr<=t;
+  }
+  return ymd(mondayOf(parseYmd(dateStr)))===ymd(mondayOf(parseYmd(a.date)));
+}
+function rangeLabel(){
+  const a=state.admin;
+  if(a.mode==="day") return dayName(a.date)+", "+niceDate(a.date);
+  if(a.mode==="month") return monthLabel(a.date);
+  if(a.mode==="custom"){
+    let f=adminCustomFrom(), t=adminCustomTo();
+    if(t<f){ const tmp=f; f=t; t=tmp; }
+    const n=adminCustomSpanDays();
+    return niceDate(f)+" → "+niceDate(t)+" · "+Math.abs(n)+" day"+(Math.abs(n)===1?"":"s");
+  }
+  const wk=ymd(mondayOf(parseYmd(a.date))); return "Week "+isoWeek(wk)+" · "+weekRange(wk);
+}
 async function mountAdmin(){
   const a=state.admin;
   const hod = state.role==="hod";
@@ -2198,13 +2526,18 @@ async function mountAdmin(){
   const teacherOpts=`<option value="all">All teachers</option>`+teacherPool.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
   const classOpts=`<option value="all">All classes</option>`+CLASSES.map(c=>`<option value="${c}">${c}</option>`).join("");
   const dayOpts=`<option value="all">All days</option>`+DAYS.map(d=>`<option value="${d}">${d}</option>`).join("");
+  const subjectPool=adminSubjectList();
+  const subjectOpts=`<option value="all">All subjects</option>`+subjectPool.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join("");
   const sortOpts=[["date","Date"],["teacher","Teacher"],["cls","Class"],["upd","Recently updated"]].map(o=>`<option value="${o[0]}"${a.sortKey===o[0]?" selected":""}>${o[1]}</option>`).join("");
-  const seg=["day","week","month"].map(m=>`<button class="segbtn${a.mode===m?" on":""}" onclick="setAdminMode('${m}')">${m[0].toUpperCase()+m.slice(1)}</button>`).join("");
+  const seg=["day","week","month","custom"].map(m=>`<button class="segbtn${a.mode===m?" on":""}" onclick="setAdminMode('${m}')">${m==="custom"?"Custom":(m[0].toUpperCase()+m.slice(1))}</button>`).join("");
   const nav = a.mode==="month"
     ? `<input type="month" id="amon" value="${monthOf(a.date)}" onchange="pickAdminMonth(this.value)">`
+    : a.mode==="custom"
+    ? `<div class="rangebox"><input type="date" id="afrom" value="${esc(adminCustomFrom())}" onchange="pickAdminFrom(this.value)"><span class="rangeto">to</span><input type="date" id="ato" value="${esc(adminCustomTo())}" onchange="pickAdminTo(this.value)"></div>`
     : a.mode==="week"
     ? `<div class="wkbox" id="adate">${esc(weekRange(ymd(mondayOf(parseYmd(a.date)))))}</div>`
     : `<input type="date" id="adate" value="${a.date}" onchange="pickAdminDate(this.value)">`;
+  const overLimit = a.mode==="custom" && adminCustomSpanDays()>ADMIN_MAX_DAYS;
   const deptField = deptLocked
     ? `<div class="field"><label>Department</label><div class="who-fixed">${esc(state.dept||"—")}</div></div>`
     : `<div class="field"><label for="f-dep">Department</label><select id="f-dep" onchange="af('dept',this.value)">${deptOpts}</select></div>`;
@@ -2223,7 +2556,8 @@ async function mountAdmin(){
       ${deptField}
       ${teacherField}
       <div class="field"><label for="f-c">Class</label><select id="f-c" onchange="af('cls',this.value)">${classOpts}</select></div>
-      ${a.mode==="month"?`<div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>`:""}
+      <div class="field"><label for="f-sub">Subject</label><select id="f-sub" onchange="af('subject',this.value)">${subjectOpts}</select></div>
+      ${(a.mode==="month"||a.mode==="custom")?`<div class="field"><label for="f-d">Day</label><select id="f-d" onchange="af('day',this.value)">${dayOpts}</select></div>`:""}
       <div class="field"><label for="f-sort">Sort by</label>
         <div class="sortwrap">
           <select id="f-sort" onchange="setSort(this.value)">${sortOpts}</select>
@@ -2235,6 +2569,7 @@ async function mountAdmin(){
       <div class="field"><label>&nbsp;</label><button class="btn" onclick="refreshAdmin(true)">↻ Refresh</button></div>
       <div class="field"><label>&nbsp;</label><button class="btn primary" onclick="exportCSV()">Export CSV</button></div>
     </div>
+    ${overLimit?`<div class="sub-note warn">That range covers ${adminCustomSpanDays()} days — only the first ${ADMIN_MAX_DAYS} are loaded. Narrow the dates for a complete picture.</div>`:""}
     <div id="adminResults"></div>`;
   syncFilterUI();
   const ar=document.getElementById("adminResults"); if(ar) ar.innerHTML=dashSkeleton();
@@ -2245,16 +2580,61 @@ async function mountAdmin(){
 function adminCap(){ const a=state.admin; if(a.mode==="week") return "Week "+isoWeek(ymd(mondayOf(parseYmd(a.date)))); return rangeLabel(); }
 function toggleSortDir(){ state.admin.sortDir*=-1; setDirArrow(); renderAdminResults(); }
 function setDirArrow(){ const b=document.getElementById("dirbtn"); if(b){ b.textContent=state.admin.sortDir>0?"↑":"↓"; b.title=state.admin.sortDir>0?"Ascending":"Descending"; } }
-function resetFilters(){ const a=state.admin; const locked=(state.role==="hod"||state.role==="teacher"); a.dept=locked?state.dept:"all"; a.teacher="all"; a.cls="all"; a.day="all"; a.q=""; a.sortKey="date"; a.sortDir=1; mountAdmin(); }
-function setAdminMode(m){ state.admin.mode=m; if(m==="day")state.admin.day="all"; if(pollTimer){clearInterval(pollTimer);pollTimer=null;} mountAdmin(); }
-function syncFilterUI(){const a=state.admin;const set=(id,v)=>{const el=document.getElementById(id);if(el&&el.tagName!=="DIV")el.value=v;};set("f-dep",a.dept);set("f-t",a.teacher);set("f-c",a.cls);set("f-d",a.day);set("f-sort",a.sortKey);set("f-q",a.q);const r=document.getElementById("arange");if(r)r.textContent=adminCap();}
+function adminSubjectList(){
+  // Config subjects plus anything actually appearing on a timetable, so nothing is unfilterable.
+  const seen={};
+  (SUBJECTS||[]).forEach(s=>{ const v=String(s||"").trim(); if(v) seen[v]=1; });
+  Object.keys(SCHEDULE||{}).forEach(id=>DAYS.forEach(d=>((SCHEDULE[id]&&SCHEDULE[id][d])||[]).forEach(e=>{
+    const v=String(e.subject||"").trim(); if(v) seen[v]=1;
+  })));
+  return Object.keys(seen).sort((x,y)=>x.localeCompare(y));
+}
+function resetFilters(){ const a=state.admin; const locked=(state.role==="hod"||state.role==="teacher"); a.dept=locked?state.dept:"all"; a.teacher="all"; a.cls="all"; a.subject="all"; a.day="all"; a.q=""; a.sortKey="date"; a.sortDir=1; mountAdmin(); }
+function setAdminMode(m){
+  const a=state.admin;
+  a.mode=m;
+  if(m==="day") a.day="all";
+  if(m==="custom" && (!a.from||!a.to)){
+    // sensible default: the last 30 days ending today
+    a.to=a.date; a.from=ymd(addDays(parseYmd(a.date),-29));
+  }
+  if(pollTimer){clearInterval(pollTimer);pollTimer=null;}
+  mountAdmin();
+}
+async function pickAdminFrom(v){ if(!v) return; state.admin.from=v; if(state.admin.to && state.admin.to<v) state.admin.to=v; mountAdmin(); }
+async function pickAdminTo(v){ if(!v) return; state.admin.to=v; if(state.admin.from && state.admin.from>v) state.admin.from=v; mountAdmin(); }
+function syncFilterUI(){const a=state.admin;const set=(id,v)=>{const el=document.getElementById(id);if(el&&el.tagName!=="DIV")el.value=v;};set("f-dep",a.dept);set("f-t",a.teacher);set("f-c",a.cls);set("f-sub",a.subject||"all");set("f-d",a.day);set("f-sort",a.sortKey);set("f-q",a.q);const r=document.getElementById("arange");if(r)r.textContent=adminCap();}
 function af(k,v){ state.admin[k]=v; if(k==="q"){renderAdminResults();const el=document.getElementById("f-q");if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n);}} else renderAdminResults(); }
 function setSort(k){ state.admin.sortKey=k; state.admin.sortDir=(k==="upd")?-1:1; setDirArrow(); renderAdminResults(); }
-function updateAdminNav(){ const a=state.admin; const r=document.getElementById("arange"); if(r)r.textContent=adminCap(); const dd=document.getElementById("adate"); if(dd){ if(dd.tagName==="INPUT") dd.value=a.date; else dd.textContent=weekRange(ymd(mondayOf(parseYmd(a.date)))); } const mm=document.getElementById("amon"); if(mm)mm.value=monthOf(a.date); }
-async function adminStep(n){ const a=state.admin; if(a.mode==="day")a.date=ymd(addDays(parseYmd(a.date),n)); else if(a.mode==="week")a.date=ymd(addDays(parseYmd(a.date),n*7)); else{const d=parseYmd(a.date);a.date=ymd(new Date(d.getFullYear(),d.getMonth()+n,1));} updateAdminNav(); await refreshAdmin(false); }
+function updateAdminNav(){ const a=state.admin; const r=document.getElementById("arange"); if(r)r.textContent=adminCap(); const dd=document.getElementById("adate"); if(dd){ if(dd.tagName==="INPUT") dd.value=a.date; else dd.textContent=weekRange(ymd(mondayOf(parseYmd(a.date)))); } const mm=document.getElementById("amon"); if(mm)mm.value=monthOf(a.date); const ff=document.getElementById("afrom"); if(ff)ff.value=adminCustomFrom(); const tt=document.getElementById("ato"); if(tt)tt.value=adminCustomTo(); }
+async function adminStep(n){
+  const a=state.admin;
+  if(a.mode==="day") a.date=ymd(addDays(parseYmd(a.date),n));
+  else if(a.mode==="week") a.date=ymd(addDays(parseYmd(a.date),n*7));
+  else if(a.mode==="custom"){
+    const span=Math.max(1,adminCustomSpanDays());
+    a.from=ymd(addDays(parseYmd(adminCustomFrom()),n*span));
+    a.to=ymd(addDays(parseYmd(adminCustomTo()),n*span));
+  }
+  else { const d=parseYmd(a.date); a.date=ymd(new Date(d.getFullYear(),d.getMonth()+n,1)); }
+  updateAdminNav(); await refreshAdmin(false);
+}
 async function pickAdminDate(v){ if(!v)return; state.admin.date=v; updateAdminNav(); await refreshAdmin(false); }
 async function pickAdminMonth(v){ if(!v)return; state.admin.date=v+"-01"; updateAdminNav(); await refreshAdmin(false); }
-async function refreshAdmin(manual){ const weeks=rangeWeeks(); const ids=visibleTeacherIds(); const nb={}; await Promise.all(weeks.map(wk=>Promise.all(ids.map(async id=>{const raw=await store.get(wkey(wk,id),true);nb[wk+"|"+id]=parseLogBlob(raw);})))); adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻"); }
+async function refreshAdmin(manual){
+  let weeks=rangeWeeks();
+  const maxWeeks=Math.ceil(ADMIN_MAX_DAYS/7)+1;
+  if(weeks.length>maxWeeks) weeks=weeks.slice(0,maxWeeks);
+  const ids=visibleTeacherIds();
+  // Batch through /api/data (100 keys per request) instead of one request per teacher-week —
+  // a wide range across a large staff would otherwise mean thousands of round trips.
+  const keys=[]; weeks.forEach(wk=>ids.forEach(id=>keys.push(wkey(wk,id))));
+  const raw={};
+  for(let i=0;i<keys.length;i+=100){ Object.assign(raw, await apiGetMany(keys.slice(i,i+100))); }
+  const nb={};
+  weeks.forEach(wk=>ids.forEach(id=>{ nb[wk+"|"+id]=parseLogBlob(raw[wkey(wk,id)]||""); }));
+  adminBlobs=nb; renderAdminResults(); if(manual)toast("Up to date","↻");
+}
 function scopeTeachers(){
   const deptLocked = state.role==="hod" || state.role==="teacher";
   let base = deptLocked ? TEACHERS.filter(t=>t.dept===state.dept) : TEACHERS.slice();
@@ -2278,6 +2658,7 @@ function buildRows(){
         if(a.day!=="all"&&day!==a.day)continue;
         for(const e of SCHEDULE[id][day]){
           if(!classMatch(e,a.cls))continue;
+          if(a.subject && a.subject!=="all" && String(e.subject||"")!==a.subject) continue;
           const rec=blob[dkeyOf(day,e.slug)]||{}, topic=(rec.t||""), remark=(rec.r||""), planned=(rec.p||"");
           if(q && !(topic.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||planned.toLowerCase().includes(q)||(e.code||"").toLowerCase().includes(q)))continue;
           rows.push({teacher:id,tname:NAME(id),dept,date:dateStr,day,dayi:dayIndex(day),period:e.period||null,periodEnd:e.periodEnd||e.period||null,fixedSlot:e.fixedSlot,slotLabel:e.slotLabel,slotTime:e.slotTime,cls:e.group?e.group.join(", "):e.code,code:e.code||"",room:e.room||"",act:e.act,subject:e.subject,planned,topic,remark,u:rec.u||"",logged:!!topic.trim(),extra:false});
@@ -2293,6 +2674,7 @@ function buildRows(){
           const desc=(x.c||""), remark=(x.r||""), room=(x.rm||""), slot=(x.slot||"");
           if(!desc.trim() && !remark.trim() && !room.trim()) return;
           if(a.cls!=="all") return;
+          if(a.subject && a.subject!=="all") return;
           const pm=/^p([1-8])$/.exec(slot); const per=pm?parseInt(pm[1],10):null;
           const slotName = per?("Period "+periodLabel(per)) : (slot==="assembly"?"Assembly":slot==="ct"?"CT":slot==="ext"?"Extended Slot":"");
           if(q && !(desc.toLowerCase().includes(q)||remark.toLowerCase().includes(q)||room.toLowerCase().includes(q))) return;
