@@ -344,6 +344,9 @@ td.dt{font-weight:700; white-space:nowrap; color:var(--blue-d)}
 .bell-chip.brk{background:#fff6e8; border-color:#f3d199}
 .bell-chip.brk b{color:#7a4c00}
 
+.offchip{display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:800; border-radius:999px; padding:5px 11px; white-space:nowrap; margin-right:8px}
+.offchip.off{background:#fdeeec; color:#c0392b; border:1px solid #e6a89f}
+.offchip.pend{background:var(--blue-l); color:var(--blue-d); border:1px solid #cddcef}
 .toast{position:fixed; left:50%; bottom:20px; transform:translateX(-50%) translateY(20px); background:#17233b; color:#fff; padding:11px 18px; border-radius:999px; font-size:13px; font-weight:700; box-shadow:0 10px 30px rgba(0,0,0,.25); opacity:0; transition:.2s; pointer-events:none; z-index:50; display:flex; gap:8px; align-items:center}
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
 .toast .c{color:#7fe3b0}
@@ -620,6 +623,7 @@ th[onclick]{ cursor:pointer; transition:color .15s var(--ease) }
       </div>
       <button class="install-btn" id="installBtn" hidden onclick="promptInstall()" title="Install Class Log on this device">Install app</button>
       <button class="ask-top-btn" id="askTopBtn" hidden onclick="openAskAI()" title="Ask AI" aria-label="Ask AI" aria-pressed="false"><svg class="ask-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m16.5 16.5 4 4"></path></svg><span class="ask-label">Ask AI</span></button>
+      <span class="offchip" id="offchip" hidden></span>
       <div class="user" id="userchip" hidden></div>
     </div>
     <div class="tabs" id="tabs" role="tablist" hidden>
@@ -768,9 +772,41 @@ let SID=""; try{ SID=localStorage.getItem("sid")||""; }catch(e){}
 const prefGet = k => { try{return localStorage.getItem(k);}catch(e){return null;} };
 const prefSet = (k,v) => { try{ if(v===""||v==null) localStorage.removeItem(k); else localStorage.setItem(k,v);}catch(e){} };
 function authHeaders(extra){ const h=Object.assign({},extra||{}); if(SID) h["Authorization"]="Bearer "+SID; return h; }
-async function apiGet(key){ try{ const r=await fetch(API_BASE+"/api/data?key="+encodeURIComponent(key),{headers:authHeaders()}); if(r.status===401){onAuthLost();return null;} if(!r.ok) return null; return (await r.json()).value; }catch(e){ return null; } }
-async function apiSet(key,value){ try{ const r=await fetch(API_BASE+"/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,value})}); if(r.status===401){onAuthLost();return false;} return r.ok; }catch(e){ return false; } }
-async function apiSetEntry(key,entryKey,entryValue){ try{ const r=await fetch(API_BASE+"/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,entryKey,entryValue})}); if(r.status===401){onAuthLost();return false;} return r.ok; }catch(e){ return false; } }
+async function apiGet(key){
+  try{
+    const r=await fetch(API_BASE+"/api/data?key="+encodeURIComponent(key),{headers:authHeaders()});
+    if(r.status===401){onAuthLost();return null;}
+    if(!r.ok) throw new Error("bad status");
+    const v=(await r.json()).value;
+    setOffline(false); ocSet(key,v);
+    return v;
+  }catch(e){ setOffline(true); return ocGet(key); }   // fall back to the cached copy
+}
+async function apiSet(key,value){
+  ocSet(key,value);   // keep the local copy current either way, so the UI stays consistent
+  try{
+    const r=await fetch(API_BASE+"/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,value})});
+    if(r.status===401){onAuthLost();return false;}
+    if(r.ok){ setOffline(false); return true; }
+    if(r.status>=400 && r.status<500) return false;   // genuine rejection (e.g. not permitted)
+    throw new Error("server error");
+  }catch(e){
+    setOffline(true); oqPush({key,value});             // queue it; replays when back online
+    return true;
+  }
+}
+async function apiSetEntry(key,entryKey,entryValue){
+  try{
+    const r=await fetch(API_BASE+"/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify({key,entryKey,entryValue})});
+    if(r.status===401){onAuthLost();return false;}
+    if(r.ok){ setOffline(false); return true; }
+    if(r.status>=400 && r.status<500) return false;
+    throw new Error("server error");
+  }catch(e){
+    setOffline(true); oqPush({key,entryKey,entryValue});
+    return true;
+  }
+}
 const store={ ok:true,
   async get(k,shared){ return shared ? await apiGet(k) : prefGet(k); },
   async set(k,v,shared){ if(shared) return await apiSet(k,v); prefSet(k,v); return true; } };
@@ -798,19 +834,136 @@ async function whoami(){
   if(!SID) return {ok:false};
   try{
     const r=await fetch(API_BASE+"/api/whoami",{headers:authHeaders()});
-    if(r.status===401){ SID=""; prefSet("sid",""); prefSet("session:user",""); return {ok:false}; }
-    if(!r.ok) return {ok:false};
+    // Only a 401 means the session is genuinely gone. Anything else (server hiccup, 5xx,
+    // captive wifi) must NOT sign the person out — see the offline path in boot.
+    if(r.status===401){ SID=""; prefSet("sid",""); prefSet("session:user",""); prefSet("session:who",""); return {ok:false, expired:true}; }
+    if(!r.ok) return {ok:false, offline:true};
     const d=await r.json();
-    return {ok:true, email:d.email||"", role:d.role||"teacher", teacherId:d.teacherId||null, dept:d.dept||"", admin:!!d.admin, approved:!!d.approved, bootstrap:!!d.bootstrap, branch:d.branch||DEFAULT_BRANCH};
-  }catch(e){ return {ok:false}; }
+    const who={ok:true, email:d.email||"", role:d.role||"teacher", teacherId:d.teacherId||null, dept:d.dept||"", admin:!!d.admin, approved:!!d.approved, bootstrap:!!d.bootstrap, branch:d.branch||DEFAULT_BRANCH};
+    try{ prefSet("session:who", JSON.stringify(who)); }catch(e){}
+    return who;
+  }catch(e){ return {ok:false, offline:true}; }  // fetch threw = no network
 }
+function cachedWho(){
+  try{ const o=JSON.parse(prefGet("session:who")||"null"); return (o&&o.ok)?o:null; }catch(e){ return null; }
+}
+/* ---------- Offline support ----------
+   Reads are cached locally (branch-scoped) so the app keeps working with no connection;
+   writes made offline go into a queue and replay automatically once the network returns.
+   localStorage is capped around 5MB, so the cache prunes oldest-first when it fills. */
+const OC_KEEP_DAYS=35;              // roughly a month of history, as asked
+const OC_PREFIX="oc:";
+const OQ_KEY="oq:pending";
+let OFFLINE=false;
+function ocKey(k){ return OC_PREFIX+getBranch()+"|"+k; }
+function ocGet(k){
+  try{ const raw=localStorage.getItem(ocKey(k)); if(!raw) return null; const o=JSON.parse(raw); return (o&&"v" in o)?o.v:null; }
+  catch(e){ return null; }
+}
+function ocSet(k,v){
+  if(v==null) return;
+  try{ localStorage.setItem(ocKey(k), JSON.stringify({v, t:Date.now()})); }
+  catch(e){ if(ocPrune()) { try{ localStorage.setItem(ocKey(k), JSON.stringify({v, t:Date.now()})); }catch(e2){} } }
+}
+function ocPrune(){
+  // Drop the oldest half of cached entries when storage is full, plus anything past the keep window.
+  try{
+    const cutoff=Date.now()-OC_KEEP_DAYS*86400000;
+    const items=[];
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i); if(!key || key.indexOf(OC_PREFIX)!==0) continue;
+      let t=0; try{ t=(JSON.parse(localStorage.getItem(key))||{}).t||0; }catch(e){}
+      items.push({key,t});
+    }
+    if(!items.length) return false;
+    const stale=items.filter(o=>o.t<cutoff);
+    const drop = stale.length ? stale : items.sort((a,b)=>a.t-b.t).slice(0, Math.ceil(items.length/2));
+    drop.forEach(o=>{ try{ localStorage.removeItem(o.key); }catch(e){} });
+    return true;
+  }catch(e){ return false; }
+}
+function ocSweep(){ try{ const c=Date.now()-OC_KEEP_DAYS*86400000; const kill=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(!k||k.indexOf(OC_PREFIX)!==0) continue; let t=0; try{ t=(JSON.parse(localStorage.getItem(k))||{}).t||0; }catch(e){} if(t<c) kill.push(k); } kill.forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} }); }catch(e){} }
+/* --- write queue --- */
+function oqAll(){ try{ const a=JSON.parse(prefGet(OQ_KEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function oqSave(a){ try{ prefSet(OQ_KEY, JSON.stringify(a.slice(-500))); }catch(e){} }
+function oqPush(item){
+  const a=oqAll();
+  // Collapse repeated whole-key writes: only the latest value for a key matters.
+  if(!item.entryKey){ for(let i=a.length-1;i>=0;i--){ if(a[i].key===item.key && !a[i].entryKey){ a.splice(i,1); } } }
+  else { for(let i=a.length-1;i>=0;i--){ if(a[i].key===item.key && a[i].entryKey===item.entryKey){ a.splice(i,1); } } }
+  item.t=Date.now(); item.branch=getBranch();
+  a.push(item); oqSave(a); updateOfflineChip();
+}
+function oqCount(){ return oqAll().length; }
+async function oqFlush(){
+  const a=oqAll();
+  if(!a.length || !SID) return;
+  const branch=getBranch();
+  const remaining=[];
+  let sent=0, blocked=false;
+  for(const item of a){
+    if(blocked || (item.branch && item.branch!==branch)){ remaining.push(item); continue; }
+    let ok=false;
+    try{
+      const body = item.entryKey ? {key:item.key, entryKey:item.entryKey, entryValue:item.entryValue} : {key:item.key, value:item.value};
+      const r=await fetch(API_BASE+"/api/data",{method:"POST",headers:authHeaders({"content-type":"application/json"}),body:JSON.stringify(body)});
+      if(r.status===401){ onAuthLost(); return; }
+      ok=r.ok;
+      if(!ok && r.status>=400 && r.status<500) ok=true; // rejected by the server; retrying won't help
+    }catch(e){ ok=false; }
+    if(ok) sent++;
+    else { remaining.push(item); blocked=true; }   // still offline: keep this and everything after
+  }
+  oqSave(remaining);
+  updateOfflineChip();
+  if(sent){ toast("Synced "+sent+" offline change"+(sent===1?"":"s"),"✓"); try{ mountView(); }catch(e){} }
+}
+async function prefetchMonth(){
+  // Warm the cache while we have a connection so a month of data is usable offline.
+  if(OFFLINE || !SID) return;
+  try{
+    const ids = (state.role==="admin"||state.role==="leader") ? TEACHERS.map(t=>t.id).slice(0,60)
+              : (state.role==="hod") ? TEACHERS.filter(t=>t.dept===state.dept).map(t=>t.id)
+              : [state.myTeacherId].filter(Boolean);
+    if(!ids.length) return;
+    const mon=mondayOf(new Date());
+    const weeks=[]; for(let i=0;i<5;i++) weeks.push(ymd(addDays(mon,-7*i)));
+    const keys=[];
+    weeks.forEach(wk=>ids.forEach(id=>keys.push(wkey(wk,id))));
+    for(let i=0;i<5;i++){ const d=ymd(addDays(new Date(),-i)); keys.push("sub:"+d,"subresp:"+d,"absent:"+d); }
+    for(let i=0;i<keys.length;i+=100){ await apiGetMany(keys.slice(i,i+100)); }
+  }catch(e){}
+}
+function setOffline(v){
+  if(OFFLINE===v) return;
+  OFFLINE=v; updateOfflineChip();
+  if(!v) oqFlush();
+}
+function updateOfflineChip(){
+  const el=document.getElementById("offchip"); if(!el) return;
+  const n=oqCount();
+  if(!OFFLINE && !n){ el.hidden=true; return; }
+  el.hidden=false;
+  el.className="offchip"+(OFFLINE?" off":" pend");
+  el.textContent = OFFLINE ? (n?("Offline · "+n+" to sync"):"Offline") : (n?("Syncing "+n+"…"):"");
+}
+window.addEventListener("online", ()=>setOffline(false));
+window.addEventListener("offline", ()=>setOffline(true));
+
 async function apiGetMany(keys){
   try{
     const r=await fetch(API_BASE+"/api/data?keys="+encodeURIComponent(keys.join(",")),{headers:authHeaders()});
     if(r.status===401){ onAuthLost(); return {}; }
-    if(!r.ok) return {};
-    return (await r.json()).values || {};
-  }catch(e){ return {}; }
+    if(!r.ok) throw new Error("bad status");
+    const values=(await r.json()).values || {};
+    setOffline(false);
+    keys.forEach(k=>{ if(values[k]!=null) ocSet(k, values[k]); });
+    return values;
+  }catch(e){
+    setOffline(true);
+    const out={}; keys.forEach(k=>{ const c=ocGet(k); if(c!=null) out[k]=c; });
+    return out;
+  }
 }
 async function loadAppConfig(){
   const v=await apiGetMany(["cfg:teachers","cfg:rooms","cfg:schedule","cfg:schedulex","cfg:depts","cfg:places","cfg:subjects","cfg:bell","cfg:classsubj","cfg:calendar"]);
@@ -3795,8 +3948,15 @@ function mgBulkUpload(files){
   const raw=prefGet("session:user");
   if(SID && raw){ try{ const u=JSON.parse(raw); if(u&&u.name) state.user=u; }catch(e){} }
   if(state.user){
-    const who=await whoami();
-    if(!who.ok){ state.user=null; showGate(); return; }
+    let who=await whoami();
+    if(!who.ok && who.expired){ state.user=null; showGate(); return; }
+    if(!who.ok){
+      // Server unreachable (offline, flaky wifi, brief 5xx). Carry on with the cached identity
+      // rather than dumping the person at the sign-in screen — this is the whole point of offline mode.
+      const cw=cachedWho();
+      if(!cw){ state.user=null; showGate(); return; }
+      who=cw; setOffline(true);
+    }
     if(who.branch) setBranch(who.branch);
     state.role=who.role||(who.admin?"admin":"teacher"); state.isAdmin=!!who.admin||state.role==="admin";
     state.email=who.email; state.myTeacherId=who.teacherId||null; state.dept=who.dept||""; state.approved=!!who.approved; state.bootstrapAdmin=false;
@@ -3809,6 +3969,10 @@ function mgBulkUpload(files){
       state.teacherId=state.myTeacherId||null;
     }
     renderUser(); showApp();
+    ocSweep();
+    updateOfflineChip();
+    oqFlush();
+    prefetchMonth();
   }else{ state.user=null; showGate(); }
 })();
 </script>
